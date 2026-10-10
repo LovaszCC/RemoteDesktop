@@ -12,7 +12,7 @@ struct UnlockView: View {
 
     var body: some View {
         VStack(spacing: 18) {
-            Image(systemName: needsSetup ? "lock.badge.plus" : "lock.fill")
+            Image(systemName: needsSetup ? "key.fill" : "lock.fill")
                 .font(.system(size: 44, weight: .light))
                 .foregroundStyle(.secondary)
 
