@@ -13,6 +13,7 @@ public struct ImportedConnection: Equatable, Sendable {
     public var password: String?
     public var sshKeyPath: String?
     public var notes: String
+    public var rdpAdminSession: Bool = false
     /// RDM `CredentialConnectionID` — the export ID of a linked credential entry.
     public var credentialRef: String? = nil
 }
@@ -127,6 +128,7 @@ public enum RDMImporter {
                 password: password,
                 sshKeyPath: type == .ssh ? value("PrivateKeyPath", "PrivateKeyFileName") : nil,
                 notes: value("Description", "Notes") ?? "",
+                rdpAdminSession: type == .rdp && ["true", "1"].contains((value("AdminMode", "UseConsoleSession") ?? "").lowercased()),
                 credentialRef: fields["CredentialConnectionID"]
             ))
         }
@@ -191,6 +193,7 @@ public enum RDMImporter {
                     domain: item.domain,
                     passwordEnc: passwordEnc,
                     sshKeyPath: item.sshKeyPath,
+                    rdpAdminSession: item.rdpAdminSession,
                     notes: item.notes
                 ).insert(db)
             }
