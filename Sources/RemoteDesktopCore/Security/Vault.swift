@@ -92,6 +92,11 @@ public struct Vault: Sendable {
                 connection.sshKeyPassphraseEnc = try connection.sshKeyPassphraseEnc.map { try newVault.seal(old.open($0)) }
                 try connection.update(db)
             }
+            for var credential in try Credential.fetchAll(db) {
+                credential.passwordEnc = try credential.passwordEnc.map { try newVault.seal(old.open($0)) }
+                credential.sshKeyPassphraseEnc = try credential.sshKeyPassphraseEnc.map { try newVault.seal(old.open($0)) }
+                try credential.update(db)
+            }
             let upsert = "INSERT INTO meta(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
             try db.execute(sql: upsert, arguments: [Self.saltKey, salt])
             try db.execute(sql: upsert, arguments: [Self.iterationsKey, withUnsafeBytes(of: UInt32(iterations).bigEndian) { Data($0) }])

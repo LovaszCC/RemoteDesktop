@@ -84,3 +84,80 @@ import Testing
         #expect(legacy.credentialId == nil)
     }
 }
+
+@Suite struct CredentialVaultAndImportTests {
+    @Test func changePasswordReencryptsCredentials() throws {
+        let repo = ConnectionRepository(database: try .inMemory())
+        let vault = try Vault.create(password: "old", in: repo, iterations: 1_000)
+        let credential = try repo.save(Credential(name: "c", passwordEnc: vault.encrypt("pw"), sshKeyPassphraseEnc: vault.encrypt("pp")))
+
+        let newVault = try vault.changePassword(to: "new", in: repo, iterations: 1_000)
+
+        let loaded = try #require(try repo.credential(id: credential.id))
+        #expect(try newVault.decryptOptional(loaded.passwordEnc) == "pw")
+        #expect(try newVault.decryptOptional(loaded.sshKeyPassphraseEnc) == "pp")
+    }
+
+    static let sample = """
+    <?xml version="1.0" encoding="utf-8"?>
+    <ArrayOfConnection>
+      <Connection>
+        <ConnectionType>Credential</ConnectionType>
+        <ID>cred-1</ID>
+        <Name>Domain Admin</Name>
+        <Credentials>
+          <UserName>admin</UserName>
+          <Domain>CORP</Domain>
+          <Password>S3cret</Password>
+        </Credentials>
+      </Connection>
+      <Connection>
+        <ConnectionType>Credential</ConnectionType>
+        <ID>cred-2</ID>
+        <Name>Encrypted</Name>
+        <Credentials>
+          <UserName>x</UserName>
+          <SafePassword>ENC==</SafePassword>
+        </Credentials>
+      </Connection>
+      <Connection>
+        <ConnectionType>RDPConfigured</ConnectionType>
+        <Name>dc01</Name>
+        <Url>dc01</Url>
+        <CredentialConnectionID>cred-1</CredentialConnectionID>
+      </Connection>
+      <Connection>
+        <ConnectionType>RDPConfigured</ConnectionType>
+        <Name>other</Name>
+        <Url>other</Url>
+        <CredentialConnectionID>unknown-ref</CredentialConnectionID>
+      </Connection>
+    </ArrayOfConnection>
+    """
+
+    @Test func parsesCredentialEntries() throws {
+        let result = try RDMImporter.parse(Data(Self.sample.utf8))
+        #expect(result.credentials.map(\.ref) == ["cred-1", "cred-2"])
+        #expect(result.credentials[0].username == "admin")
+        #expect(result.credentials[0].domain == "CORP")
+        #expect(result.credentials[0].password == "S3cret")
+        #expect(result.credentials[1].password == nil)
+        #expect(result.encryptedPasswords == 1)
+        #expect(result.connections.map(\.credentialRef) == ["cred-1", "unknown-ref"])
+    }
+
+    @Test func importLinksConnectionsToCredentials() throws {
+        let repo = ConnectionRepository(database: try .inMemory())
+        let vault = try Vault.create(password: "pw", in: repo, iterations: 1_000)
+
+        let summary = try RDMImporter.importFile(Data(Self.sample.utf8), into: repo, vault: vault)
+        #expect(summary.credentialsImported == 2)
+        #expect(summary.imported == 2)
+
+        let library = try repo.library()
+        let admin = try #require(library.credentials.first { $0.name == "Domain Admin" })
+        #expect(try vault.decryptOptional(admin.passwordEnc) == "S3cret")
+        #expect(library.connections.first { $0.name == "dc01" }?.credentialId == admin.id)
+        #expect(library.connections.first { $0.name == "other" }?.credentialId == nil)
+    }
+}
