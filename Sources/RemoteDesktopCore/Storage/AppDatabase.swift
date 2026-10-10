@@ -79,6 +79,26 @@ public final class AppDatabase: Sendable {
             }
         }
 
+        migrator.registerMigration("v2-credentials") { db in
+            try db.create(table: "credential") { t in
+                t.primaryKey("id", .text)
+                t.column("name", .text).notNull()
+                t.column("username", .text).notNull().defaults(to: "")
+                t.column("domain", .text).notNull().defaults(to: "")
+                t.column("passwordEnc", .blob)
+                t.column("sshKeyPath", .text)
+                t.column("sshKeyPassphraseEnc", .blob)
+                t.column("notes", .text).notNull().defaults(to: "")
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull()
+            }
+            try db.alter(table: "connection") { t in
+                t.add(column: "credentialId", .text)
+                    .references("credential", onDelete: .setNull)
+            }
+            try db.create(index: "connection_on_credentialId", on: "connection", columns: ["credentialId"])
+        }
+
         return migrator
     }
 }
