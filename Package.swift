@@ -17,7 +17,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "RemoteDesktop",
-            dependencies: ["RemoteDesktopCore"]
+            dependencies: ["RemoteDesktopCore", .product(name: "GRDB", package: "GRDB.swift")]
         ),
         .testTarget(
             name: "RemoteDesktopCoreTests",
