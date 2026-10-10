@@ -9,6 +9,8 @@ struct ConnectionDraft: Identifiable, Equatable {
     var isNew: Bool
     var type: ConnectionType
     var folderId: String?
+    /// Linked credential; when set, the inline auth fields below are kept only as a fallback.
+    var credentialId: String?
     var name = ""
     var host = ""
     var port = ""
@@ -32,6 +34,7 @@ struct ConnectionDraft: Identifiable, Equatable {
         isNew = false
         type = connection.type
         folderId = connection.folderId
+        credentialId = connection.credentialId
         name = connection.name
         host = connection.host
         port = connection.port.map(String.init) ?? ""
@@ -74,6 +77,8 @@ final class AppState {
     var searchText = ""
     var editorDraft: ConnectionDraft?
     var folderEditor: Folder?
+    var credentialEditor: CredentialDraft?
+    var pendingCredentialDeletion: Credential?
     var isImporting = false
 
     @ObservationIgnored private var repo: ConnectionRepository?
@@ -203,14 +208,18 @@ final class AppState {
     enum SelectedItem {
         case folder(Folder)
         case connection(Connection)
+        case credential(Credential)
     }
 
-    /// Resolves sidebar tags: `f:<id>`, `c:<id>`, `fav:<id>`.
+    /// Resolves sidebar tags: `f:<id>`, `c:<id>`, `fav:<id>`, `k:<id>` (credential).
     func item(for tag: String?) -> SelectedItem? {
         guard let tag, let colon = tag.firstIndex(of: ":") else { return nil }
         let id = String(tag[tag.index(after: colon)...])
         if tag.hasPrefix("f:") {
             return library.folders.first { $0.id == id }.map(SelectedItem.folder)
+        }
+        if tag.hasPrefix("k:") {
+            return library.credential(id: id).map(SelectedItem.credential)
         }
         return library.connections.first { $0.id == id }.map(SelectedItem.connection)
     }
@@ -220,7 +229,7 @@ final class AppState {
         switch item(for: selection) {
         case .folder(let folder): folder.id
         case .connection(let connection): connection.folderId
-        case nil: nil
+        case .credential, nil: nil
         }
     }
 
@@ -259,6 +268,7 @@ final class AppState {
             try repo.save(Connection(
                 id: draft.id,
                 folderId: draft.folderId,
+                credentialId: draft.credentialId,
                 type: draft.type,
                 name: draft.name.trimmingCharacters(in: .whitespaces),
                 host: draft.host.trimmingCharacters(in: .whitespaces),
@@ -311,6 +321,53 @@ final class AppState {
         perform { try repo?.deleteFolder(id: folder.id) }
     }
 
+    // MARK: Credentials
+
+    func newCredential() {
+        guard phase == .unlocked else { return }
+        credentialEditor = CredentialDraft()
+    }
+
+    func edit(_ credential: Credential) {
+        guard let vault else { return }
+        do { credentialEditor = try CredentialDraft(credential: credential, vault: vault) }
+        catch { errorMessage = "Nem sikerült visszafejteni: \(error.localizedDescription)" }
+    }
+
+    func save(_ draft: CredentialDraft) {
+        guard let repo, let vault else { return }
+        perform {
+            let existing = draft.isNew ? nil : try repo.credential(id: draft.id)
+            let trimmedKey = draft.sshKeyPath.trimmingCharacters(in: .whitespaces)
+            try repo.save(Credential(
+                id: draft.id,
+                name: draft.name.trimmingCharacters(in: .whitespaces),
+                username: draft.username.trimmingCharacters(in: .whitespaces),
+                domain: draft.domain.trimmingCharacters(in: .whitespaces),
+                passwordEnc: try vault.encryptOptional(draft.password),
+                sshKeyPath: trimmedKey.isEmpty ? nil : trimmedKey,
+                sshKeyPassphraseEnc: try vault.encryptOptional(draft.sshKeyPassphrase),
+                notes: draft.notes,
+                createdAt: existing?.createdAt ?? .now
+            ))
+        }
+    }
+
+    /// Asks for confirmation when connections still use the credential.
+    func requestDelete(_ credential: Credential) {
+        if library.connections(using: credential.id).isEmpty {
+            confirmDelete(credential)
+        } else {
+            pendingCredentialDeletion = credential
+        }
+    }
+
+    func confirmDelete(_ credential: Credential) {
+        pendingCredentialDeletion = nil
+        if selection == "k:\(credential.id)" { selection = nil }
+        perform { try repo?.deleteCredential(id: credential.id) }
+    }
+
     // MARK: Import
 
     func importRDM(from url: URL) {
@@ -319,7 +376,7 @@ final class AppState {
             let accessing = url.startAccessingSecurityScopedResource()
             defer { if accessing { url.stopAccessingSecurityScopedResource() } }
             let summary = try RDMImporter.importFile(Data(contentsOf: url), into: repo, vault: vault)
-            var message = "\(summary.imported) kapcsolat, \(summary.foldersCreated) új mappa importálva."
+            var message = "\(summary.imported) kapcsolat, \(summary.credentialsImported) credential, \(summary.foldersCreated) új mappa importálva."
             if summary.withoutPassword > 0 {
                 message += "\n\(summary.withoutPassword) bejegyzés jelszava titkosított volt az exportban, ezeket kézzel kell megadni."
             }
@@ -334,6 +391,7 @@ final class AppState {
 
     func connect(_ connection: Connection) {
         guard let vault else { return }
+        let connection = library.resolved(connection)
         do {
             let password = try vault.decryptOptional(connection.passwordEnc)
             let outcome: LaunchOutcome
@@ -360,6 +418,7 @@ final class AppState {
 
     func copyPassword(_ connection: Connection) {
         guard let vault else { return }
+        let connection = library.resolved(connection)
         perform {
             guard let password = try vault.decryptOptional(connection.passwordEnc) else {
                 showToast("Nincs mentett jelszó")

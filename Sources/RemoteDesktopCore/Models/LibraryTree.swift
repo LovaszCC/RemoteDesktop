@@ -61,6 +61,16 @@ public enum LibraryTree {
         .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
+    /// Credentials whose name or user matches every term.
+    public static func searchCredentials(_ library: Library, query: String) -> [Credential] {
+        let terms = query.lowercased().split(whereSeparator: \.isWhitespace).map(String.init)
+        guard !terms.isEmpty else { return [] }
+        return library.credentials.filter { credential in
+            let haystack = "\(credential.name) \(credential.displayUser) \(credential.notes)".lowercased()
+            return terms.allSatisfy(haystack.contains)
+        }
+    }
+
     /// "Parent / Child" for a folder id, empty for the root.
     public static func folderPath(_ folderId: String?, in library: Library) -> String {
         let byId = Dictionary(uniqueKeysWithValues: library.folders.map { ($0.id, $0) })

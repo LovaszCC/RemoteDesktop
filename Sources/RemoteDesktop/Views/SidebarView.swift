@@ -17,6 +17,12 @@ struct SidebarView: View {
                             .tag("c:\(connection.id)")
                     }
                 }
+                let credentials = LibraryTree.searchCredentials(library, query: state.searchText)
+                if !credentials.isEmpty {
+                    Section("Credentialok") {
+                        ForEach(credentials) { CredentialRow(credential: $0).tag("k:\($0.id)") }
+                    }
+                }
             } else {
                 let favorites = LibraryTree.favorites(library)
                 if !favorites.isEmpty {
@@ -37,6 +43,11 @@ struct SidebarView: View {
                             move(tags, to: nil)
                         }
                 }
+                if !library.credentials.isEmpty {
+                    Section("Credentialok") {
+                        ForEach(library.credentials) { CredentialRow(credential: $0).tag("k:\($0.id)") }
+                    }
+                }
             }
         }
         .listStyle(.sidebar)
@@ -47,17 +58,20 @@ struct SidebarView: View {
                 Button("Új RDP kapcsolat") { state.newConnection(.rdp) }
                 Button("Új SSH kapcsolat") { state.newConnection(.ssh) }
                 Button("Új mappa") { state.newFolder() }
+                Button("Új credential") { state.newCredential() }
             }
         } primaryAction: { tags in
             guard let tag = tags.first else { return }
-            if tag.hasPrefix("f:") {
+            if case .credential(let credential) = state.item(for: tag) {
+                state.edit(credential)
+            } else if tag.hasPrefix("f:") {
                 toggle(String(tag.dropFirst(2)))
             } else {
                 state.activate(tag: tag)
             }
         }
         .overlay {
-            if library.folders.isEmpty && library.connections.isEmpty && state.searchText.isEmpty {
+            if library.folders.isEmpty && library.connections.isEmpty && library.credentials.isEmpty && state.searchText.isEmpty {
                 ContentUnavailableView {
                     Label("Nincs kapcsolat", systemImage: "network")
                 } description: {
@@ -158,6 +172,26 @@ struct ConnectionRow: View {
     }
 }
 
+struct CredentialRow: View {
+    @Environment(AppState.self) private var state
+    let credential: Credential
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "person.badge.key.fill")
+                .foregroundStyle(.orange)
+                .frame(width: 18)
+            Text(credential.name).lineLimit(1)
+            Spacer(minLength: 4)
+            let uses = state.library.connections(using: credential.id).count
+            if uses > 0 {
+                Text("\(uses)").font(.caption).foregroundStyle(.secondary).monospacedDigit()
+            }
+        }
+        .help(credential.displayUser)
+    }
+}
+
 struct ConnectionIcon: View {
     let type: ConnectionType
 
@@ -198,6 +232,10 @@ struct ItemContextMenu: View {
             MoveMenu(currentFolderId: folder.parentId, excluding: folder.id) { state.move(folderId: folder.id, to: $0) }
             Divider()
             Button("Mappa törlése", role: .destructive) { state.deleteFolder(folder) }
+        case .credential(let credential):
+            Button("Szerkesztés…") { state.edit(credential) }
+            Divider()
+            Button("Credential törlése", role: .destructive) { state.requestDelete(credential) }
         case nil:
             EmptyView()
         }
