@@ -18,9 +18,10 @@ struct RemoteDesktopApp: App {
     var body: some Scene {
         Window("RemoteDesktop", id: "main") {
             RootView()
+                // Inside .environment(updates): a modifier only sees the environment set outside it.
+                .modifier(UpdateWindowOpener())
                 .environment(state)
                 .environment(updates)
-                .modifier(UpdateWindowOpener())
                 .frame(minWidth: 760, minHeight: 460)
                 .onAppear { appDelegate.attach(state) }
         }
