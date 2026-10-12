@@ -580,6 +580,31 @@ final class AppState {
         tabs.close(id)
     }
 
+    var activeRDPSession: RDPSession? {
+        if case .rdp(let session) = activeSession { session } else { nil }
+    }
+
+    /// Types the local clipboard text into the active RDP session (works even when clipboard
+    /// redirection does not, e.g. on the logon screen).
+    func typeClipboardIntoActiveSession() {
+        guard let session = activeRDPSession, session.status == .connected, !session.isTyping else { return }
+        guard let text = NSPasteboard.general.string(forType: .string), !text.isEmpty else {
+            showToast("A vágólapon nincs szöveg")
+            return
+        }
+        if text.count > RDPTyping.confirmationThreshold {
+            let alert = NSAlert()
+            alert.messageText = "Hosszú szöveg begépelése"
+            alert.informativeText = "\(text.count) karakter, a begépelés kb. \(text.count * 2 / 1000 + 1) mp. Folytatod?"
+            alert.addButton(withTitle: "Begépelés")
+            alert.addButton(withTitle: "Mégse")
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+        }
+        session.type(text) { [weak self] finished in
+            if !finished { self?.showToast("A begépelés megszakadt") }
+        }
+    }
+
     func closeActiveSession() {
         if let id = tabs.active { closeSession(id) }
     }

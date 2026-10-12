@@ -68,6 +68,12 @@ typedef NS_ENUM(NSInteger, RDPCertificateDecision) {
 /// server for a matching desktop size.
 - (void)viewDidResize;
 
+/// Types keystrokes into the session in order (values >= 0: UTF-16 units sent as Unicode key
+/// events; -1: Enter; -2: Tab), paced so slow applications keep up. Runs off the main thread;
+/// `completion` is called on the main thread with NO if the session ended before finishing.
+- (void)typeKeystrokes:(NSArray<NSNumber *> *)keystrokes
+            completion:(nullable void (^)(BOOL finished))completion;
+
 + (NSString *)freeRDPVersion;
 @end
 

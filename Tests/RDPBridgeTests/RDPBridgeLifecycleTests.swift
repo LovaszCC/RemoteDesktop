@@ -55,4 +55,26 @@ import Testing
         bridge.stop()
         try await Task.sleep(for: .milliseconds(500))
     }
+
+    @Test func typingWithoutConnectionFailsFast() async throws {
+        let configuration = RDPConnectionConfiguration()
+        configuration.host = "127.0.0.1"
+        configuration.port = 1
+        configuration.username = ""
+        configuration.domain = ""
+        configuration.width = 800
+        configuration.height = 600
+        let bridge = RDPSessionBridge(configuration: configuration)
+
+        var result: Bool?
+        bridge.typeKeystrokes([0x61, -1]) { result = $0 }
+        #expect(result == false) // not started: answered synchronously
+
+        #expect(bridge.start())
+        var afterStart: Bool?
+        bridge.typeKeystrokes([0x61]) { afterStart = $0 }
+        #expect(afterStart == false) // still connecting
+        bridge.stop()
+        try await Task.sleep(for: .milliseconds(500))
+    }
 }

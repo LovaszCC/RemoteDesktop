@@ -48,3 +48,34 @@ public enum RDPDisconnectReason: Equatable, Sendable {
         }
     }
 }
+
+/// Turns text into keystrokes for "type clipboard": UTF-16 units as Unicode key events, with line
+/// breaks and tabs sent as real Enter / Tab keys so terminals and forms react to them.
+public enum RDPTyping {
+    /// Bridge encoding: values >= 0 are UTF-16 code units, the negative ones are special keys.
+    public static let enter: Int32 = -1
+    public static let tab: Int32 = -2
+    /// Above this length the UI asks before typing (~2 ms per keystroke).
+    public static let confirmationThreshold = 2000
+
+    public static func keystrokes(for text: String) -> [Int32] {
+        var result: [Int32] = []
+        var previousWasCR = false
+        for unit in text.utf16 {
+            switch unit {
+            case 0x0D:
+                result.append(enter)
+                previousWasCR = true
+                continue
+            case 0x0A:
+                if !previousWasCR { result.append(enter) }
+            case 0x09:
+                result.append(tab)
+            default:
+                result.append(Int32(unit))
+            }
+            previousWasCR = false
+        }
+        return result
+    }
+}

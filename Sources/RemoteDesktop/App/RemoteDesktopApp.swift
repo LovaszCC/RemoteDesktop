@@ -46,6 +46,9 @@ struct RemoteDesktopApp: App {
                 .keyboardShortcut(.return, modifiers: .command)
                 .disabled(state.phase != .unlocked)
                 Divider()
+                Button("Vágólap begépelése az RDP sessionbe") { state.typeClipboardIntoActiveSession() }
+                    .keyboardShortcut("v", modifiers: [.command, .shift])
+                    .disabled(state.activeRDPSession?.status != .connected)
                 Button("Session bezárása") { state.closeActiveSession() }
                     .disabled(state.activeSession == nil)
                 Button("Következő fül") { state.cycleTabs(forward: true) }

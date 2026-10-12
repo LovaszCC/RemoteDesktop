@@ -46,6 +46,21 @@ struct RDPSessionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Button {
+                    state.typeClipboardIntoActiveSession()
+                } label: {
+                    Label(session.isTyping ? "Begépelés…" : "Vágólap begépelése", systemImage: "keyboard.badge.ellipsis")
+                }
+                .disabled(session.status != .connected || session.isTyping)
+                .help("A helyi vágólap szövegét begépeli oda, ahol a kurzor áll a távoli gépen (⌘⇧V)")
+                Spacer()
+            }
+            .controlSize(.small)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(.bar)
+            .overlay(alignment: .bottom) { Divider() }
             ZStack {
                 Color.black
                 if let bridge = session.bridge {
