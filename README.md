@@ -54,6 +54,12 @@ clipboard for 30 seconds as a fallback.
 **SSH** uses `SSH_ASKPASS`, so no `sshpass` is needed; unknown host keys are still confirmed by you. A
 clean `exit` closes the tab, a dropped connection keeps it with a reconnect button.
 
+**Port forwards** (SSH connections): save forwards such as `localhost:13389 → 10.0.0.20:3389` on the
+connection's page and start or stop them with one click; a green dot shows a running tunnel, and the
+sidebar marks connections with one. Each runs `ssh -N -L` in the background with the connection's login,
+listening on `127.0.0.1` only. An unknown server key is shown with its fingerprint for confirmation first
+and then saved to `~/.ssh/known_hosts`. Tunnels stop when you quit the app.
+
 ## Features
 
 - **Linked credentials**: reusable user / domain / password / SSH key entries that many connections can
@@ -61,6 +67,7 @@ clean `exit` closes the tab, a dropped connection keeps it with a reconnect butt
 - **Folders and favourites**: nested folders with drag & drop, favourites on top.
 - **Instant search** across name, host, user, notes and folder.
 - **Tabs** for embedded sessions; quitting with open sessions asks first.
+- **SSH port forwards** saved per connection, started and stopped with one click.
 - **English and Hungarian** interface, switchable in Settings.
 - **Update check** against GitHub releases, with a checksum-verified download.
 - **Import** from a Devolutions RDM `.rdm` export (see below).

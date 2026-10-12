@@ -160,6 +160,66 @@
           }
         }
       }
+    },
+    "The local port must be between 1 and 65535." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A helyi portnak 1 és 65535 között kell lennie."
+          }
+        }
+      }
+    },
+    "Enter the remote host." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add meg a távoli hostot."
+          }
+        }
+      }
+    },
+    "The remote port must be between 1 and 65535." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A távoli portnak 1 és 65535 között kell lennie."
+          }
+        }
+      }
+    },
+    "Another forward of this connection uses this local port." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ennek a kapcsolatnak egy másik forwardja már használja ezt a helyi portot."
+          }
+        }
+      }
+    },
+    "Couldn't read the SSH settings for this host." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nem sikerült beolvasni a host SSH-beállításait."
+          }
+        }
+      }
+    },
+    "Couldn't fetch the host's SSH key. Check the host and port." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nem sikerült lekérni a host SSH-kulcsát. Ellenőrizd a hostot és a portot."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -135,6 +135,20 @@ public final class AppDatabase: Sendable {
             }
         }
 
+        migrator.registerMigration("v9-port-forwards") { db in
+            try db.create(table: "portForward") { t in
+                t.primaryKey("id", .text)
+                t.column("connectionId", .text).notNull()
+                    .references("connection", onDelete: .cascade)
+                t.column("name", .text).notNull().defaults(to: "")
+                t.column("localPort", .integer).notNull()
+                t.column("remoteHost", .text).notNull()
+                t.column("remotePort", .integer).notNull()
+                t.column("createdAt", .datetime).notNull()
+            }
+            try db.create(index: "portForward_on_connectionId", on: "portForward", columns: ["connectionId"])
+        }
+
         return migrator
     }
 }

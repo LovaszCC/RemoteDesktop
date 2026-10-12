@@ -12,9 +12,13 @@ public struct SSHLaunchScript: Sendable {
     public var keyPassphrase: String?
     /// Passphrase-free private key; replaces `sshKeyPath` and the passphrase prompt when set.
     public var unlockedKey: String?
+    /// Set for a background tunnel (`ssh -N -L`) instead of an interactive session.
+    public var forward: PortForward?
 
-    public init(connection: Connection, password: String?, keyPassphrase: String?, unlockedKey: String? = nil) {
+    public init(connection: Connection, password: String?, keyPassphrase: String?, unlockedKey: String? = nil,
+                forward: PortForward? = nil) {
         self.connection = connection
+        self.forward = forward
         self.password = password?.isEmpty == true ? nil : password
         self.unlockedKey = unlockedKey?.isEmpty == true ? nil : unlockedKey
         self.keyPassphrase = (keyPassphrase?.isEmpty == true || self.unlockedKey != nil) ? nil : keyPassphrase
@@ -39,10 +43,26 @@ public struct SSHLaunchScript: Sendable {
         } else if let key = connection.sshKeyPath?.trimmingCharacters(in: .whitespaces), !key.isEmpty {
             args += ["-i", (key as NSString).expandingTildeInPath]
         }
+        if let forward { args += Self.tunnelOptions(forward) }
         let host = connection.host.trimmingCharacters(in: .whitespaces)
         let user = connection.username.trimmingCharacters(in: .whitespaces)
         args.append(user.isEmpty ? host : "\(user)@\(host)")
         return args
+    }
+
+    /// No shell, keep-alives, exit when the local port can't be bound, and only already trusted host keys
+    /// (there is no terminal to confirm one). Listens on loopback only.
+    static func tunnelOptions(_ forward: PortForward) -> [String] {
+        let host = forward.remoteHost.trimmingCharacters(in: .whitespaces)
+        let destination = host.contains(":") ? "[\(host)]" : host
+        return [
+            "-N",
+            "-o", "ExitOnForwardFailure=yes",
+            "-o", "ServerAliveInterval=30",
+            "-o", "ServerAliveCountMax=3",
+            "-o", "StrictHostKeyChecking=yes",
+            "-L", "127.0.0.1:\(forward.localPort):\(destination):\(forward.remotePort)",
+        ]
     }
 
     var usesAskpass: Bool { password != nil || keyPassphrase != nil }
@@ -51,7 +71,7 @@ public struct SSHLaunchScript: Sendable {
 
     func launchScript(directory: URL) -> String {
         var lines = ["#!/bin/sh"]
-        lines.append("printf '\\033]0;%s\\007' \(Self.quote(connection.name))")
+        if forward == nil { lines.append("printf '\\033]0;%s\\007' \(Self.quote(connection.name))") }
         if usesAskpass {
             lines.append("export SSH_ASKPASS=\(Self.quote(directory.appending(path: "askpass.sh").path))")
             lines.append("export SSH_ASKPASS_REQUIRE=force")

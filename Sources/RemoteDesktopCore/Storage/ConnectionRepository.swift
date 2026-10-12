@@ -6,11 +6,14 @@ public struct Library: Equatable, Sendable {
     public var folders: [Folder]
     public var connections: [Connection]
     public var credentials: [Credential]
+    public var portForwards: [PortForward]
 
-    public init(folders: [Folder] = [], connections: [Connection] = [], credentials: [Credential] = []) {
+    public init(folders: [Folder] = [], connections: [Connection] = [], credentials: [Credential] = [],
+                portForwards: [PortForward] = []) {
         self.folders = folders
         self.connections = connections
         self.credentials = credentials
+        self.portForwards = portForwards
     }
 
     public func credential(id: String?) -> Credential? {
@@ -25,6 +28,10 @@ public struct Library: Equatable, Sendable {
 
     public func connections(using credentialId: String) -> [Connection] {
         connections.filter { $0.credentialId == credentialId }
+    }
+
+    public func portForwards(for connectionId: String) -> [PortForward] {
+        portForwards.filter { $0.connectionId == connectionId }
     }
 }
 
@@ -50,7 +57,8 @@ public struct ConnectionRepository: Sendable {
         Library(
             folders: try Folder.order(Column("sortOrder"), Column("name").collating(.nocase)).fetchAll(db),
             connections: try Connection.order(Column("name").collating(.nocase)).fetchAll(db),
-            credentials: try Credential.order(Column("name").collating(.nocase)).fetchAll(db)
+            credentials: try Credential.order(Column("name").collating(.nocase)).fetchAll(db),
+            portForwards: try PortForward.order(Column("localPort")).fetchAll(db)
         )
     }
 
@@ -147,6 +155,18 @@ public struct ConnectionRepository: Sendable {
     /// Deletes the credential; linked connections fall back to their own auth fields.
     public func deleteCredential(id: String) throws {
         _ = try database.writer.write { db in try Credential.deleteOne(db, key: id) }
+    }
+
+    // MARK: Port forwards
+
+    @discardableResult
+    public func save(_ forward: PortForward) throws -> PortForward {
+        try database.writer.write { db in try forward.save(db) }
+        return forward
+    }
+
+    public func deletePortForward(id: String) throws {
+        _ = try database.writer.write { db in try PortForward.deleteOne(db, key: id) }
     }
 
     // MARK: Meta
