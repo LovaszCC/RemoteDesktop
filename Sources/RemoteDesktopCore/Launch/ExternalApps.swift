@@ -14,4 +14,10 @@ public enum ExternalApps {
     public static func ghosttyOpenArguments(launchScript: URL) -> [String] {
         ["-n", "-b", ghosttyBundleID, "--args", "-e", launchScript.path]
     }
+
+    /// `open [-b <browser>] <url>` — default browser when no bundle ID is given.
+    public static func browserOpenArguments(url: URL, bundleID: String?) -> [String] {
+        guard let bundleID, !bundleID.isEmpty else { return [url.absoluteString] }
+        return ["-b", bundleID, url.absoluteString]
+    }
 }

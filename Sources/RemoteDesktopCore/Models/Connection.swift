@@ -4,11 +4,13 @@ import GRDB
 public enum ConnectionType: String, Codable, CaseIterable, Sendable {
     case rdp
     case ssh
+    case web
 
     public var defaultPort: Int {
         switch self {
         case .rdp: 3389
         case .ssh: 22
+        case .web: 443
         }
     }
 
@@ -16,8 +18,30 @@ public enum ConnectionType: String, Codable, CaseIterable, Sendable {
         switch self {
         case .rdp: "RDP"
         case .ssh: "SSH"
+        case .web: "Böngésző"
         }
     }
+
+    /// Menu title for creating a connection of this type.
+    public var newTitle: String {
+        switch self {
+        case .rdp: "Új RDP kapcsolat"
+        case .ssh: "Új SSH kapcsolat"
+        case .web: "Új böngésző kapcsolat"
+        }
+    }
+
+    /// SF Symbol shown in the sidebar and menus.
+    public var systemImage: String {
+        switch self {
+        case .rdp: "display"
+        case .ssh: "apple.terminal"
+        case .web: "globe"
+        }
+    }
+
+    /// Whether the connection has a host + port (as opposed to a URL).
+    public var usesPort: Bool { self != .web }
 }
 
 /// A saved connection. Secret fields (`passwordEnc`, `sshKeyPassphraseEnc`) hold AES-GCM
@@ -39,6 +63,8 @@ public struct Connection: Codable, Hashable, Identifiable, Sendable {
     public var isFavorite: Bool
     /// RDP only: connect to the administrative session (`mstsc /admin`).
     public var rdpAdminSession: Bool
+    /// Web only: browser to open the URL with; `nil` means the system default browser.
+    public var browserBundleId: String?
     public var notes: String
     public var createdAt: Date
     public var updatedAt: Date
@@ -58,6 +84,7 @@ public struct Connection: Codable, Hashable, Identifiable, Sendable {
         sshKeyPassphraseEnc: Data? = nil,
         isFavorite: Bool = false,
         rdpAdminSession: Bool = false,
+        browserBundleId: String? = nil,
         notes: String = "",
         createdAt: Date = .now,
         updatedAt: Date = .now
@@ -76,6 +103,7 @@ public struct Connection: Codable, Hashable, Identifiable, Sendable {
         self.sshKeyPassphraseEnc = sshKeyPassphraseEnc
         self.isFavorite = isFavorite
         self.rdpAdminSession = rdpAdminSession
+        self.browserBundleId = browserBundleId
         self.notes = notes
         self.createdAt = createdAt
         self.updatedAt = updatedAt

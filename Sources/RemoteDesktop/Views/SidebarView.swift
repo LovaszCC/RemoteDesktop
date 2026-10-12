@@ -55,8 +55,9 @@ struct SidebarView: View {
             if let tag = tags.first {
                 ItemContextMenu(tag: tag)
             } else {
-                Button("Új RDP kapcsolat") { state.newConnection(.rdp) }
-                Button("Új SSH kapcsolat") { state.newConnection(.ssh) }
+                ForEach(ConnectionType.allCases, id: \.self) { type in
+                    Button(type.newTitle) { state.newConnection(type) }
+                }
                 Button("Új mappa") { state.newFolder() }
                 Button("Új credential") { state.newCredential() }
             }
@@ -196,8 +197,8 @@ struct ConnectionIcon: View {
     let type: ConnectionType
 
     var body: some View {
-        Image(systemName: type == .rdp ? "display" : "apple.terminal")
-            .foregroundStyle(type == .rdp ? Color.blue : Color.green)
+        Image(systemName: type.systemImage)
+            .foregroundStyle(type.tint)
             .frame(width: 18)
     }
 }
@@ -224,8 +225,9 @@ struct ItemContextMenu: View {
             Divider()
             Button("Törlés", role: .destructive) { state.delete(connection) }
         case .folder(let folder):
-            Button("Új RDP kapcsolat itt") { state.selection = tag; state.newConnection(.rdp) }
-            Button("Új SSH kapcsolat itt") { state.selection = tag; state.newConnection(.ssh) }
+            ForEach(ConnectionType.allCases, id: \.self) { type in
+                Button("\(type.newTitle) itt") { state.selection = tag; state.newConnection(type) }
+            }
             Button("Új almappa") { state.selection = tag; state.newFolder() }
             Divider()
             Button("Átnevezés…") { state.folderEditor = folder }
@@ -255,6 +257,16 @@ struct MoveMenu: View {
                 Button(String(repeating: "   ", count: entry.depth) + entry.folder.name) { move(entry.folder.id) }
                     .disabled(entry.folder.id == currentFolderId)
             }
+        }
+    }
+}
+
+extension ConnectionType {
+    var tint: Color {
+        switch self {
+        case .rdp: .blue
+        case .ssh: .green
+        case .web: .purple
         }
     }
 }

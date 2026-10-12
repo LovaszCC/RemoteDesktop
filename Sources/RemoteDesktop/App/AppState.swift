@@ -22,6 +22,7 @@ struct ConnectionDraft: Identifiable, Equatable {
     var notes = ""
     var isFavorite = false
     var rdpAdminSession = false
+    var browserBundleId: String?
 
     init(type: ConnectionType, folderId: String?) {
         id = UUID().uuidString
@@ -47,11 +48,13 @@ struct ConnectionDraft: Identifiable, Equatable {
         notes = connection.notes
         isFavorite = connection.isFavorite
         rdpAdminSession = connection.rdpAdminSession
+        browserBundleId = connection.browserBundleId
     }
 
     var isValid: Bool {
-        !name.trimmingCharacters(in: .whitespaces).isEmpty
-            && !host.trimmingCharacters(in: .whitespaces).isEmpty
+        guard !name.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
+        if !type.usesPort { return WebLaunch.url(from: host) != nil }
+        return !host.trimmingCharacters(in: .whitespaces).isEmpty
             && (port.isEmpty || Int(port).map { (1...65535).contains($0) } == true)
     }
 }
@@ -274,7 +277,7 @@ final class AppState {
                 type: draft.type,
                 name: draft.name.trimmingCharacters(in: .whitespaces),
                 host: draft.host.trimmingCharacters(in: .whitespaces),
-                port: Int(draft.port),
+                port: draft.type.usesPort ? Int(draft.port) : nil,
                 username: draft.username.trimmingCharacters(in: .whitespaces),
                 domain: draft.type == .rdp ? draft.domain.trimmingCharacters(in: .whitespaces) : "",
                 passwordEnc: try vault.encryptOptional(draft.password),
@@ -282,6 +285,7 @@ final class AppState {
                 sshKeyPassphraseEnc: draft.type == .ssh ? try vault.encryptOptional(draft.sshKeyPassphrase) : nil,
                 isFavorite: draft.isFavorite,
                 rdpAdminSession: draft.type == .rdp && draft.rdpAdminSession,
+                browserBundleId: draft.type == .web ? draft.browserBundleId : nil,
                 notes: draft.notes,
                 createdAt: existing?.createdAt ?? .now
             ))
@@ -426,10 +430,13 @@ final class AppState {
                     keyPassphrase: try vault.decryptOptional(connection.sshKeyPassphraseEnc),
                     unlockedKey: try vault.decryptOptional(library.credential(id: connection.credentialId)?.sshKeyUnlockedEnc)
                 )
+            case .web:
+                outcome = try WebLauncher.launch(connection, password: password)
             }
             switch outcome {
             case .launched: showToast("Kapcsolódás: \(connection.name)")
             case .passwordCopied(let reason): showToast("Jelszó a vágólapon (\(reason))")
+            case .loginCopied: showToast("Megnyitva: \(connection.name) · jelszó, majd felhasználónév a vágólapon")
             }
         } catch {
             errorMessage = error.localizedDescription

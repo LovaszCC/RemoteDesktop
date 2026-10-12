@@ -16,6 +16,8 @@ enum LaunchError: LocalizedError {
 enum LaunchOutcome: Equatable {
     case launched
     case passwordCopied(reason: String)
+    /// Browser opened; password then username were put on the clipboard.
+    case loginCopied
 }
 
 /// Removes a temporary launch directory after a delay.
