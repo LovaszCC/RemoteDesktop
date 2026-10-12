@@ -91,6 +91,7 @@ struct CredentialEditorView: View {
     @Environment(AppState.self) private var state
     @Environment(\.dismiss) private var dismiss
     @State var draft: CredentialDraft
+    @State private var saveError: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -118,11 +119,21 @@ struct CredentialEditorView: View {
             .formStyle(.grouped)
 
             HStack {
+                if let saveError {
+                    Label(saveError, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                        .lineLimit(3)
+                }
                 Spacer()
                 Button("Mégse", role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 Button(draft.isNew ? "Létrehozás" : "Mentés") {
-                    state.save(draft)
+                    do {
+                        try state.save(draft)
+                    } catch {
+                        saveError = error.localizedDescription
+                        return
+                    }
                     if draft.isNew { state.selection = "k:\(draft.id)" }
                     dismiss()
                 }

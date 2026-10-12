@@ -10,11 +10,14 @@ public struct SSHLaunchScript: Sendable {
     public var connection: Connection
     public var password: String?
     public var keyPassphrase: String?
+    /// Passphrase-free private key; replaces `sshKeyPath` and the passphrase prompt when set.
+    public var unlockedKey: String?
 
-    public init(connection: Connection, password: String?, keyPassphrase: String?) {
+    public init(connection: Connection, password: String?, keyPassphrase: String?, unlockedKey: String? = nil) {
         self.connection = connection
         self.password = password?.isEmpty == true ? nil : password
-        self.keyPassphrase = keyPassphrase?.isEmpty == true ? nil : keyPassphrase
+        self.unlockedKey = unlockedKey?.isEmpty == true ? nil : unlockedKey
+        self.keyPassphrase = (keyPassphrase?.isEmpty == true || self.unlockedKey != nil) ? nil : keyPassphrase
     }
 
     public struct Files: Sendable {
@@ -24,12 +27,16 @@ public struct SSHLaunchScript: Sendable {
 
     // MARK: Command
 
-    public var sshArguments: [String] {
+    public var sshArguments: [String] { sshArguments(directory: nil) }
+
+    func sshArguments(directory: URL?) -> [String] {
         var args = ["ssh"]
         if connection.effectivePort != ConnectionType.ssh.defaultPort {
             args += ["-p", String(connection.effectivePort)]
         }
-        if let key = connection.sshKeyPath?.trimmingCharacters(in: .whitespaces), !key.isEmpty {
+        if unlockedKey != nil, let directory {
+            args += ["-i", directory.appending(path: "key").path, "-o", "IdentitiesOnly=yes"]
+        } else if let key = connection.sshKeyPath?.trimmingCharacters(in: .whitespaces), !key.isEmpty {
             args += ["-i", (key as NSString).expandingTildeInPath]
         }
         let host = connection.host.trimmingCharacters(in: .whitespaces)
@@ -51,7 +58,7 @@ public struct SSHLaunchScript: Sendable {
             lines.append("export RD_PASSWORD_FILE=\(Self.quote(directory.appending(path: "password").path))")
             lines.append("export RD_PASSPHRASE_FILE=\(Self.quote(directory.appending(path: "passphrase").path))")
         }
-        lines.append("exec " + sshArguments.map(Self.quote).joined(separator: " "))
+        lines.append("exec " + sshArguments(directory: directory).map(Self.quote).joined(separator: " "))
         return lines.joined(separator: "\n") + "\n"
     }
 
@@ -98,6 +105,10 @@ public struct SSHLaunchScript: Sendable {
         }
 
         let launch = try write("launch.sh", launchScript(directory: directory), mode: 0o700)
+        if let unlockedKey {
+            // ssh rejects keys without a trailing newline.
+            _ = try write("key", unlockedKey.hasSuffix("\n") ? unlockedKey : unlockedKey + "\n", mode: 0o600)
+        }
         if usesAskpass {
             _ = try write("askpass.sh", Self.askpassScript, mode: 0o700)
             if let password { _ = try write("password", password, mode: 0o600) }

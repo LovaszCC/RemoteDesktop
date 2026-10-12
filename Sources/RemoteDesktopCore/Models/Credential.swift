@@ -2,7 +2,8 @@ import Foundation
 import GRDB
 
 /// Reusable login that connections can link to instead of storing their own.
-/// RDP uses username/domain/password; SSH uses username/password/key/passphrase.
+/// RDP uses username/domain/password; SSH uses username/password/key/passphrase
+/// (or the stored unlocked key when the passphrase was resolved on save).
 public struct Credential: Codable, Hashable, Identifiable, Sendable {
     public var id: String
     public var name: String
@@ -11,6 +12,8 @@ public struct Credential: Codable, Hashable, Identifiable, Sendable {
     public var passwordEnc: Data?
     public var sshKeyPath: String?
     public var sshKeyPassphraseEnc: Data?
+    /// The private key with its passphrase removed, sealed by the vault. Set only for passphrase-protected keys.
+    public var sshKeyUnlockedEnc: Data?
     public var notes: String
     public var createdAt: Date
     public var updatedAt: Date
@@ -23,6 +26,7 @@ public struct Credential: Codable, Hashable, Identifiable, Sendable {
         passwordEnc: Data? = nil,
         sshKeyPath: String? = nil,
         sshKeyPassphraseEnc: Data? = nil,
+        sshKeyUnlockedEnc: Data? = nil,
         notes: String = "",
         createdAt: Date = .now,
         updatedAt: Date = .now
@@ -34,6 +38,7 @@ public struct Credential: Codable, Hashable, Identifiable, Sendable {
         self.passwordEnc = passwordEnc
         self.sshKeyPath = sshKeyPath
         self.sshKeyPassphraseEnc = sshKeyPassphraseEnc
+        self.sshKeyUnlockedEnc = sshKeyUnlockedEnc
         self.notes = notes
         self.createdAt = createdAt
         self.updatedAt = updatedAt
