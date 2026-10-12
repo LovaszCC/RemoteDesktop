@@ -5,8 +5,12 @@ Devolutions Remote Desktop Manager. ~30 MB memory footprint, instant start.
 
 - **RDP** → opens in **Windows App**; the password is typed into its credential prompt automatically
   (Accessibility API), or copied to the clipboard for 30 s as a fallback.
-- **SSH** → opens a new **Ghostty** window running `ssh`; password / key passphrase are supplied
-  automatically through `SSH_ASKPASS` (no `sshpass` needed). Unknown host keys are still confirmed by you.
+- **SSH** → opens in an **embedded terminal tab** (SwiftTerm, like RDM) or, per connection, a new
+  **Ghostty** window. Both run the system `ssh`, so `~/.ssh/config`, `known_hosts` and jump hosts work;
+  password / key passphrase are supplied automatically through `SSH_ASKPASS` (no `sshpass` needed).
+  Unknown host keys are still confirmed by you. Tabs: ⌘W closes, ⌃Tab / ⌃⇧Tab switches; a clean `exit`
+  closes the tab, a dropped connection keeps it with a reconnect button (⌘R). Quitting with running
+  sessions asks first.
 - **Browser** → opens the URL in the browser chosen per connection (or the default one), then copies
   the password and, a second later, the username to the clipboard — without the concealed marker or
   auto-clear, so clipboard managers such as Raycast keep both in their history.
@@ -39,7 +43,8 @@ Devolutions Remote Desktop Manager. ~30 MB memory footprint, instant start.
 
 ## Build & install
 
-Requires Xcode 16+ / Swift 6 and macOS 15+.
+Requires Xcode 16+ / Swift 6 and macOS 15+. SwiftTerm compiles a Metal shader, so newer Xcode
+versions need the Metal Toolchain once: `xcodebuild -downloadComponent MetalToolchain`.
 
 ```sh
 scripts/build-app.sh --install   # release build, codesign, copy to /Applications
