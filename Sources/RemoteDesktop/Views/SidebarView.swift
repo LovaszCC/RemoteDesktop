@@ -50,6 +50,9 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
+        // Search and tree have different section layouts; diffing one into the other sometimes leaves
+        // a stale search row behind, so each mode gets its own List instance instead.
+        .id(state.searchText.isEmpty)
         .contextMenu(forSelectionType: String.self) { tags in
             if let tag = tags.first {
                 ItemContextMenu(tag: tag)
