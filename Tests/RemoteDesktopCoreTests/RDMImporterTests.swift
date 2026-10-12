@@ -57,7 +57,9 @@ import Testing
         let result = try RDMImporter.parse(Data(Self.sample.utf8))
 
         #expect(result.emptyGroups == [["Customers", "Empty"]])
-        #expect(result.skipped == ["portal (WebBrowser)", "nohost (no host)"])
+        #expect(result.skipped.count == 2)
+        #expect(result.skipped.first == "portal (WebBrowser)")
+        #expect(result.skipped.last?.hasPrefix("nohost (") == true) // "(no host)" is localized
         #expect(result.encryptedPasswords == 1)
         #expect(result.connections.count == 3)
 
