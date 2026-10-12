@@ -133,6 +133,10 @@ for lib in $(find "$WORK/build" -name '*.a' -not -path '*/CMakeFiles/*'); do
 done
 # shellcheck disable=SC2086
 libtool -static -no_warning_for_no_symbols -o "$STAGE/libFreeRDP.a" $LIBS
+# The Mac client library carries MacFreeRDP's own main(); some linkers (Xcode 26) load it and clash
+# with the app's _main.
+ar -d "$STAGE/libFreeRDP.a" main.m.o
+ranlib -no_warning_for_no_symbols "$STAGE/libFreeRDP.a"
 
 cp -R "$PREFIX/include/freerdp3/freerdp" "$STAGE/Headers/"
 cp -R "$PREFIX/include/winpr3/winpr" "$STAGE/Headers/"
