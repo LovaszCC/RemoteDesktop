@@ -22,6 +22,30 @@ let package = Package(
                 "RemoteDesktopCore",
                 .product(name: "GRDB", package: "GRDB.swift"),
                 .product(name: "SwiftTerm", package: "SwiftTerm"),
+                "RDPBridge",
+            ]
+        ),
+        // Static FreeRDP + OpenSSL built by scripts/build-freerdp.sh.
+        .binaryTarget(name: "FreeRDP", path: "Vendor/FreeRDP.xcframework"),
+        .target(
+            name: "RDPBridge",
+            dependencies: ["FreeRDP"],
+            // Textual includes: as Clang modules, CoreFoundation's REFIID clashes with winpr's.
+            cSettings: [.unsafeFlags(["-fno-modules", "-Wno-deprecated-declarations", "-Wno-nullability-completeness", "-Wno-macro-redefined"])],
+            linkerSettings: [
+                .linkedFramework("AppKit"),
+                .linkedFramework("AVFoundation"),
+                .linkedFramework("CoreMedia"),
+                .linkedFramework("Carbon"),
+                .linkedFramework("CoreAudio"),
+                .linkedFramework("AudioToolbox"),
+                .linkedFramework("CoreGraphics"),
+                .linkedFramework("CoreServices"),
+                .linkedFramework("IOKit"),
+                .linkedFramework("Security"),
+                .linkedFramework("SystemConfiguration"),
+                .linkedLibrary("z"),
+                .linkedLibrary("iconv"),
             ]
         ),
         .testTarget(

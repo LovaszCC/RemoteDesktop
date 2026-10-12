@@ -1,4 +1,5 @@
 import AppKit
+import RDPBridge
 import RemoteDesktopCore
 import SwiftUI
 import UniformTypeIdentifiers
@@ -55,6 +56,9 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Beágyazott RDP") {
+                LabeledContent("FreeRDP", value: RDPSessionBridge.freeRDPVersion())
+            }
             Section("RDP jelszó automatikus beírása") {
                 LabeledContent("Accessibility engedély") {
                     Label(accessibilityTrusted ? "Megadva" : "Hiányzik",

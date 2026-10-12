@@ -6,6 +6,9 @@
 set -eu
 cd "$(dirname "$0")/.."
 
+# Static FreeRDP for the embedded RDP client (one-time, ~10 min).
+[ -d Vendor/FreeRDP.xcframework ] || scripts/build-freerdp.sh
+
 swift build -c release
 BIN="$(swift build -c release --show-bin-path)/RemoteDesktop"
 
