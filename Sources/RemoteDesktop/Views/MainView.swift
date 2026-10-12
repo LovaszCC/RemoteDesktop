@@ -21,6 +21,7 @@ struct MainView: View {
                     Button("Új SSH kapcsolat", systemImage: "terminal") { state.newConnection(.ssh) }
                     Divider()
                     Button("Új mappa", systemImage: "folder.badge.plus") { state.newFolder() }
+                    Button("Új credential", systemImage: "person.badge.key") { state.newCredential() }
                 } label: {
                     Label("Új", systemImage: "plus")
                 }
@@ -35,6 +36,23 @@ struct MainView: View {
         }
         .sheet(item: $state.folderEditor) { folder in
             FolderEditorView(folder: folder)
+        }
+        .sheet(item: $state.credentialEditor) { draft in
+            CredentialEditorView(draft: draft)
+        }
+        .confirmationDialog(
+            "Credential törlése?",
+            isPresented: Binding(
+                get: { state.pendingCredentialDeletion != nil },
+                set: { if !$0 { state.pendingCredentialDeletion = nil } }
+            ),
+            presenting: state.pendingCredentialDeletion
+        ) { credential in
+            Button("Törlés", role: .destructive) { state.confirmDelete(credential) }
+            Button("Mégse", role: .cancel) {}
+        } message: { credential in
+            let count = state.library.connections(using: credential.id).count
+            Text("\(count) kapcsolat használja a(z) „\(credential.name)” credentialt. Törlés után ezek a saját mentett adataikat használják.")
         }
         .fileImporter(
             isPresented: $state.isImporting,

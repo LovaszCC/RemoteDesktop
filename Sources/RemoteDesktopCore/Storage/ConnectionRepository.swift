@@ -5,10 +5,26 @@ import GRDB
 public struct Library: Equatable, Sendable {
     public var folders: [Folder]
     public var connections: [Connection]
+    public var credentials: [Credential]
 
-    public init(folders: [Folder] = [], connections: [Connection] = []) {
+    public init(folders: [Folder] = [], connections: [Connection] = [], credentials: [Credential] = []) {
         self.folders = folders
         self.connections = connections
+        self.credentials = credentials
+    }
+
+    public func credential(id: String?) -> Credential? {
+        guard let id else { return nil }
+        return credentials.first { $0.id == id }
+    }
+
+    /// Connection with its linked credential applied, ready to launch.
+    public func resolved(_ connection: Connection) -> Connection {
+        connection.resolved(with: credential(id: connection.credentialId))
+    }
+
+    public func connections(using credentialId: String) -> [Connection] {
+        connections.filter { $0.credentialId == credentialId }
     }
 }
 
@@ -33,7 +49,8 @@ public struct ConnectionRepository: Sendable {
     @Sendable static func fetchLibrary(_ db: Database) throws -> Library {
         Library(
             folders: try Folder.order(Column("sortOrder"), Column("name").collating(.nocase)).fetchAll(db),
-            connections: try Connection.order(Column("name").collating(.nocase)).fetchAll(db)
+            connections: try Connection.order(Column("name").collating(.nocase)).fetchAll(db),
+            credentials: try Credential.order(Column("name").collating(.nocase)).fetchAll(db)
         )
     }
 
@@ -111,6 +128,25 @@ public struct ConnectionRepository: Sendable {
                 .order(Column("name"))
                 .fetchAll(db)
         }
+    }
+
+    // MARK: Credentials
+
+    @discardableResult
+    public func save(_ credential: Credential) throws -> Credential {
+        var credential = credential
+        credential.updatedAt = .now
+        try database.writer.write { [credential] db in try credential.save(db) }
+        return credential
+    }
+
+    public func credential(id: String) throws -> Credential? {
+        try database.writer.read { db in try Credential.fetchOne(db, key: id) }
+    }
+
+    /// Deletes the credential; linked connections fall back to their own auth fields.
+    public func deleteCredential(id: String) throws {
+        _ = try database.writer.write { db in try Credential.deleteOne(db, key: id) }
     }
 
     // MARK: Meta

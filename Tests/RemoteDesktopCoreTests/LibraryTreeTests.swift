@@ -57,4 +57,14 @@ import Testing
         #expect(all.map(\.depth) == [0, 0, 1])
         #expect(LibraryTree.flattenedFolders(library, excluding: "prod").map(\.folder.id) == ["arch"])
     }
+
+    @Test func searchCredentials() {
+        let library = Library(credentials: [
+            Credential(id: "a", name: "Domain Admin", username: "admin", domain: "CORP"),
+            Credential(id: "b", name: "Linux root", username: "root"),
+        ])
+        #expect(LibraryTree.searchCredentials(library, query: "").isEmpty)
+        #expect(LibraryTree.searchCredentials(library, query: "corp").map(\.id) == ["a"])
+        #expect(LibraryTree.searchCredentials(library, query: "root linux").map(\.id) == ["b"])
+    }
 }

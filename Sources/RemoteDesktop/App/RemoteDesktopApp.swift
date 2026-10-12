@@ -26,6 +26,8 @@ struct RemoteDesktopApp: App {
                     .keyboardShortcut("n", modifiers: [.command, .shift])
                 Button("Új mappa") { state.newFolder() }
                     .keyboardShortcut("n", modifiers: [.command, .option])
+                Button("Új credential") { state.newCredential() }
+                    .keyboardShortcut("n", modifiers: [.command, .control])
                 Divider()
                 Button("Importálás RDM-ből…") { state.isImporting = true }
                     .keyboardShortcut("i")

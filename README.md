@@ -10,9 +10,13 @@ Devolutions Remote Desktop Manager. ~30 MB memory footprint, instant start.
 
 ## Features
 
+- **Linked credentials**: reusable user/domain/password/SSH key entries (sidebar *Credentialok*) that
+  connections link to; a linked credential replaces the entry's own login. Deleting one asks for
+  confirmation and linked entries fall back to their own saved login.
 - Nested folders (drag & drop or *Move* menu), favourites, instant search (name, host, user, notes, folder)
-- Double-click / ⌘↩ to connect, ⌘N new RDP, ⇧⌘N new SSH, ⌥⌘N new folder, ⌘I import, ⌃⌘L lock
-- Import from Devolutions RDM `.rdm` export (folders, RDP, SSH; plain-text passwords if exported)
+- Double-click / ⌘↩ to connect, ⌘N new RDP, ⇧⌘N new SSH, ⌥⌘N new folder, ⌃⌘N new credential, ⌘I import, ⌃⌘L lock
+- Import from Devolutions RDM `.rdm` export (folders, RDP, SSH, credential entries and their links;
+  plain-text passwords if exported)
 - SQLite database, location selectable in Settings (can live in iCloud Drive / Dropbox)
 
 ## Security model

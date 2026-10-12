@@ -13,10 +13,22 @@ public struct ImportedConnection: Equatable, Sendable {
     public var password: String?
     public var sshKeyPath: String?
     public var notes: String
+    /// RDM `CredentialConnectionID` — the export ID of a linked credential entry.
+    public var credentialRef: String? = nil
+}
+
+public struct ImportedCredential: Equatable, Sendable {
+    public var ref: String
+    public var name: String
+    public var username: String
+    public var domain: String
+    public var password: String?
+    public var sshKeyPath: String?
 }
 
 public struct ImportSummary: Equatable, Sendable {
     public var imported: Int
+    public var credentialsImported: Int = 0
     public var foldersCreated: Int
     public var skipped: [String]
     /// Entries whose password was present only in encrypted (`SafePassword`) form.
@@ -30,6 +42,7 @@ public struct ImportSummary: Equatable, Sendable {
 public enum RDMImporter {
     public struct ParseResult: Equatable, Sendable {
         public var connections: [ImportedConnection]
+        public var credentials: [ImportedCredential] = []
         public var emptyGroups: [[String]]
         public var skipped: [String]
         public var encryptedPasswords: Int
@@ -46,6 +59,26 @@ public enum RDMImporter {
             let kind = fields["ConnectionType"] ?? ""
             let name = fields["Name"] ?? ""
             let group = splitGroup(fields["Group"] ?? fields["GroupName"] ?? "")
+
+            if kind == "Credential" {
+                func credentialValue(_ keys: String...) -> String? {
+                    for key in keys {
+                        if let v = fields["Credentials/\(key)"] ?? fields[key], !v.isEmpty { return v }
+                    }
+                    return nil
+                }
+                let password = credentialValue("Password", "ClearPassword")
+                if password == nil, credentialValue("SafePassword") != nil { result.encryptedPasswords += 1 }
+                result.credentials.append(ImportedCredential(
+                    ref: fields["ID"] ?? UUID().uuidString,
+                    name: name.isEmpty ? (credentialValue("UserName") ?? "Credential") : name,
+                    username: credentialValue("UserName", "Username") ?? "",
+                    domain: credentialValue("Domain") ?? "",
+                    password: password,
+                    sshKeyPath: credentialValue("PrivateKeyPath", "PrivateKeyFileName")
+                ))
+                continue
+            }
 
             if kind == "Group" {
                 // A folder entry's Group already contains its own name.
@@ -93,7 +126,8 @@ public enum RDMImporter {
                 domain: value("Domain") ?? "",
                 password: password,
                 sshKeyPath: type == .ssh ? value("PrivateKeyPath", "PrivateKeyFileName") : nil,
-                notes: value("Description", "Notes") ?? ""
+                notes: value("Description", "Notes") ?? "",
+                credentialRef: fields["CredentialConnectionID"]
             ))
         }
         return result
@@ -107,6 +141,16 @@ public enum RDMImporter {
     ) throws -> ImportSummary {
         let parsed = try parse(data)
         let encrypted = try parsed.connections.map { ($0, try vault.encryptOptional($0.password)) }
+        let credentials = try parsed.credentials.map { item in
+            (item.ref, Credential(
+                name: item.name,
+                username: item.username,
+                domain: item.domain,
+                passwordEnc: try vault.encryptOptional(item.password),
+                sshKeyPath: item.sshKeyPath
+            ))
+        }
+        let credentialIds = Dictionary(credentials.map { ($0.0, $0.1.id) }, uniquingKeysWith: { first, _ in first })
         let foldersBefore = try repo.library().folders.count
 
         try repo.transaction { db in
@@ -133,10 +177,12 @@ public enum RDMImporter {
                 return parentId
             }
 
+            for (_, credential) in credentials { try credential.insert(db) }
             for group in parsed.emptyGroups { _ = try folderId(for: group) }
             for (item, passwordEnc) in encrypted {
                 try Connection(
                     folderId: try folderId(for: item.groupPath),
+                    credentialId: item.credentialRef.flatMap { credentialIds[$0] },
                     type: item.type,
                     name: item.name,
                     host: item.host,
@@ -152,6 +198,7 @@ public enum RDMImporter {
 
         return ImportSummary(
             imported: parsed.connections.count,
+            credentialsImported: parsed.credentials.count,
             foldersCreated: try repo.library().folders.count - foldersBefore,
             skipped: parsed.skipped,
             withoutPassword: parsed.encryptedPasswords

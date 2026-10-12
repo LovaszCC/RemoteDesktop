@@ -26,6 +26,7 @@ public enum ConnectionType: String, Codable, CaseIterable, Sendable {
 public struct Connection: Codable, Hashable, Identifiable, Sendable {
     public var id: String
     public var folderId: String?
+    public var credentialId: String?
     public var type: ConnectionType
     public var name: String
     public var host: String
@@ -43,6 +44,7 @@ public struct Connection: Codable, Hashable, Identifiable, Sendable {
     public init(
         id: String = UUID().uuidString,
         folderId: String? = nil,
+        credentialId: String? = nil,
         type: ConnectionType,
         name: String,
         host: String,
@@ -59,6 +61,7 @@ public struct Connection: Codable, Hashable, Identifiable, Sendable {
     ) {
         self.id = id
         self.folderId = folderId
+        self.credentialId = credentialId
         self.type = type
         self.name = name
         self.host = host
