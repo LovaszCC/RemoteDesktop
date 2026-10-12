@@ -30,9 +30,15 @@ cp LICENSE THIRD_PARTY_NOTICES.md "$APP/Contents/Resources/"
 for bundle in "$(dirname "$BIN")"/*.bundle; do
     [ -d "$bundle" ] && cp -R "$bundle" "$APP/Contents/Resources/"
 done
-# The app's own translations also go to the main bundle: SwiftUI Text("…") and String(localized:) look there.
-find "$(dirname "$BIN")/RemoteDesktop_RemoteDesktop.bundle" -maxdepth 3 -name '*.lproj' -type d \
-    -exec cp -R {} "$APP/Contents/Resources/" \;
+# Translations. Older SwiftPM (Xcode 26) copies String Catalogs uncompiled, so compile them here:
+# raw catalogs inside the module bundles in place, and the app's own catalog into the main bundle,
+# where SwiftUI Text("…") and String(localized:) look.
+find "$APP/Contents/Resources" -name '*.xcstrings' | while read -r catalog; do
+    xcrun xcstringstool compile "$catalog" --output-directory "$(dirname "$catalog")"
+    rm "$catalog"
+done
+xcrun xcstringstool compile Sources/RemoteDesktop/Resources/Localizable.xcstrings \
+    --output-directory "$APP/Contents/Resources"
 
 IDENTITY="${SIGN_IDENTITY:-$(security find-identity -v -p codesigning | awk -F'"' '/Apple Development/ { print $2; exit }')}"
 # A stable identity keeps the Accessibility permission across rebuilds; ad-hoc resets it every time.
