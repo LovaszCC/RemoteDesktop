@@ -7,9 +7,9 @@ public enum SSHKeyUnlockError: Error, Equatable, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .fileUnreadable(let path): String(localized: "Can't read the SSH key: \(path)", bundle: .module)
-        case .wrongPassphrase: String(localized: "Wrong key passphrase.", bundle: .module)
-        case .toolFailed(let output): String(localized: "Couldn't unlock the SSH key: \(output)", bundle: .module)
+        case .fileUnreadable(let path): String(localized: "Can't read the SSH key: \(path)", bundle: .core)
+        case .wrongPassphrase: String(localized: "Wrong key passphrase.", bundle: .core)
+        case .toolFailed(let output): String(localized: "Couldn't unlock the SSH key: \(output)", bundle: .core)
         }
     }
 }
