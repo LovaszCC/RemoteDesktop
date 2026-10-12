@@ -6,6 +6,7 @@ import SwiftUI
 struct RemoteDesktopApp: App {
     @NSApplicationDelegateAdaptor private var appDelegate: AppDelegate
     @State private var state = AppState()
+    @State private var updates = UpdateModel()
 
     init() {
         // Before any string is looked up, so a Hungarian system doesn't pick Hungarian on its own.
@@ -18,11 +19,16 @@ struct RemoteDesktopApp: App {
         Window("RemoteDesktop", id: "main") {
             RootView()
                 .environment(state)
+                .environment(updates)
+                .modifier(UpdateWindowOpener())
                 .frame(minWidth: 760, minHeight: 460)
                 .onAppear { appDelegate.attach(state) }
         }
         .defaultSize(width: 1000, height: 640)
         .commands {
+            CommandGroup(after: .appInfo) {
+                CheckForUpdatesButton().environment(updates)
+            }
             CommandGroup(replacing: .newItem) {
                 Button(ConnectionType.rdp.newTitle) { state.newConnection(.rdp) }
                     .keyboardShortcut("n")
@@ -64,9 +70,18 @@ struct RemoteDesktopApp: App {
             }
         }
 
+        Window("Software Update", id: "update") {
+            UpdateView()
+                .environment(updates)
+        }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
+        .restorationBehavior(.disabled)
+
         Settings {
             SettingsView()
                 .environment(state)
+                .environment(updates)
         }
     }
 }

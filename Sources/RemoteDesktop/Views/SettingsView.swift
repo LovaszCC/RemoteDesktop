@@ -6,6 +6,9 @@ import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @Environment(AppState.self) private var state
+    @Environment(UpdateModel.self) private var updates
+    @Environment(\.openWindow) private var openWindow
+    @AppStorage(UpdateSchedule.automaticChecksKey) private var checksForUpdates = true
     @State private var currentPassword = ""
     @State private var newPassword = ""
     @State private var confirmPassword = ""
@@ -31,6 +34,22 @@ struct SettingsView: View {
                     Text("Takes effect after RemoteDesktop restarts.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                }
+            }
+
+            Section("Updates") {
+                Toggle("Check for updates automatically", isOn: $checksForUpdates)
+                HStack {
+                    Button("Check now") {
+                        updates.checkManually()
+                        openWindow(id: "update")
+                    }
+                    Spacer()
+                    if let lastCheck = updates.lastCheck {
+                        Text("Last checked: \(lastCheck.formatted(.relative(presentation: .named)))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
 

@@ -2102,6 +2102,206 @@
           }
         }
       }
+    },
+    "Check whether a newer version of RemoteDesktop is available." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ellenőrizd, van-e újabb RemoteDesktop verzió."
+          }
+        }
+      }
+    },
+    "Check for Updates" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frissítések keresése"
+          }
+        }
+      }
+    },
+    "Check for Updates…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frissítések keresése…"
+          }
+        }
+      }
+    },
+    "Checking for updates…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frissítések keresése…"
+          }
+        }
+      }
+    },
+    "RemoteDesktop is up to date." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A RemoteDesktop naprakész."
+          }
+        }
+      }
+    },
+    "You have version %@." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A jelenlegi verzió: %@."
+          }
+        }
+      }
+    },
+    "RemoteDesktop %@ is available." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elérhető a RemoteDesktop %@."
+          }
+        }
+      }
+    },
+    "Release page" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kiadás oldala"
+          }
+        }
+      }
+    },
+    "Download" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Letöltés"
+          }
+        }
+      }
+    },
+    "Downloading…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Letöltés…"
+          }
+        }
+      }
+    },
+    "The disk image is open." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A lemezkép megnyílt."
+          }
+        }
+      }
+    },
+    "Quit RemoteDesktop, then drag the new version onto the Applications folder in the disk image window." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lépj ki a RemoteDesktopból, majd a lemezkép ablakában húzd az új verziót az Applications mappára."
+          }
+        }
+      }
+    },
+    "Done" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kész"
+          }
+        }
+      }
+    },
+    "Open release page" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kiadás oldalának megnyitása"
+          }
+        }
+      }
+    },
+    "Try again" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Újra"
+          }
+        }
+      }
+    },
+    "Software Update" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Szoftverfrissítés"
+          }
+        }
+      }
+    },
+    "Updates" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frissítések"
+          }
+        }
+      }
+    },
+    "Check for updates automatically" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frissítések automatikus keresése"
+          }
+        }
+      }
+    },
+    "Check now" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keresés most"
+          }
+        }
+      }
+    },
+    "Last checked: %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utoljára ellenőrizve: %@"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
