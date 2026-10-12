@@ -47,7 +47,8 @@ import Testing
     }
 
     @Test func disconnectClassification() {
-        #expect(RDPDisconnectReason(lastError: 0, errorInfo: 0) == .clean)
+        // A client-side failure (e.g. a channel error) ends with no codes at all: not a logoff.
+        #expect(RDPDisconnectReason(lastError: 0, errorInfo: 0) == .failure)
         #expect(RDPDisconnectReason(lastError: 0, errorInfo: 0x0C) == .clean)
         #expect(RDPDisconnectReason(lastError: 0, errorInfo: 0x0B) == .clean)
         #expect(RDPDisconnectReason(lastError: 0, errorInfo: 0x01) == .clean)

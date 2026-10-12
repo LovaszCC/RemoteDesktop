@@ -1,0 +1,40 @@
+diff --color -ru a/client/Mac/Clipboard.m b/client/Mac/Clipboard.m
+--- a/client/Mac/Clipboard.m	2026-09-28 09:33:43.000000000 +0200
++++ b/client/Mac/Clipboard.m	2026-10-12 10:52:46.860283532 +0200
+@@ -21,6 +21,10 @@
+ #import "Clipboard.h"
+ #import "MRDPView.h"
+ 
++#include <freerdp/log.h>
++
++#define TAG CLIENT_TAG("mac.clipboard")
++
+ int mac_cliprdr_send_client_format_list(CliprdrClientContext *cliprdr)
+ {
+ 	UINT32 formatId;
+@@ -329,10 +333,13 @@
+ 	mfContext *mfc = (mfContext *)cliprdr->custom;
+ 	MRDPView *view = (MRDPView *)mfc->view;
+ 
++	/* A refused or unmatched response is not a protocol error (other clients only warn);
++	 * returning an error here makes FreeRDP tear down the whole session. */
+ 	if (formatDataResponse->common.msgFlags & CB_RESPONSE_FAIL)
+ 	{
++		WLog_WARN(TAG, "server could not provide clipboard data");
+ 		(void)SetEvent(mfc->clipboardRequestEvent);
+-		return ERROR_INTERNAL_ERROR;
++		return CHANNEL_RC_OK;
+ 	}
+ 
+ 	for (UINT32 index = 0; index < mfc->numServerFormats; index++)
+@@ -343,8 +350,9 @@
+ 
+ 	if (!format)
+ 	{
++		WLog_WARN(TAG, "clipboard data for an unrequested format ignored");
+ 		(void)SetEvent(mfc->clipboardRequestEvent);
+-		return ERROR_INTERNAL_ERROR;
++		return CHANNEL_RC_OK;
+ 	}
+ 
+ 	if (format->formatName)
