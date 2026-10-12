@@ -62,8 +62,11 @@ if [ -d "$PATCHES" ]; then
     done
 fi
 
+# USE_VERSION_FROM_GIT_TAG=OFF: the sources sit inside this repo's checkout, so FreeRDP's `git describe`
+# would pick up our own release tag (v1.0.0 → headers installed to include/freerdp1/).
 cmake -S "$SRC" -B "$WORK/build" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
+    -DUSE_VERSION_FROM_GIT_TAG=OFF \
     -DCMAKE_INSTALL_PREFIX="$PREFIX" \
     -DCMAKE_PREFIX_PATH="$PREFIX" \
     -DCMAKE_OSX_ARCHITECTURES="$ARCH" \
