@@ -1,0 +1,116 @@
+import AppKit
+import RDPBridge
+import RemoteDesktopCore
+
+/// One embedded RDP session (FreeRDP); recreates its bridge on reconnect.
+@MainActor
+@Observable
+final class RDPSession: NSObject, Identifiable {
+    enum Status: Equatable {
+        case connecting
+        case connected
+        case ended(RDPDisconnectReason, message: String)
+    }
+
+    let id = UUID().uuidString
+    let connectionId: String
+    let title: String
+    private(set) var status: Status = .connecting
+    /// Changes on reconnect so the host view re-attaches the new FreeRDP view.
+    private(set) var bridge: RDPSessionBridge?
+
+    /// Builds a fresh configuration (re-resolving the connection, decrypting the password).
+    @ObservationIgnored private let makeConfiguration: () throws -> RDPConnectionConfiguration
+    @ObservationIgnored var onEnd: ((RDPSession, RDPDisconnectReason) -> Void)?
+
+    init(connection: Connection, makeConfiguration: @escaping () throws -> RDPConnectionConfiguration) {
+        connectionId = connection.id
+        title = connection.name
+        self.makeConfiguration = makeConfiguration
+    }
+
+    var isRunning: Bool {
+        if case .ended = status { return false }
+        return true
+    }
+
+    func start() throws {
+        let bridge = RDPSessionBridge(configuration: try makeConfiguration())
+        bridge.delegate = self
+        guard bridge.start() else { throw LaunchError.openFailed("A FreeRDP session nem hozható létre.") }
+        status = .connecting
+        self.bridge = bridge
+    }
+
+    func reconnect() throws {
+        bridge?.delegate = nil
+        bridge?.stop()
+        bridge = nil
+        try start()
+    }
+
+    func stop() {
+        bridge?.delegate = nil
+        bridge?.stop()
+    }
+
+    /// Initial desktop size before Display Control adapts it to the tab.
+    static func initialSize() -> (width: UInt32, height: UInt32) {
+        let frame = NSApp.mainWindow?.contentLayoutRect.size ?? CGSize(width: 1280, height: 800)
+        let width = UInt32(max(800, min(8192, Int(frame.width) - 280))) & ~1
+        let height = UInt32(max(600, min(8192, Int(frame.height) - 40)))
+        return (width, height)
+    }
+}
+
+/// The bridge calls every delegate method on the main thread (checked at runtime).
+extension RDPSession: @preconcurrency RDPSessionBridgeDelegate {
+    func rdpSessionDidConnect(_ session: RDPSessionBridge) {
+        status = .connected
+    }
+
+    func rdpSession(
+        _ session: RDPSessionBridge,
+        didDisconnectWithLastError lastError: UInt32,
+        errorInfo: UInt32,
+        message: String
+    ) {
+        let reason = RDPDisconnectReason(lastError: lastError, errorInfo: errorInfo)
+        status = .ended(reason, message: message)
+        onEnd?(self, reason)
+    }
+
+    func rdpSession(_ session: RDPSessionBridge, verifyCertificate certificate: RDPCertificateInfo) -> RDPCertificateDecision {
+        CertificatePrompt.ask(certificate, for: title)
+    }
+}
+
+/// Modal certificate confirmation; FreeRDP stores permanently accepted certificates itself.
+@MainActor
+enum CertificatePrompt {
+    static func ask(_ certificate: RDPCertificateInfo, for name: String) -> RDPCertificateDecision {
+        let alert = NSAlert()
+        alert.alertStyle = certificate.changed || certificate.hostMismatch ? .critical : .warning
+        alert.messageText = certificate.changed
+            ? "A(z) \(name) tanúsítványa megváltozott!"
+            : "Ismeretlen tanúsítvány: \(name)"
+        var lines = [
+            "Szerver: \(certificate.host):\(certificate.port)",
+            "Név: \(certificate.commonName)",
+            "Tárgy: \(certificate.subject)",
+            "Kiállító: \(certificate.issuer)",
+            "Ujjlenyomat: \(certificate.fingerprint)",
+        ]
+        if certificate.hostMismatch { lines.append("\nFigyelem: a tanúsítvány nem erre a hostnévre szól.") }
+        if certificate.changed { lines.append("\nFigyelem: korábban más tanúsítványt fogadtál el ehhez a szerverhez.") }
+        alert.informativeText = lines.joined(separator: "\n")
+        alert.addButton(withTitle: "Elfogadás")
+        alert.addButton(withTitle: "Csak most")
+        alert.addButton(withTitle: "Elutasítás")
+        switch alert.runModal() {
+        case .alertFirstButtonReturn: return .acceptPermanently
+        case .alertSecondButtonReturn: return .acceptOnce
+        default: return .reject
+        }
+    }
+}

@@ -109,7 +109,7 @@ struct SessionTabBar: View {
     }
 }
 
-/// Detail column: tab bar (only while sessions exist) above either the details or the active terminal.
+/// Detail column: tab bar (only while sessions exist) above the details or the active session.
 struct DetailArea: View {
     @Environment(AppState.self) private var state
 
@@ -118,9 +118,12 @@ struct DetailArea: View {
             if !state.sessions.isEmpty {
                 SessionTabBar()
             }
-            if let session = state.activeSession {
+            switch state.activeSession {
+            case .terminal(let session):
                 TerminalSessionView(session: session)
-            } else {
+            case .rdp(let session):
+                RDPSessionView(session: session)
+            case nil:
                 DetailView()
             }
         }

@@ -49,6 +49,10 @@ let package = Package(
             ]
         ),
         .testTarget(
+            name: "RDPBridgeTests",
+            dependencies: ["RDPBridge"]
+        ),
+        .testTarget(
             name: "RemoteDesktopCoreTests",
             dependencies: ["RemoteDesktopCore"]
         ),
