@@ -200,6 +200,26 @@
           }
         }
       }
+    },
+    "Couldn't read the SSH settings for this host." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nem sikerült beolvasni a host SSH-beállításait."
+          }
+        }
+      }
+    },
+    "Couldn't fetch the host's SSH key. Check the host and port." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nem sikerült lekérni a host SSH-kulcsát. Ellenőrizd a hostot és a portot."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
