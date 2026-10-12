@@ -1,0 +1,13 @@
+diff --color -ru a/client/Mac/mf_client.m b/client/Mac/mf_client.m
+--- a/client/Mac/mf_client.m	2026-09-28 09:33:43.000000000 +0200
++++ b/client/Mac/mf_client.m	2026-10-12 10:57:12.123002596 +0200
+@@ -36,7 +36,8 @@
+ 
+ static BOOL mfreerdp_client_global_init(void)
+ {
+-	freerdp_handle_signals();
++	/* Embedded in a host app: process signals belong to the host. FreeRDP's SIGTERM/SIGINT
++	 * handler only aborts connections and never exits, so `kill` would stop working. */
+ 	return TRUE;
+ }
+ 
