@@ -26,6 +26,13 @@ Requires an Apple Silicon Mac with macOS 15 or later. Optional apps it can hand 
 [Windows App](https://apps.apple.com/app/windows-app/id1295203466), [Ghostty](https://ghostty.org) and
 [WinBox](https://mikrotik.com/download).
 
+### Updates
+
+The app checks GitHub for a new release at launch (at most once a day; turn it off in *Settings → Updates*)
+and from **RemoteDesktop → Check for Updates…**. **Download** saves the verified disk image to *Downloads*
+and opens it: quit RemoteDesktop and drag the new version to **Applications**. Images downloaded this way
+skip the first-launch *Open Anyway* step.
+
 > After every update, grant the Accessibility permission again (*System Settings → Privacy & Security →
 > Accessibility*). It is only needed for the Windows App password autofill.
 
@@ -55,6 +62,7 @@ clean `exit` closes the tab, a dropped connection keeps it with a reconnect butt
 - **Instant search** across name, host, user, notes and folder.
 - **Tabs** for embedded sessions; quitting with open sessions asks first.
 - **English and Hungarian** interface, switchable in Settings.
+- **Update check** against GitHub releases, with a checksum-verified download.
 - **Import** from a Devolutions RDM `.rdm` export (see below).
 - **Portable database**: a single SQLite file whose location you choose in Settings, so it can live in
   iCloud Drive or Dropbox.
