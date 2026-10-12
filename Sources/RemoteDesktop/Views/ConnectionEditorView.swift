@@ -55,6 +55,10 @@ struct ConnectionEditorView: View {
                         .help("Beágyazott: fül az ablakon belül · Ghostty: külön terminálablak")
                     }
                     if draft.type == .rdp {
+                        Picker("RDP kliens", selection: $draft.rdpClient) {
+                            ForEach(RDPClient.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                        }
+                        .help("Beágyazott: FreeRDP fül az ablakon belül · Windows App: külön alkalmazás")
                         Toggle("Admin session (/admin)", isOn: $draft.rdpAdminSession)
                             .help("Kapcsolódás az adminisztratív (konzol) sessionhöz, mint mstsc /admin")
                     }

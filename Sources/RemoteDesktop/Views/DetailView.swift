@@ -28,7 +28,8 @@ struct ConnectionDetailView: View {
 
     private var subtitle: String {
         switch connection.type {
-        case .rdp: "RDP · Windows App" + (connection.rdpAdminSession ? " · /admin" : "")
+        case .rdp: "RDP · " + (connection.rdpClient == .embedded ? "beágyazott (FreeRDP)" : "Windows App")
+            + (connection.rdpAdminSession ? " · /admin" : "")
         case .ssh: "SSH · " + (connection.sshTerminal == .embedded ? "beágyazott terminál" : "Ghostty")
         case .mikrotik: "MikroTik · alapból \(connection.mikrotikMode.displayName)"
         case .web: "Böngésző · " + (connection.browserBundleId.map(InstalledBrowsers.name(for:)) ?? "alapértelmezett")

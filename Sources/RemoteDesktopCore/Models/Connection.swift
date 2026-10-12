@@ -67,6 +67,21 @@ public enum SSHTerminal: String, Codable, CaseIterable, Sendable {
     }
 }
 
+/// Which client opens an RDP connection.
+public enum RDPClient: String, Codable, CaseIterable, Sendable {
+    /// FreeRDP tab inside the main window.
+    case embedded
+    /// Microsoft Windows App with a generated `.rdp` file.
+    case windowsApp
+
+    public var displayName: String {
+        switch self {
+        case .embedded: "Beágyazott (FreeRDP)"
+        case .windowsApp: "Windows App"
+        }
+    }
+}
+
 /// How a MikroTik connection is opened.
 public enum MikrotikMode: String, Codable, CaseIterable, Sendable {
     case winbox
@@ -105,6 +120,8 @@ public struct Connection: Codable, Hashable, Identifiable, Sendable {
     public var mikrotikMode: MikrotikMode
     /// SSH / MikroTik SSH: embedded tab or Ghostty window.
     public var sshTerminal: SSHTerminal
+    /// RDP: embedded FreeRDP tab or Windows App.
+    public var rdpClient: RDPClient
     public var notes: String
     public var createdAt: Date
     public var updatedAt: Date
@@ -127,6 +144,7 @@ public struct Connection: Codable, Hashable, Identifiable, Sendable {
         browserBundleId: String? = nil,
         mikrotikMode: MikrotikMode = .winbox,
         sshTerminal: SSHTerminal = .embedded,
+        rdpClient: RDPClient = .embedded,
         notes: String = "",
         createdAt: Date = .now,
         updatedAt: Date = .now
@@ -148,6 +166,7 @@ public struct Connection: Codable, Hashable, Identifiable, Sendable {
         self.browserBundleId = browserBundleId
         self.mikrotikMode = mikrotikMode
         self.sshTerminal = sshTerminal
+        self.rdpClient = rdpClient
         self.notes = notes
         self.createdAt = createdAt
         self.updatedAt = updatedAt

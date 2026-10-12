@@ -3,3 +3,5 @@
 build/
 *.xcodeproj/xcuserdata/
 .DS_Store
+.build-freerdp/
+Vendor/

@@ -221,6 +221,10 @@ struct ItemContextMenu: View {
             } else {
                 Button("Kapcsolódás") { state.connect(connection) }
             }
+            if connection.type == .rdp {
+                Button("Új beágyazott RDP session") { state.connect(connection, rdpClient: .embedded) }
+                Button("Megnyitás Windows App-ban") { state.connect(connection, rdpClient: .windowsApp) }
+            }
             if connection.type.usesSSH {
                 Button("Új beágyazott SSH session") { state.connect(connection, mode: .ssh, terminal: .embedded) }
                 Button("Megnyitás Ghostty-ban") { state.connect(connection, mode: .ssh, terminal: .ghostty) }

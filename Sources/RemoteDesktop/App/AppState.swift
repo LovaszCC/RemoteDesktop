@@ -1,6 +1,7 @@
 import AppKit
 import GRDB
 import Observation
+import RDPBridge
 import RemoteDesktopCore
 
 /// Editable, decrypted copy of a connection used by the editor sheet.
@@ -22,6 +23,7 @@ struct ConnectionDraft: Identifiable, Equatable {
     var notes = ""
     var isFavorite = false
     var rdpAdminSession = false
+    var rdpClient: RDPClient = .embedded
     var browserBundleId: String?
     var mikrotikMode: MikrotikMode = .winbox
     var sshTerminal: SSHTerminal = .embedded
@@ -50,6 +52,7 @@ struct ConnectionDraft: Identifiable, Equatable {
         notes = connection.notes
         isFavorite = connection.isFavorite
         rdpAdminSession = connection.rdpAdminSession
+        rdpClient = connection.rdpClient
         browserBundleId = connection.browserBundleId
         mikrotikMode = connection.mikrotikMode
         sshTerminal = connection.sshTerminal
@@ -92,8 +95,8 @@ final class AppState {
     var pendingCredentialDeletion: Credential?
     var isImporting = false
 
-    // Embedded terminal sessions shown as tabs in the detail area.
-    private(set) var sessions: [TerminalSession] = []
+    // Embedded SSH / RDP sessions shown as tabs in the detail area.
+    private(set) var sessions: [AppSession] = []
     private(set) var tabs = SessionTabs()
 
     @ObservationIgnored private var repo: ConnectionRepository?
@@ -314,6 +317,7 @@ final class AppState {
                 browserBundleId: draft.type == .web ? draft.browserBundleId : nil,
                 mikrotikMode: draft.mikrotikMode,
                 sshTerminal: draft.sshTerminal,
+                rdpClient: draft.rdpClient,
                 notes: draft.notes,
                 createdAt: existing?.createdAt ?? .now
             ))
@@ -440,9 +444,14 @@ final class AppState {
 
     // MARK: Launch
 
-    /// `mode` overrides a MikroTik connection's default mode and `terminal` the SSH terminal
-    /// setting; other types ignore them.
-    func connect(_ connection: Connection, mode: MikrotikMode? = nil, terminal: SSHTerminal? = nil) {
+    /// `mode` overrides a MikroTik connection's default mode, `terminal` the SSH terminal and
+    /// `rdpClient` the RDP client setting; other types ignore them.
+    func connect(
+        _ connection: Connection,
+        mode: MikrotikMode? = nil,
+        terminal: SSHTerminal? = nil,
+        rdpClient: RDPClient? = nil
+    ) {
         guard let vault else { return }
         let connection = library.resolved(connection)
         do {
@@ -450,8 +459,14 @@ final class AppState {
             let outcome: LaunchOutcome
             switch connection.type {
             case .rdp:
-                outcome = try RDPLauncher.launch(connection, password: password) { [weak self] message in
-                    self?.showToast(message)
+                switch rdpClient ?? connection.rdpClient {
+                case .embedded:
+                    try openRDPSession(for: connection)
+                    outcome = .embedded
+                case .windowsApp:
+                    outcome = try RDPLauncher.launch(connection, password: password) { [weak self] message in
+                        self?.showToast(message)
+                    }
                 }
             case .ssh:
                 outcome = try launchSSH(connection, terminal: terminal)
@@ -498,7 +513,7 @@ final class AppState {
 
     // MARK: Embedded sessions
 
-    var activeSession: TerminalSession? {
+    var activeSession: AppSession? {
         sessions.first { $0.id == tabs.active }
     }
 
@@ -520,7 +535,34 @@ final class AppState {
             if SessionTabs.closesTab(exitCode: code) { self?.closeSession(session.id) }
         }
         try session.start()
-        sessions.append(session)
+        sessions.append(.terminal(session))
+        tabs.open(session.id)
+    }
+
+    private func openRDPSession(for connection: Connection) throws {
+        let snapshot = connection
+        let session = RDPSession(connection: connection) { [weak self] in
+            guard let self, let vault = self.vault else { throw VaultError.notInitialized }
+            let current = self.library.connections.first { $0.id == snapshot.id }.map(self.library.resolved) ?? snapshot
+            let settings = RDPSessionSettings(connection: current)
+            let size = RDPSession.initialSize()
+            let configuration = RDPConnectionConfiguration()
+            configuration.host = settings.host
+            configuration.port = UInt16(clamping: settings.port)
+            configuration.username = settings.username
+            configuration.domain = settings.domain
+            configuration.password = try vault.decryptOptional(current.passwordEnc)
+            configuration.adminSession = settings.adminSession
+            configuration.width = size.width
+            configuration.height = size.height
+            configuration.dynamicResolution = true
+            return configuration
+        }
+        session.onEnd = { [weak self] session, reason in
+            if reason == .clean { self?.closeSession(session.id) }
+        }
+        try session.start()
+        sessions.append(.rdp(session))
         tabs.open(session.id)
     }
 
@@ -528,11 +570,13 @@ final class AppState {
         do { try session.reconnect() } catch { errorMessage = error.localizedDescription }
     }
 
+    func reconnect(_ session: RDPSession) {
+        do { try session.reconnect() } catch { errorMessage = error.localizedDescription }
+    }
+
     func closeSession(_ id: String) {
         guard let index = sessions.firstIndex(where: { $0.id == id }) else { return }
-        let session = sessions.remove(at: index)
-        session.onExit = nil
-        session.terminate()
+        sessions.remove(at: index).close()
         tabs.close(id)
     }
 
@@ -549,7 +593,7 @@ final class AppState {
     }
 
     func terminateAllSessions() {
-        for session in sessions { session.onExit = nil; session.terminate() }
+        for session in sessions { session.close() }
     }
 
     func copyPassword(_ connection: Connection) {

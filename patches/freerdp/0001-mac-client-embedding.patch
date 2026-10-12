@@ -1,0 +1,156 @@
+diff --color -ru a/client/Mac/MRDPView.h b/client/Mac/MRDPView.h
+--- a/client/Mac/MRDPView.h	2026-09-28 09:33:43.000000000 +0200
++++ b/client/Mac/MRDPView.h	2026-10-12 10:18:51.146807222 +0200
+@@ -28,6 +28,9 @@
+ 
+ #import <CoreGraphics/CoreGraphics.h>
+ 
++/* Posted on the main queue when the session ends or fails to connect; userInfo: lastError, errorInfo. */
++extern NSString *const MRDPViewDidDisconnectNotification;
++
+ @interface MRDPView : NSView
+ {
+ 	mfContext *mfc;
+diff --color -ru a/client/Mac/MRDPView.m b/client/Mac/MRDPView.m
+--- a/client/Mac/MRDPView.m	2026-09-28 09:33:43.000000000 +0200
++++ b/client/Mac/MRDPView.m	2026-10-12 10:20:15.523489410 +0200
+@@ -65,6 +65,24 @@
+ static void input_activity_cb(freerdp *instance);
+ 
+ static DWORD WINAPI mac_client_thread(void *param);
++
++NSString *const MRDPViewDidDisconnectNotification = @"MRDPViewDidDisconnectNotification";
++
++/* Embedding hosts have no other way to learn that the session ended or never connected. */
++static void mac_post_view_disconnect(MRDPView *view, freerdp *instance)
++{
++	const UINT32 lastError = freerdp_get_last_error(instance->context);
++	const UINT32 errorInfo = freerdp_error_info(instance);
++	dispatch_async(dispatch_get_main_queue(), ^{
++		[[NSNotificationCenter defaultCenter]
++		    postNotificationName:MRDPViewDidDisconnectNotification
++		                  object:view
++		                userInfo:@{
++			                @"lastError" : @(lastError),
++			                @"errorInfo" : @(errorInfo)
++		                }];
++	});
++}
+ static void windows_to_apple_cords(MRDPView *view, NSRect *r);
+ static CGContextRef mac_create_bitmap_context(rdpContext *context);
+ 
+@@ -144,6 +162,7 @@
+ 		if (!status)
+ 		{
+ 			[view setIs_connected:0];
++			mac_post_view_disconnect(view, instance);
+ 			return 0;
+ 		}
+ 
+@@ -205,6 +224,7 @@
+ 	disconnect:
+ 		[view setIs_connected:0];
+ 		freerdp_disconnect(instance);
++		mac_post_view_disconnect(view, instance);
+ 
+ 		ExitThread(0);
+ 		return 0;
+@@ -238,7 +258,7 @@
+ 		    initWithRect:[self visibleRect]
+ 		         options:NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved |
+ 		                 NSTrackingCursorUpdate | NSTrackingEnabledDuringMouseDrag |
+-		                 NSTrackingActiveWhenFirstResponder
++		                 NSTrackingActiveWhenFirstResponder | NSTrackingInVisibleRect
+ 		           owner:self
+ 		        userInfo:nil];
+ 		[self addTrackingArea:trackingArea];
+@@ -273,7 +293,7 @@
+ 	if (!self.is_connected)
+ 		return;
+ 
+-	NSPoint loc = [event locationInWindow];
++	NSPoint loc = [self convertPoint:[event locationInWindow] fromView:nil];
+ 	int x = (int)loc.x;
+ 	int y = (int)loc.y;
+ 	mf_scale_mouse_event(context, PTR_FLAGS_MOVE, x, y);
+@@ -286,7 +306,7 @@
+ 	if (!self.is_connected)
+ 		return;
+ 
+-	NSPoint loc = [event locationInWindow];
++	NSPoint loc = [self convertPoint:[event locationInWindow] fromView:nil];
+ 	int x = (int)loc.x;
+ 	int y = (int)loc.y;
+ 	mf_press_mouse_button(context, 0, x, y, TRUE);
+@@ -299,7 +319,7 @@
+ 	if (!self.is_connected)
+ 		return;
+ 
+-	NSPoint loc = [event locationInWindow];
++	NSPoint loc = [self convertPoint:[event locationInWindow] fromView:nil];
+ 	int x = (int)loc.x;
+ 	int y = (int)loc.y;
+ 	mf_press_mouse_button(context, 0, x, y, FALSE);
+@@ -312,7 +332,7 @@
+ 	if (!self.is_connected)
+ 		return;
+ 
+-	NSPoint loc = [event locationInWindow];
++	NSPoint loc = [self convertPoint:[event locationInWindow] fromView:nil];
+ 	int x = (int)loc.x;
+ 	int y = (int)loc.y;
+ 	mf_press_mouse_button(context, 1, x, y, TRUE);
+@@ -325,7 +345,7 @@
+ 	if (!self.is_connected)
+ 		return;
+ 
+-	NSPoint loc = [event locationInWindow];
++	NSPoint loc = [self convertPoint:[event locationInWindow] fromView:nil];
+ 	int x = (int)loc.x;
+ 	int y = (int)loc.y;
+ 	mf_press_mouse_button(context, 1, x, y, FALSE);
+@@ -338,7 +358,7 @@
+ 	if (!self.is_connected)
+ 		return;
+ 
+-	NSPoint loc = [event locationInWindow];
++	NSPoint loc = [self convertPoint:[event locationInWindow] fromView:nil];
+ 	int x = (int)loc.x;
+ 	int y = (int)loc.y;
+ 	int pressed = [event buttonNumber];
+@@ -352,7 +372,7 @@
+ 	if (!self.is_connected)
+ 		return;
+ 
+-	NSPoint loc = [event locationInWindow];
++	NSPoint loc = [self convertPoint:[event locationInWindow] fromView:nil];
+ 	int x = (int)loc.x;
+ 	int y = (int)loc.y;
+ 	int pressed = [event buttonNumber];
+@@ -415,7 +435,7 @@
+ 	if (!self.is_connected)
+ 		return;
+ 
+-	NSPoint loc = [event locationInWindow];
++	NSPoint loc = [self convertPoint:[event locationInWindow] fromView:nil];
+ 	int x = (int)loc.x;
+ 	int y = (int)loc.y;
+ 	// send mouse motion event to RDP server
+@@ -807,7 +827,7 @@
+ 		    initWithRect:[self visibleRect]
+ 		         options:NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved |
+ 		                 NSTrackingCursorUpdate | NSTrackingEnabledDuringMouseDrag |
+-		                 NSTrackingActiveWhenFirstResponder
++		                 NSTrackingActiveWhenFirstResponder | NSTrackingInVisibleRect
+ 		           owner:self
+ 		        userInfo:nil];
+ 		[self addTrackingArea:trackingArea];
+@@ -1493,7 +1513,7 @@
+ 
+ 	mfc->client_width = mfc->width;
+ 	mfc->client_height = mfc->height;
+-	[view setFrameSize:NSMakeSize(mfc->width, mfc->height)];
++	/* Embedded: the host owns the view frame (and resets client size via setScrollOffset on ResizeWindow). */
+ 	EventArgsInit(&e, "mfreerdp");
+ 	e.width = freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth);
+ 	e.height = freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight);
