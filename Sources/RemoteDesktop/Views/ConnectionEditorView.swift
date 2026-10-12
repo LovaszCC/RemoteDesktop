@@ -6,6 +6,15 @@ struct ConnectionEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @State var draft: ConnectionDraft
 
+    /// Installed browsers, plus the saved one even if it has since been uninstalled.
+    private var browsers: [InstalledBrowsers.Browser] {
+        var list = InstalledBrowsers.all
+        if let saved = draft.browserBundleId, !list.contains(where: { $0.bundleID == saved }) {
+            list.append(.init(bundleID: saved, name: InstalledBrowsers.name(for: saved)))
+        }
+        return list
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             Form {
@@ -22,8 +31,17 @@ struct ConnectionEditorView: View {
                 }
 
                 Section("Kapcsolat") {
-                    TextField("Host / IP", text: $draft.host, prompt: Text("10.0.0.10 vagy server.local"))
-                    TextField("Port", text: $draft.port, prompt: Text(String(draft.type.defaultPort)))
+                    if draft.type.usesPort {
+                        TextField("Host / IP", text: $draft.host, prompt: Text("10.0.0.10 vagy server.local"))
+                        TextField("Port", text: $draft.port, prompt: Text(String(draft.type.defaultPort)))
+                    } else {
+                        TextField("URL", text: $draft.host, prompt: Text("https://router.local/admin"))
+                        Picker("Böngésző", selection: $draft.browserBundleId) {
+                            Text("Alapértelmezett").tag(String?.none)
+                            Divider()
+                            ForEach(browsers) { Text($0.name).tag(Optional($0.bundleID)) }
+                        }
+                    }
                     if draft.type == .rdp {
                         Toggle("Admin session (/admin)", isOn: $draft.rdpAdminSession)
                             .help("Kapcsolódás az adminisztratív (konzol) sessionhöz, mint mstsc /admin")

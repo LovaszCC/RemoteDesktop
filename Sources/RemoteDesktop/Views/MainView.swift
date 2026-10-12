@@ -17,8 +17,9 @@ struct MainView: View {
         .toolbar {
             ToolbarItemGroup {
                 Menu {
-                    Button("Új RDP kapcsolat", systemImage: "display") { state.newConnection(.rdp) }
-                    Button("Új SSH kapcsolat", systemImage: "terminal") { state.newConnection(.ssh) }
+                    ForEach(ConnectionType.allCases, id: \.self) { type in
+                        Button(type.newTitle, systemImage: type.systemImage) { state.newConnection(type) }
+                    }
                     Divider()
                     Button("Új mappa", systemImage: "folder.badge.plus") { state.newFolder() }
                     Button("Új credential", systemImage: "person.badge.key") { state.newCredential() }

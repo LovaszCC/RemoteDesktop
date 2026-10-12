@@ -26,6 +26,14 @@ struct ConnectionDetailView: View {
     private var credential: Credential? { state.library.credential(id: connection.credentialId) }
     private var resolved: Connection { connection.resolved(with: credential) }
 
+    private var subtitle: String {
+        switch connection.type {
+        case .rdp: "RDP · Windows App" + (connection.rdpAdminSession ? " · /admin" : "")
+        case .ssh: "SSH · Ghostty"
+        case .web: "Böngésző · " + (connection.browserBundleId.map(InstalledBrowsers.name(for:)) ?? "alapértelmezett")
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -35,9 +43,7 @@ struct ConnectionDetailView: View {
                         .frame(width: 44)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(connection.name).font(.title2.weight(.semibold))
-                        Text(connection.type == .rdp
-                             ? "RDP · Windows App" + (connection.rdpAdminSession ? " · /admin" : "")
-                             : "SSH · Ghostty")
+                        Text(subtitle)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -64,8 +70,12 @@ struct ConnectionDetailView: View {
                 }
 
                 Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
-                    field("Host", connection.host, copyable: true)
-                    field("Port", String(connection.effectivePort))
+                    if connection.type.usesPort {
+                        field("Host", connection.host, copyable: true)
+                        field("Port", String(connection.effectivePort))
+                    } else {
+                        field("URL", WebLaunch.url(from: connection.host)?.absoluteString ?? connection.host, copyable: true)
+                    }
                     if connection.type == .rdp {
                         field("Admin session", connection.rdpAdminSession ? "Igen (/admin)" : "Nem")
                     }
@@ -137,8 +147,9 @@ struct FolderDetailView: View {
             Text("\(count) kapcsolat · \(LibraryTree.folderPath(folder.id, in: state.library))")
         } actions: {
             HStack {
-                Button("Új RDP") { state.newConnection(.rdp) }
-                Button("Új SSH") { state.newConnection(.ssh) }
+                ForEach(ConnectionType.allCases, id: \.self) { type in
+                    Button("Új \(type.displayName)") { state.newConnection(type) }
+                }
                 Button("Átnevezés") { state.folderEditor = folder }
             }
         }
