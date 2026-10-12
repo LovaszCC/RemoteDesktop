@@ -18,6 +18,8 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/RemoteDesktop"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 [ -f Resources/AppIcon.icns ] && cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+# Bundled licenses: FreeRDP and OpenSSL (Apache-2.0) must ship with the binary.
+cp LICENSE THIRD_PARTY_NOTICES.md "$APP/Contents/Resources/"
 # SwiftPM resource bundles of dependencies (SwiftTerm shaders, GRDB privacy manifest).
 for bundle in "$(dirname "$BIN")"/*.bundle; do
     [ -d "$bundle" ] && cp -R "$bundle" "$APP/Contents/Resources/"
