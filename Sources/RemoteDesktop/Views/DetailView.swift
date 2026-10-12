@@ -177,6 +177,7 @@ struct CredentialDetailView: View {
                     row("Jelszó", credential.passwordEnc == nil ? "" : "••••••••")
                     row("SSH kulcs", credential.sshKeyPath ?? "")
                     if credential.sshKeyPassphraseEnc != nil { row("Kulcs jelmondat", "••••••••") }
+                    if credential.sshKeyUnlockedEnc != nil { row("Feloldott kulcs", "tárolva") }
                 }
 
                 if !credential.notes.isEmpty {

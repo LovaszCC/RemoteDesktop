@@ -337,22 +337,38 @@ final class AppState {
         catch { errorMessage = "Nem sikerült visszafejteni: \(error.localizedDescription)" }
     }
 
-    func save(_ draft: CredentialDraft) {
+    /// Throws when saving failed (e.g. wrong key passphrase) so the editor can stay open and show it.
+    func save(_ draft: CredentialDraft) throws {
         guard let repo, let vault else { return }
-        perform {
-            let existing = draft.isNew ? nil : try repo.credential(id: draft.id)
-            let trimmedKey = draft.sshKeyPath.trimmingCharacters(in: .whitespaces)
-            try repo.save(Credential(
-                id: draft.id,
-                name: draft.name.trimmingCharacters(in: .whitespaces),
-                username: draft.username.trimmingCharacters(in: .whitespaces),
-                domain: draft.domain.trimmingCharacters(in: .whitespaces),
-                passwordEnc: try vault.encryptOptional(draft.password),
-                sshKeyPath: trimmedKey.isEmpty ? nil : trimmedKey,
-                sshKeyPassphraseEnc: try vault.encryptOptional(draft.sshKeyPassphrase),
-                notes: draft.notes,
-                createdAt: existing?.createdAt ?? .now
-            ))
+        let existing = draft.isNew ? nil : try repo.credential(id: draft.id)
+        let trimmedKey = draft.sshKeyPath.trimmingCharacters(in: .whitespaces)
+        let unlockedKey = try unlockedKeyEnc(path: trimmedKey, passphrase: draft.sshKeyPassphrase, existing: existing, vault: vault)
+        try repo.save(Credential(
+            id: draft.id,
+            name: draft.name.trimmingCharacters(in: .whitespaces),
+            username: draft.username.trimmingCharacters(in: .whitespaces),
+            domain: draft.domain.trimmingCharacters(in: .whitespaces),
+            passwordEnc: try vault.encryptOptional(draft.password),
+            sshKeyPath: trimmedKey.isEmpty ? nil : trimmedKey,
+            sshKeyPassphraseEnc: try vault.encryptOptional(draft.sshKeyPassphrase),
+            sshKeyUnlockedEnc: unlockedKey,
+            notes: draft.notes,
+            createdAt: existing?.createdAt ?? .now
+        ))
+    }
+
+    /// Unlocks a passphrase-protected key so SSH can use it without prompting.
+    /// Keeps the stored copy when the key file is gone but path and passphrase are unchanged.
+    private func unlockedKeyEnc(path: String, passphrase: String, existing: Credential?, vault: Vault) throws -> Data? {
+        guard !path.isEmpty, !passphrase.isEmpty else { return nil }
+        do {
+            return try vault.encrypt(SSHKeyUnlocker.unlock(keyPath: path, passphrase: passphrase))
+        } catch SSHKeyUnlockError.fileUnreadable {
+            if let existing, let stored = existing.sshKeyUnlockedEnc, existing.sshKeyPath == path,
+               try vault.decryptOptional(existing.sshKeyPassphraseEnc) == passphrase {
+                return stored
+            }
+            throw SSHKeyUnlockError.fileUnreadable(path)
         }
     }
 
@@ -407,7 +423,8 @@ final class AppState {
                 outcome = try SSHLauncher.launch(
                     connection,
                     password: password,
-                    keyPassphrase: try vault.decryptOptional(connection.sshKeyPassphraseEnc)
+                    keyPassphrase: try vault.decryptOptional(connection.sshKeyPassphraseEnc),
+                    unlockedKey: try vault.decryptOptional(library.credential(id: connection.credentialId)?.sshKeyUnlockedEnc)
                 )
             }
             switch outcome {

@@ -13,7 +13,9 @@ Devolutions Remote Desktop Manager. ~30 MB memory footprint, instant start.
 - **RDP admin session** toggle per connection (`mstsc /admin` equivalent, `administrative session:i:1`)
 - **Linked credentials**: reusable user/domain/password/SSH key entries (sidebar *Credentialok*) that
   connections link to; a linked credential replaces the entry's own login. Deleting one asks for
-  confirmation and linked entries fall back to their own saved login.
+  confirmation and linked entries fall back to their own saved login. A passphrase-protected SSH key
+  is unlocked on save (`ssh-keygen -p` on a private copy; a wrong passphrase blocks saving) and the
+  unlocked key is stored encrypted, so SSH uses it directly without a passphrase prompt or the original file.
 - Nested folders (drag & drop or *Move* menu), favourites, instant search (name, host, user, notes, folder)
 - Double-click / ⌘↩ to connect, ⌘N new RDP, ⇧⌘N new SSH, ⌥⌘N new folder, ⌃⌘N new credential, ⌘I import, ⌃⌘L lock
 - Import from Devolutions RDM `.rdm` export (folders, RDP, SSH, credential entries and their links;
