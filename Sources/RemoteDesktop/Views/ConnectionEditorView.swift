@@ -42,6 +42,12 @@ struct ConnectionEditorView: View {
                             ForEach(browsers) { Text($0.name).tag(Optional($0.bundleID)) }
                         }
                     }
+                    if draft.type == .mikrotik {
+                        Picker("Alapértelmezett mód", selection: $draft.mikrotikMode) {
+                            ForEach(MikrotikMode.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                        }
+                        .help("Dupla kattintás / ⌘↩ ezzel kapcsolódik; a másik mód a részleteknél és a helyi menüben érhető el. A port az SSH port, a WinBox a 8291-et használja.")
+                    }
                     if draft.type == .rdp {
                         Toggle("Admin session (/admin)", isOn: $draft.rdpAdminSession)
                             .help("Kapcsolódás az adminisztratív (konzol) sessionhöz, mint mstsc /admin")
@@ -61,7 +67,7 @@ struct ConnectionEditorView: View {
                     if let credential = state.library.credential(id: draft.credentialId) {
                         LabeledContent("Felhasználó", value: credential.displayUser.isEmpty ? "—" : credential.displayUser)
                         LabeledContent("Jelszó", value: credential.passwordEnc == nil ? "—" : "••••••••")
-                        if draft.type == .ssh {
+                        if draft.type.usesSSH {
                             LabeledContent("SSH kulcs", value: credential.sshKeyPath ?? "—")
                         }
                     } else {
@@ -70,7 +76,7 @@ struct ConnectionEditorView: View {
                             TextField("Domain", text: $draft.domain, prompt: Text("opcionális"))
                         }
                         SecretField(title: "Jelszó", text: $draft.password)
-                        if draft.type == .ssh {
+                        if draft.type.usesSSH {
                             SSHKeyField(path: $draft.sshKeyPath)
                             if !draft.sshKeyPath.isEmpty {
                                 SecretField(title: "Kulcs jelmondat", text: $draft.sshKeyPassphrase)
@@ -101,7 +107,7 @@ struct ConnectionEditorView: View {
             }
             .padding()
         }
-        .frame(width: 480, height: draft.type == .ssh ? 640 : 600)
+        .frame(width: 480, height: draft.type.usesSSH ? 640 : 600)
     }
 }
 

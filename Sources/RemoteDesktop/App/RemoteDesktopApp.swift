@@ -26,6 +26,8 @@ struct RemoteDesktopApp: App {
                     .keyboardShortcut("n", modifiers: [.command, .shift])
                 Button("Új böngésző kapcsolat") { state.newConnection(.web) }
                     .keyboardShortcut("b", modifiers: [.command, .shift])
+                Button("Új MikroTik kapcsolat") { state.newConnection(.mikrotik) }
+                    .keyboardShortcut("m", modifiers: [.command, .shift])
                 Button("Új mappa") { state.newFolder() }
                     .keyboardShortcut("n", modifiers: [.command, .option])
                 Button("Új credential") { state.newCredential() }

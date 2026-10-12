@@ -30,6 +30,7 @@ struct ConnectionDetailView: View {
         switch connection.type {
         case .rdp: "RDP · Windows App" + (connection.rdpAdminSession ? " · /admin" : "")
         case .ssh: "SSH · Ghostty"
+        case .mikrotik: "MikroTik · alapból \(connection.mikrotikMode.displayName)"
         case .web: "Böngésző · " + (connection.browserBundleId.map(InstalledBrowsers.name(for:)) ?? "alapértelmezett")
         }
     }
@@ -58,9 +59,15 @@ struct ConnectionDetailView: View {
                 }
 
                 HStack {
-                    Button("Kapcsolódás", systemImage: "play.fill") { state.connect(connection) }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
+                    if connection.type == .mikrotik {
+                        ForEach(MikrotikMode.allCases, id: \.self) { mode in
+                            mikrotikButton(mode)
+                        }
+                    } else {
+                        Button("Kapcsolódás", systemImage: "play.fill") { state.connect(connection) }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.large)
+                    }
                     Button("Szerkesztés", systemImage: "pencil") { state.edit(connection) }
                         .controlSize(.large)
                     if resolved.passwordEnc != nil {
@@ -95,7 +102,7 @@ struct ConnectionDetailView: View {
                         field("Domain", resolved.domain)
                     }
                     field("Jelszó", resolved.passwordEnc == nil ? "—" : "••••••••")
-                    if connection.type == .ssh {
+                    if connection.type.usesSSH {
                         field("SSH kulcs", resolved.sshKeyPath ?? "—")
                         if resolved.sshKeyPassphraseEnc != nil { field("Kulcs jelmondat", "••••••••") }
                     }
@@ -111,6 +118,20 @@ struct ConnectionDetailView: View {
             }
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// The default mode is the prominent button.
+    @ViewBuilder
+    private func mikrotikButton(_ mode: MikrotikMode) -> some View {
+        let button = Button(mode.displayName, systemImage: mode == .ssh ? "apple.terminal" : "network") {
+            state.connect(connection, mode: mode)
+        }
+        .controlSize(.large)
+        if mode == connection.mikrotikMode {
+            button.buttonStyle(.borderedProminent)
+        } else {
+            button
         }
     }
 
