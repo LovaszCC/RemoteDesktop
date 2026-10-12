@@ -2342,6 +2342,226 @@
           }
         }
       }
+    },
+    "Port forwards" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Port forwardok"
+          }
+        }
+      }
+    },
+    "New forward" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Új forward"
+          }
+        }
+      }
+    },
+    "Reach machines behind this SSH server: a port on this Mac is forwarded to a host and port the server can reach." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Érd el az SSH szerver mögötti gépeket: a Mac egy portja a szerver által elérhető host és port felé továbbítódik."
+          }
+        }
+      }
+    },
+    "Unknown host key" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ismeretlen host kulcs"
+          }
+        }
+      }
+    },
+    "Accept and Start" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elfogadás és indítás"
+          }
+        }
+      }
+    },
+    "%@ isn't in known_hosts yet. Accept only if these fingerprints match the server's keys:\n\n%@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A(z) %@ még nincs a known_hosts fájlban. Csak akkor fogadd el, ha ezek az ujjlenyomatok egyeznek a szerver kulcsaival:\n\n%@"
+          }
+        }
+      }
+    },
+    "Copy address" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cím másolása"
+          }
+        }
+      }
+    },
+    "Stop" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leállítás"
+          }
+        }
+      }
+    },
+    "Start" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indítás"
+          }
+        }
+      }
+    },
+    "Active" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aktív"
+          }
+        }
+      }
+    },
+    "Starting…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indul…"
+          }
+        }
+      }
+    },
+    "Failed" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hiba"
+          }
+        }
+      }
+    },
+    "Stopped" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leállítva"
+          }
+        }
+      }
+    },
+    "New port forward" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Új port forward"
+          }
+        }
+      }
+    },
+    "Edit port forward" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Port forward szerkesztése"
+          }
+        }
+      }
+    },
+    "Optional" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nem kötelező"
+          }
+        }
+      }
+    },
+    "Local port" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Helyi port"
+          }
+        }
+      }
+    },
+    "Remote host" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Távoli host"
+          }
+        }
+      }
+    },
+    "Remote port" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Távoli port"
+          }
+        }
+      }
+    },
+    "Connections to localhost on the local port are forwarded through the SSH server to the remote host and port." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A localhost helyi portjára érkező kapcsolatok az SSH szerveren át a távoli hostra és portra továbbítódnak."
+          }
+        }
+      }
+    },
+    "Save & Start" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mentés és indítás"
+          }
+        }
+      }
+    },
+    "Port forward active" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Port forward aktív"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

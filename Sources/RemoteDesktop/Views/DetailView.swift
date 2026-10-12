@@ -111,6 +111,10 @@ struct ConnectionDetailView: View {
                     field("Folder", LibraryTree.folderPath(connection.folderId, in: state.library))
                 }
 
+                if connection.type == .ssh {
+                    PortForwardSection(connection: connection)
+                }
+
                 if !connection.notes.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Notes").font(.headline)

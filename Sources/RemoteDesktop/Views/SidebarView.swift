@@ -171,6 +171,10 @@ struct ConnectionRow: View {
             if state.isConnected(connection.id) {
                 Circle().fill(.green).frame(width: 6, height: 6).help("Open session")
             }
+            if state.hasActivePortForward(connection.id) {
+                Image(systemName: "arrow.left.arrow.right").font(.caption2).foregroundStyle(.green)
+                    .help("Port forward active")
+            }
             if connection.isFavorite {
                 Image(systemName: "star.fill").font(.caption2).foregroundStyle(.yellow)
             }

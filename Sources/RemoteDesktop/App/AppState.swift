@@ -658,8 +658,10 @@ final class AppState {
     /// Saves the forward (optionally starting it); returns why it can't be saved.
     func savePortForward(_ forward: PortForward, start: Bool) -> String? {
         if let error = forward.validationError(among: library.portForwards) { return error.localizedDescription }
+        // A running tunnel restarts with the edited settings.
+        let wasRunning = portForwardSessions[forward.id]?.isRunning == true
         perform { try repo?.save(forward) }
-        if start { startPortForward(forward) }
+        if start || wasRunning { startPortForward(forward) }
         return nil
     }
 
@@ -710,7 +712,15 @@ final class AppState {
     }
 
     private func launchPortForward(_ forward: PortForward) {
-        portForwardSessions[forward.id]?.stop()
+        if let previous = portForwardSessions.removeValue(forKey: forward.id), previous.isRunning {
+            // Give the old ssh a moment to release the local port.
+            previous.stop()
+            Task {
+                try? await Task.sleep(for: .milliseconds(500))
+                launchPortForward(forward)
+            }
+            return
+        }
         let session = PortForwardSession(forward: forward) { [weak self] in
             guard let self, let connection = self.library.connections.first(where: { $0.id == forward.connectionId })
             else { throw VaultError.notInitialized }
