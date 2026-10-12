@@ -81,6 +81,8 @@ final class AppState {
 
     // UI state shared with menu commands.
     var selection: String?
+    /// Tag of a just-saved item to select once the observed library contains it.
+    private var pendingSelection: String?
     var searchText = ""
     var editorDraft: ConnectionDraft?
     var folderEditor: Folder?
@@ -206,8 +208,24 @@ final class AppState {
             in: repo.database.writer,
             scheduling: .immediate,
             onError: { [weak self] error in self?.errorMessage = error.localizedDescription },
-            onChange: { [weak self] library in self?.library = library }
+            onChange: { [weak self] library in
+                self?.library = library
+                self?.applyPendingSelection()
+            }
         )
+    }
+
+    /// Selects a newly saved item. The observation delivers the updated library asynchronously,
+    /// and selecting a row the sidebar `List` does not have yet leaves a ghost duplicate row.
+    func select(afterSave tag: String) {
+        pendingSelection = tag
+        applyPendingSelection()
+    }
+
+    private func applyPendingSelection() {
+        guard let tag = pendingSelection, item(for: tag) != nil else { return }
+        pendingSelection = nil
+        selection = tag
     }
 
     // MARK: Selection

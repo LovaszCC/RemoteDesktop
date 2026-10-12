@@ -43,10 +43,9 @@ struct SidebarView: View {
                             move(tags, to: nil)
                         }
                 }
-                if !library.credentials.isEmpty {
-                    Section("Credentialok") {
-                        ForEach(library.credentials) { CredentialRow(credential: $0).tag("k:\($0.id)") }
-                    }
+                // Always present: inserting the section together with its first row confuses the List.
+                Section("Credentialok") {
+                    ForEach(library.credentials) { CredentialRow(credential: $0).tag("k:\($0.id)") }
                 }
             }
         }
