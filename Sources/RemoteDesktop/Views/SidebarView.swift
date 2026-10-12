@@ -211,7 +211,13 @@ struct ItemContextMenu: View {
     var body: some View {
         switch state.item(for: tag) {
         case .connection(let connection):
-            Button("Kapcsolódás") { state.connect(connection) }
+            if connection.type == .mikrotik {
+                ForEach(MikrotikMode.allCases, id: \.self) { mode in
+                    Button("Kapcsolódás – \(mode.displayName)") { state.connect(connection, mode: mode) }
+                }
+            } else {
+                Button("Kapcsolódás") { state.connect(connection) }
+            }
             Divider()
             Button("Szerkesztés…") { state.edit(connection) }
             Button("Duplikálás") { state.duplicate(connection) }
@@ -267,6 +273,7 @@ extension ConnectionType {
         case .rdp: .blue
         case .ssh: .green
         case .web: .purple
+        case .mikrotik: .orange
         }
     }
 }

@@ -1,6 +1,6 @@
 # RemoteDesktop
 
-Lightweight native macOS launcher for saved RDP and SSH connections — a fast replacement for
+Lightweight native macOS launcher for saved RDP, SSH, browser and MikroTik connections — a fast replacement for
 Devolutions Remote Desktop Manager. ~30 MB memory footprint, instant start.
 
 - **RDP** → opens in **Windows App**; the password is typed into its credential prompt automatically
@@ -10,6 +10,9 @@ Devolutions Remote Desktop Manager. ~30 MB memory footprint, instant start.
 - **Browser** → opens the URL in the browser chosen per connection (or the default one), then copies
   the password and, a second later, the username to the clipboard — without the concealed marker or
   auto-clear, so clipboard managers such as Raycast keep both in their history.
+- **MikroTik** → SSH (same as SSH entries) or **WinBox** (`WinBox <host> <user> <password>`, logs in
+  directly; uses the default WinBox port 8291). Double-click uses the per-connection default mode; the
+  detail view and context menu offer both.
 
 ## Features
 
@@ -20,7 +23,7 @@ Devolutions Remote Desktop Manager. ~30 MB memory footprint, instant start.
   is unlocked on save (`ssh-keygen -p` on a private copy; a wrong passphrase blocks saving) and the
   unlocked key is stored encrypted, so SSH uses it directly without a passphrase prompt or the original file.
 - Nested folders (drag & drop or *Move* menu), favourites, instant search (name, host, user, notes, folder)
-- Double-click / ⌘↩ to connect, ⌘N new RDP, ⇧⌘N new SSH, ⇧⌘B new browser, ⌥⌘N new folder, ⌃⌘N new credential, ⌘I import, ⌃⌘L lock
+- Double-click / ⌘↩ to connect, ⌘N new RDP, ⇧⌘N new SSH, ⇧⌘B new browser, ⇧⌘M new MikroTik, ⌥⌘N new folder, ⌃⌘N new credential, ⌘I import, ⌃⌘L lock
 - Import from Devolutions RDM `.rdm` export (folders, RDP, SSH, credential entries and their links;
   plain-text passwords if exported)
 - SQLite database, location selectable in Settings (can live in iCloud Drive / Dropbox)

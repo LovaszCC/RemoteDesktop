@@ -23,6 +23,7 @@ struct ConnectionDraft: Identifiable, Equatable {
     var isFavorite = false
     var rdpAdminSession = false
     var browserBundleId: String?
+    var mikrotikMode: MikrotikMode = .winbox
 
     init(type: ConnectionType, folderId: String?) {
         id = UUID().uuidString
@@ -49,6 +50,7 @@ struct ConnectionDraft: Identifiable, Equatable {
         isFavorite = connection.isFavorite
         rdpAdminSession = connection.rdpAdminSession
         browserBundleId = connection.browserBundleId
+        mikrotikMode = connection.mikrotikMode
     }
 
     var isValid: Bool {
@@ -281,11 +283,12 @@ final class AppState {
                 username: draft.username.trimmingCharacters(in: .whitespaces),
                 domain: draft.type == .rdp ? draft.domain.trimmingCharacters(in: .whitespaces) : "",
                 passwordEnc: try vault.encryptOptional(draft.password),
-                sshKeyPath: draft.type == .ssh && !trimmedKey.isEmpty ? trimmedKey : nil,
-                sshKeyPassphraseEnc: draft.type == .ssh ? try vault.encryptOptional(draft.sshKeyPassphrase) : nil,
+                sshKeyPath: draft.type.usesSSH && !trimmedKey.isEmpty ? trimmedKey : nil,
+                sshKeyPassphraseEnc: draft.type.usesSSH ? try vault.encryptOptional(draft.sshKeyPassphrase) : nil,
                 isFavorite: draft.isFavorite,
                 rdpAdminSession: draft.type == .rdp && draft.rdpAdminSession,
                 browserBundleId: draft.type == .web ? draft.browserBundleId : nil,
+                mikrotikMode: draft.mikrotikMode,
                 notes: draft.notes,
                 createdAt: existing?.createdAt ?? .now
             ))
@@ -412,7 +415,8 @@ final class AppState {
 
     // MARK: Launch
 
-    func connect(_ connection: Connection) {
+    /// `mode` overrides a MikroTik connection's default mode; other types ignore it.
+    func connect(_ connection: Connection, mode: MikrotikMode? = nil) {
         guard let vault else { return }
         let connection = library.resolved(connection)
         do {
@@ -424,12 +428,12 @@ final class AppState {
                     self?.showToast(message)
                 }
             case .ssh:
-                outcome = try SSHLauncher.launch(
-                    connection,
-                    password: password,
-                    keyPassphrase: try vault.decryptOptional(connection.sshKeyPassphraseEnc),
-                    unlockedKey: try vault.decryptOptional(library.credential(id: connection.credentialId)?.sshKeyUnlockedEnc)
-                )
+                outcome = try launchSSH(connection, password: password, vault: vault)
+            case .mikrotik:
+                switch mode ?? connection.mikrotikMode {
+                case .ssh: outcome = try launchSSH(connection, password: password, vault: vault)
+                case .winbox: outcome = try WinboxLauncher.launch(connection, password: password)
+                }
             case .web:
                 outcome = try WebLauncher.launch(connection, password: password)
             }
@@ -441,6 +445,15 @@ final class AppState {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func launchSSH(_ connection: Connection, password: String?, vault: Vault) throws -> LaunchOutcome {
+        try SSHLauncher.launch(
+            connection,
+            password: password,
+            keyPassphrase: try vault.decryptOptional(connection.sshKeyPassphraseEnc),
+            unlockedKey: try vault.decryptOptional(library.credential(id: connection.credentialId)?.sshKeyUnlockedEnc)
+        )
     }
 
     func copyPassword(_ connection: Connection) {
