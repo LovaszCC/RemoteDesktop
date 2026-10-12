@@ -53,6 +53,9 @@ jobs:
           scripts/build-app.sh
           scripts/make-dmg.sh
 
+      - name: Launch smoke test
+        run: scripts/smoke-test-app.sh
+
       - name: Publish release
         if: github.ref_type == 'tag'
         env:
