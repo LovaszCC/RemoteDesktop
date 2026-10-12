@@ -2302,6 +2302,46 @@
           }
         }
       }
+    },
+    "Local port %@ is already in use." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A(z) %@ helyi port már foglalt."
+          }
+        }
+      }
+    },
+    "The tunnel didn't open within 30 seconds." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A tunnel 30 másodpercen belül nem nyílt meg."
+          }
+        }
+      }
+    },
+    "SSH exited (status %@)." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az SSH kilépett (állapot: %@)."
+          }
+        }
+      }
+    },
+    "Can't start the port forward: %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A port forward nem indítható: %@"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

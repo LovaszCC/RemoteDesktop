@@ -99,6 +99,11 @@ final class AppState {
     private(set) var sessions: [AppSession] = []
     private(set) var tabs = SessionTabs()
 
+    // SSH port forward tunnels by forward id; failed ones stay to show their error.
+    private(set) var portForwardSessions: [String: PortForwardSession] = [:]
+    /// An unknown gateway host key waiting for the user's decision before the tunnel starts.
+    var pendingHostKey: PendingHostKey?
+
     @ObservationIgnored private var repo: ConnectionRepository?
     @ObservationIgnored private var vault: Vault?
     @ObservationIgnored private var observation: AnyDatabaseCancellable?
@@ -121,6 +126,7 @@ final class AppState {
     private var keychainAccount: String { databaseURL.standardizedFileURL.path }
 
     func openDatabase() {
+        stopAllPortForwards()
         lock(clearCachedKey: false)
         do {
             let repo = ConnectionRepository(database: try AppDatabase.open(at: databaseURL))
@@ -334,6 +340,9 @@ final class AppState {
     }
 
     func delete(_ connection: Connection) {
+        for session in portForwardSessions.values where session.forward.connectionId == connection.id {
+            stopPortForward(session.forward)
+        }
         perform { try repo?.deleteConnection(id: connection.id) }
     }
 
@@ -522,7 +531,12 @@ final class AppState {
         sessions.contains { $0.connectionId == connectionId && $0.isRunning }
     }
 
-    var hasRunningSessions: Bool { sessions.contains(where: \.isRunning) }
+    var hasRunningSessions: Bool { runningSessionCount > 0 }
+
+    /// Embedded sessions and port forward tunnels that quitting would close.
+    var runningSessionCount: Int {
+        sessions.filter(\.isRunning).count + portForwardSessions.values.filter(\.isRunning).count
+    }
 
     private func openSession(for connection: Connection) throws {
         let snapshot = connection
@@ -620,6 +634,97 @@ final class AppState {
 
     func terminateAllSessions() {
         for session in sessions { session.close() }
+        stopAllPortForwards()
+    }
+
+    // MARK: Port forwards
+
+    struct PendingHostKey: Identifiable {
+        let forward: PortForward
+        let target: SSHHostKeys.Target
+        let keyLines: [String]
+        let fingerprints: [String]
+        var id: String { forward.id }
+    }
+
+    func portForwardSession(_ forward: PortForward) -> PortForwardSession? {
+        portForwardSessions[forward.id]
+    }
+
+    func hasActivePortForward(_ connectionId: String) -> Bool {
+        portForwardSessions.values.contains { $0.forward.connectionId == connectionId && $0.isRunning }
+    }
+
+    /// Saves the forward (optionally starting it); returns why it can't be saved.
+    func savePortForward(_ forward: PortForward, start: Bool) -> String? {
+        if let error = forward.validationError(among: library.portForwards) { return error.localizedDescription }
+        perform { try repo?.save(forward) }
+        if start { startPortForward(forward) }
+        return nil
+    }
+
+    func deletePortForward(_ forward: PortForward) {
+        stopPortForward(forward)
+        perform { try repo?.deletePortForward(id: forward.id) }
+    }
+
+    /// Checks the gateway's host key first: an unknown one is shown for confirmation instead of starting.
+    func startPortForward(_ forward: PortForward) {
+        guard let connection = library.connections.first(where: { $0.id == forward.connectionId }) else { return }
+        let resolved = library.resolved(connection)
+        Task {
+            do {
+                let pending = try await Task.detached { () -> PendingHostKey? in
+                    let keys = SSHHostKeys()
+                    let target = try keys.target(for: resolved)
+                    if try keys.isKnown(target) { return nil }
+                    let lines = try keys.scan(target)
+                    return PendingHostKey(forward: forward, target: target, keyLines: lines,
+                                          fingerprints: try keys.fingerprints(of: lines))
+                }.value
+                if let pending { pendingHostKey = pending } else { launchPortForward(forward) }
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func acceptPendingHostKey() {
+        guard let pending = pendingHostKey else { return }
+        pendingHostKey = nil
+        do {
+            try SSHHostKeys().trust(pending.keyLines, for: pending.target)
+            launchPortForward(pending.forward)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func stopPortForward(_ forward: PortForward) {
+        portForwardSessions.removeValue(forKey: forward.id)?.stop()
+    }
+
+    func stopAllPortForwards() {
+        for session in portForwardSessions.values { session.stop() }
+        portForwardSessions.removeAll()
+    }
+
+    private func launchPortForward(_ forward: PortForward) {
+        portForwardSessions[forward.id]?.stop()
+        let session = PortForwardSession(forward: forward) { [weak self] in
+            guard let self, let connection = self.library.connections.first(where: { $0.id == forward.connectionId })
+            else { throw VaultError.notInitialized }
+            var script = try self.sshScript(for: self.library.resolved(connection))
+            script.forward = forward
+            return try script.write()
+        }
+        portForwardSessions[forward.id] = session
+        do {
+            try session.start()
+        } catch {
+            portForwardSessions[forward.id] = nil
+            errorMessage = String(localized: "Can't start the port forward: \(error.localizedDescription)")
+        }
     }
 
     func copyPassword(_ connection: Connection) {

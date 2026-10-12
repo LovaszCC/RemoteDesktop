@@ -135,7 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let state, state.hasRunningSessions else { return .terminateNow }
         let alert = NSAlert()
         alert.messageText = String(localized: "Sessions are running")
-        let count = state.sessions.filter(\.isRunning).count
+        let count = state.runningSessionCount
         alert.informativeText = String(localized: "\(count) sessions are still running. Quitting closes all of them.")
         alert.addButton(withTitle: String(localized: "Quit"))
         alert.addButton(withTitle: String(localized: "Cancel"))
