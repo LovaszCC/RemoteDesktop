@@ -18,6 +18,8 @@ enum LaunchOutcome: Equatable {
     case passwordCopied(reason: String)
     /// Browser opened; password then username were put on the clipboard.
     case loginCopied
+    /// Opened in an embedded terminal tab; the tab itself is the feedback.
+    case embedded
 }
 
 /// Removes a temporary launch directory after a delay.

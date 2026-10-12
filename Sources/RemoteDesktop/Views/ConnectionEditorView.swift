@@ -48,6 +48,12 @@ struct ConnectionEditorView: View {
                         }
                         .help("Dupla kattintás / ⌘↩ ezzel kapcsolódik; a másik mód a részleteknél és a helyi menüben érhető el. A port az SSH port, a WinBox a 8291-et használja.")
                     }
+                    if draft.type.usesSSH {
+                        Picker("SSH terminál", selection: $draft.sshTerminal) {
+                            ForEach(SSHTerminal.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                        }
+                        .help("Beágyazott: fül az ablakon belül · Ghostty: külön terminálablak")
+                    }
                     if draft.type == .rdp {
                         Toggle("Admin session (/admin)", isOn: $draft.rdpAdminSession)
                             .help("Kapcsolódás az adminisztratív (konzol) sessionhöz, mint mstsc /admin")

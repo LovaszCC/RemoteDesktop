@@ -37,6 +37,13 @@ public struct SessionTabs: Equatable, Sendable {
         active = all[next]
     }
 
+    /// SwiftTerm reports either a decoded exit code (0...255) or, on one code path, the raw
+    /// `waitpid` status (exit code in the high byte). Normalises both to the exit code.
+    public static func exitCode(fromReported value: Int32?) -> Int32? {
+        guard let value, value > 255 else { return value }
+        return (value & 0x7f) == 0 ? (value >> 8) & 0xff : value
+    }
+
     /// A clean `exit` closes the tab; anything else keeps it open to show the error.
     public static func closesTab(exitCode: Int32?) -> Bool {
         exitCode == 0

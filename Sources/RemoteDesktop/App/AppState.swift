@@ -24,6 +24,7 @@ struct ConnectionDraft: Identifiable, Equatable {
     var rdpAdminSession = false
     var browserBundleId: String?
     var mikrotikMode: MikrotikMode = .winbox
+    var sshTerminal: SSHTerminal = .embedded
 
     init(type: ConnectionType, folderId: String?) {
         id = UUID().uuidString
@@ -51,6 +52,7 @@ struct ConnectionDraft: Identifiable, Equatable {
         rdpAdminSession = connection.rdpAdminSession
         browserBundleId = connection.browserBundleId
         mikrotikMode = connection.mikrotikMode
+        sshTerminal = connection.sshTerminal
     }
 
     var isValid: Bool {
@@ -89,6 +91,10 @@ final class AppState {
     var credentialEditor: CredentialDraft?
     var pendingCredentialDeletion: Credential?
     var isImporting = false
+
+    // Embedded terminal sessions shown as tabs in the detail area.
+    private(set) var sessions: [TerminalSession] = []
+    private(set) var tabs = SessionTabs()
 
     @ObservationIgnored private var repo: ConnectionRepository?
     @ObservationIgnored private var vault: Vault?
@@ -307,6 +313,7 @@ final class AppState {
                 rdpAdminSession: draft.type == .rdp && draft.rdpAdminSession,
                 browserBundleId: draft.type == .web ? draft.browserBundleId : nil,
                 mikrotikMode: draft.mikrotikMode,
+                sshTerminal: draft.sshTerminal,
                 notes: draft.notes,
                 createdAt: existing?.createdAt ?? .now
             ))
@@ -433,8 +440,9 @@ final class AppState {
 
     // MARK: Launch
 
-    /// `mode` overrides a MikroTik connection's default mode; other types ignore it.
-    func connect(_ connection: Connection, mode: MikrotikMode? = nil) {
+    /// `mode` overrides a MikroTik connection's default mode and `terminal` the SSH terminal
+    /// setting; other types ignore them.
+    func connect(_ connection: Connection, mode: MikrotikMode? = nil, terminal: SSHTerminal? = nil) {
         guard let vault else { return }
         let connection = library.resolved(connection)
         do {
@@ -446,10 +454,10 @@ final class AppState {
                     self?.showToast(message)
                 }
             case .ssh:
-                outcome = try launchSSH(connection, password: password, vault: vault)
+                outcome = try launchSSH(connection, terminal: terminal)
             case .mikrotik:
                 switch mode ?? connection.mikrotikMode {
-                case .ssh: outcome = try launchSSH(connection, password: password, vault: vault)
+                case .ssh: outcome = try launchSSH(connection, terminal: terminal)
                 case .winbox: outcome = try WinboxLauncher.launch(connection, password: password)
                 }
             case .web:
@@ -457,6 +465,7 @@ final class AppState {
             }
             switch outcome {
             case .launched: showToast("Kapcsolódás: \(connection.name)")
+            case .embedded: break
             case .passwordCopied(let reason): showToast("Jelszó a vágólapon (\(reason))")
             case .loginCopied: showToast("Megnyitva: \(connection.name) · jelszó, majd felhasználónév a vágólapon")
             }
@@ -465,13 +474,82 @@ final class AppState {
         }
     }
 
-    private func launchSSH(_ connection: Connection, password: String?, vault: Vault) throws -> LaunchOutcome {
-        try SSHLauncher.launch(
-            connection,
-            password: password,
+    /// `connection` is already resolved against its credential.
+    private func launchSSH(_ connection: Connection, terminal: SSHTerminal?) throws -> LaunchOutcome {
+        switch terminal ?? connection.sshTerminal {
+        case .ghostty:
+            return try SSHLauncher.launch(try sshScript(for: connection))
+        case .embedded:
+            try openSession(for: connection)
+            return .embedded
+        }
+    }
+
+    /// Launch script with freshly decrypted secrets for a resolved connection.
+    private func sshScript(for connection: Connection) throws -> SSHLaunchScript {
+        guard let vault else { throw VaultError.notInitialized }
+        return SSHLaunchScript(
+            connection: connection,
+            password: try vault.decryptOptional(connection.passwordEnc),
             keyPassphrase: try vault.decryptOptional(connection.sshKeyPassphraseEnc),
             unlockedKey: try vault.decryptOptional(library.credential(id: connection.credentialId)?.sshKeyUnlockedEnc)
         )
+    }
+
+    // MARK: Embedded sessions
+
+    var activeSession: TerminalSession? {
+        sessions.first { $0.id == tabs.active }
+    }
+
+    func isConnected(_ connectionId: String) -> Bool {
+        sessions.contains { $0.connectionId == connectionId && $0.isRunning }
+    }
+
+    var hasRunningSessions: Bool { sessions.contains(where: \.isRunning) }
+
+    private func openSession(for connection: Connection) throws {
+        let snapshot = connection
+        let session = TerminalSession(connection: connection) { [weak self] in
+            guard let self else { throw VaultError.notInitialized }
+            // Re-resolve on every (re)connect so edits to the entry or credential apply.
+            let current = self.library.connections.first { $0.id == snapshot.id }.map(self.library.resolved) ?? snapshot
+            return try self.sshScript(for: current).write()
+        }
+        session.onExit = { [weak self] session, code in
+            if SessionTabs.closesTab(exitCode: code) { self?.closeSession(session.id) }
+        }
+        try session.start()
+        sessions.append(session)
+        tabs.open(session.id)
+    }
+
+    func reconnect(_ session: TerminalSession) {
+        do { try session.reconnect() } catch { errorMessage = error.localizedDescription }
+    }
+
+    func closeSession(_ id: String) {
+        guard let index = sessions.firstIndex(where: { $0.id == id }) else { return }
+        let session = sessions.remove(at: index)
+        session.onExit = nil
+        session.terminate()
+        tabs.close(id)
+    }
+
+    func closeActiveSession() {
+        if let id = tabs.active { closeSession(id) }
+    }
+
+    func selectTab(_ id: String?) {
+        tabs.select(id)
+    }
+
+    func cycleTabs(forward: Bool) {
+        tabs.cycle(forward: forward)
+    }
+
+    func terminateAllSessions() {
+        for session in sessions { session.onExit = nil; session.terminate() }
     }
 
     func copyPassword(_ connection: Connection) {

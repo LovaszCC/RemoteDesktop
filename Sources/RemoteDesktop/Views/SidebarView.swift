@@ -151,6 +151,7 @@ private struct TreeRows: View {
 }
 
 struct ConnectionRow: View {
+    @Environment(AppState.self) private var state
     let connection: Connection
     let subtitle: String?
 
@@ -164,6 +165,9 @@ struct ConnectionRow: View {
                 }
             }
             Spacer(minLength: 4)
+            if state.isConnected(connection.id) {
+                Circle().fill(.green).frame(width: 6, height: 6).help("Nyitott session")
+            }
             if connection.isFavorite {
                 Image(systemName: "star.fill").font(.caption2).foregroundStyle(.yellow)
             }
@@ -216,6 +220,10 @@ struct ItemContextMenu: View {
                 }
             } else {
                 Button("Kapcsolódás") { state.connect(connection) }
+            }
+            if connection.type.usesSSH {
+                Button("Új beágyazott SSH session") { state.connect(connection, mode: .ssh, terminal: .embedded) }
+                Button("Megnyitás Ghostty-ban") { state.connect(connection, mode: .ssh, terminal: .ghostty) }
             }
             Divider()
             Button("Szerkesztés…") { state.edit(connection) }

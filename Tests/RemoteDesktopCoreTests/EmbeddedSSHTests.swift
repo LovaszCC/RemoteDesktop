@@ -63,6 +63,15 @@ import Testing
         #expect(tabs.active == "b")
     }
 
+    @Test func exitCodeNormalisation() {
+        #expect(SessionTabs.exitCode(fromReported: 0) == 0)
+        #expect(SessionTabs.exitCode(fromReported: 255) == 255)
+        #expect(SessionTabs.exitCode(fromReported: 128) == 128)
+        #expect(SessionTabs.exitCode(fromReported: 255 << 8) == 255)
+        #expect(SessionTabs.exitCode(fromReported: 1 << 8) == 1)
+        #expect(SessionTabs.exitCode(fromReported: nil) == nil)
+    }
+
     @Test func exitPolicy() {
         #expect(SessionTabs.closesTab(exitCode: 0))
         #expect(!SessionTabs.closesTab(exitCode: 255))
