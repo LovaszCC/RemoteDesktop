@@ -20,7 +20,7 @@ public enum ConnectionType: String, Codable, CaseIterable, Sendable {
         switch self {
         case .rdp: "RDP"
         case .ssh: "SSH"
-        case .web: String(localized: "Web", bundle: .module)
+        case .web: String(localized: "Web", bundle: .core)
         case .mikrotik: "MikroTik"
         }
     }
@@ -28,10 +28,10 @@ public enum ConnectionType: String, Codable, CaseIterable, Sendable {
     /// Menu title for creating a connection of this type.
     public var newTitle: String {
         switch self {
-        case .rdp: String(localized: "New RDP connection", bundle: .module)
-        case .ssh: String(localized: "New SSH connection", bundle: .module)
-        case .web: String(localized: "New web connection", bundle: .module)
-        case .mikrotik: String(localized: "New MikroTik connection", bundle: .module)
+        case .rdp: String(localized: "New RDP connection", bundle: .core)
+        case .ssh: String(localized: "New SSH connection", bundle: .core)
+        case .web: String(localized: "New web connection", bundle: .core)
+        case .mikrotik: String(localized: "New MikroTik connection", bundle: .core)
         }
     }
 
@@ -61,7 +61,7 @@ public enum SSHTerminal: String, Codable, CaseIterable, Sendable {
 
     public var displayName: String {
         switch self {
-        case .embedded: String(localized: "Embedded", bundle: .module)
+        case .embedded: String(localized: "Embedded", bundle: .core)
         case .ghostty: "Ghostty"
         }
     }
@@ -76,7 +76,7 @@ public enum RDPClient: String, Codable, CaseIterable, Sendable {
 
     public var displayName: String {
         switch self {
-        case .embedded: String(localized: "Embedded (FreeRDP)", bundle: .module)
+        case .embedded: String(localized: "Embedded (FreeRDP)", bundle: .core)
         case .windowsApp: "Windows App"
         }
     }

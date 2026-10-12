@@ -110,7 +110,7 @@ public enum RDMImporter {
                 port = port ?? split.port
             }
             guard !host.isEmpty else {
-                result.skipped.append(String(localized: "\(name) (no host)", bundle: .module))
+                result.skipped.append(String(localized: "\(name) (no host)", bundle: .core))
                 continue
             }
 
