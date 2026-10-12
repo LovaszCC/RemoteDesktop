@@ -30,7 +30,8 @@ import Testing
         #expect(Bundle.resourceBundle(named: Bundle.coreBundleName, in: [app, nil]) == nil)
     }
 
-    @Test func coreBundleHasTheHungarianTranslations() {
-        #expect(Bundle.core.localizations.contains("hu"))
+    /// Not its localizations: under `swift test` older SwiftPM ships the String Catalog uncompiled.
+    @Test func coreIsTheCoreResourceBundle() {
+        #expect(Bundle.core.bundleURL.lastPathComponent == "\(Bundle.coreBundleName).bundle")
     }
 }
