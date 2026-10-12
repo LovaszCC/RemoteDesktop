@@ -99,7 +99,7 @@ struct ConnectionEditorView: View {
                     .keyboardShortcut(.cancelAction)
                 Button(draft.isNew ? "Létrehozás" : "Mentés") {
                     state.save(draft)
-                    if draft.isNew { state.selection = "c:\(draft.id)" }
+                    if draft.isNew { state.select(afterSave: "c:\(draft.id)") }
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
@@ -158,7 +158,7 @@ struct CredentialEditorView: View {
                         saveError = error.localizedDescription
                         return
                     }
-                    if draft.isNew { state.selection = "k:\(draft.id)" }
+                    if draft.isNew { state.select(afterSave: "k:\(draft.id)") }
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
