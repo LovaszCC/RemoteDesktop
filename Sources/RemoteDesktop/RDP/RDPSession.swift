@@ -18,6 +18,8 @@ final class RDPSession: NSObject, Identifiable {
     private(set) var status: Status = .connecting
     /// Changes on reconnect so the host view re-attaches the new FreeRDP view.
     private(set) var bridge: RDPSessionBridge?
+    /// True while clipboard text is being typed into the session.
+    private(set) var isTyping = false
 
     /// Builds a fresh configuration (re-resolving the connection, decrypting the password).
     @ObservationIgnored private let makeConfiguration: () throws -> RDPConnectionConfiguration
@@ -47,6 +49,20 @@ final class RDPSession: NSObject, Identifiable {
         bridge?.stop()
         bridge = nil
         try start()
+    }
+
+    /// Types `text` into the focused remote control, then gives keyboard focus back to the desktop.
+    func type(_ text: String, completion: @escaping @MainActor (Bool) -> Void) {
+        guard let bridge, status == .connected, !isTyping else { return completion(false) }
+        isTyping = true
+        let keystrokes = RDPTyping.keystrokes(for: text).map { NSNumber(value: $0) }
+        bridge.view.window?.makeFirstResponder(bridge.view)
+        bridge.typeKeystrokes(keystrokes) { [weak self] finished in
+            MainActor.assumeIsolated {
+                self?.isTyping = false
+                completion(finished)
+            }
+        }
     }
 
     func stop() {

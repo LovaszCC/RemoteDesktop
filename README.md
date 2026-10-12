@@ -7,6 +7,8 @@ Devolutions Remote Desktop Manager. ~30 MB memory footprint, instant start.
   credentials go straight into FreeRDP (never on a command line), clipboard text is shared and the remote
   desktop follows the tab size (Display Control). Unknown or changed server certificates ask first.
   A logoff closes the tab; a dropped connection keeps it with the reason and a reconnect button.
+  **Vágólap begépelése** (button above the session, ⇧⌘V) types the local clipboard text into the
+  remote session as keystrokes — works where clipboard redirection does not (logon screen, consoles).
   Per connection, **Windows App** can be used instead: the password is typed into its credential
   prompt automatically (Accessibility API), or copied to the clipboard for 30 s as a fallback.
 - **SSH** → opens in an **embedded terminal tab** (SwiftTerm, like RDM) or, per connection, a new

@@ -6,6 +6,8 @@
 #include <freerdp/channels/disp.h>
 #include <freerdp/error.h>
 #include <freerdp/event.h>
+#include <freerdp/input.h>
+#include <freerdp/scancode.h>
 #include <freerdp/settings.h>
 
 #import <MacFreeRDP/MRDPView.h>
@@ -137,6 +139,7 @@ static BOOL bridge_client_new(freerdp *instance, rdpContext *context)
 	BOOL _stopping;
 	BOOL _reportedEnd;
 	NSSize _requestedSize;
+	dispatch_queue_t _typingQueue;
 }
 
 + (NSString *)freeRDPVersion
@@ -153,6 +156,7 @@ static BOOL bridge_client_new(freerdp *instance, rdpContext *context)
 		_view = [[MRDPView alloc]
 		    initWithFrame:NSMakeRect(0, 0, configuration.width, configuration.height)];
 		_view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+		_typingQueue = dispatch_queue_create("RDPSessionBridge.typing", DISPATCH_QUEUE_SERIAL);
 	}
 	return self;
 }
@@ -247,7 +251,11 @@ static BOOL bridge_client_new(freerdp *instance, rdpContext *context)
 	MRDPView *view = _view;
 	[view removeFromSuperview];
 	// The connection thread dispatch_syncs onto main while painting, so it must not be joined here.
+	dispatch_queue_t typingQueue = _typingQueue;
 	dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+		// Typing checks _stopping per keystroke; let it drain before the context goes away.
+		dispatch_sync(typingQueue, ^{
+		});
 		freerdp_client_stop(context);
 		dispatch_async(dispatch_get_main_queue(), ^{
 			[view releaseResources];
@@ -268,6 +276,48 @@ static BOOL bridge_client_new(freerdp *instance, rdpContext *context)
 	_requestedSize = size;
 	[NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(sendMonitorLayout) object:nil];
 	[self performSelector:@selector(sendMonitorLayout) withObject:nil afterDelay:0.3];
+}
+
+- (void)typeKeystrokes:(NSArray<NSNumber *> *)keystrokes
+            completion:(void (^)(BOOL finished))completion
+{
+	rdpContext *context = _context;
+	if (!context || !_connected || _stopping)
+	{
+		if (completion)
+			completion(NO);
+		return;
+	}
+	NSArray<NSNumber *> *keys = [keystrokes copy];
+	dispatch_async(_typingQueue, ^{
+		BOOL finished = YES;
+		for (NSNumber *key in keys)
+		{
+			if (self->_stopping || !self->_connected)
+			{
+				finished = NO;
+				break;
+			}
+			rdpInput *input = context->input;
+			const int32_t value = key.intValue;
+			if (value == -1 || value == -2)
+			{
+				const UINT32 scancode = value == -1 ? RDP_SCANCODE_RETURN : RDP_SCANCODE_TAB;
+				(void)freerdp_input_send_keyboard_event_ex(input, TRUE, FALSE, scancode);
+				(void)freerdp_input_send_keyboard_event_ex(input, FALSE, FALSE, scancode);
+			}
+			else if (value >= 0)
+			{
+				(void)freerdp_input_send_unicode_keyboard_event(input, 0, (UINT16)value);
+				(void)freerdp_input_send_unicode_keyboard_event(input, KBD_FLAGS_RELEASE, (UINT16)value);
+			}
+			usleep(2000);
+		}
+		if (completion)
+			dispatch_async(dispatch_get_main_queue(), ^{
+				completion(finished);
+			});
+	});
 }
 
 /// Display Control: widths must be even, both dimensions within 200...8192.

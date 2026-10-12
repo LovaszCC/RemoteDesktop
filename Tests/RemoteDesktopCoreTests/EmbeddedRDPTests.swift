@@ -56,4 +56,14 @@ import Testing
         #expect(RDPDisconnectReason(lastError: 0, errorInfo: 0x05) == .failure) // taken over
         #expect(RDPDisconnectReason(lastError: 0x0002_0009, errorInfo: 0) == .failure)
     }
+
+    @Test func typingKeystrokes() {
+        #expect(RDPTyping.keystrokes(for: "aB") == [0x61, 0x42])
+        #expect(RDPTyping.keystrokes(for: "a\r\nb\nc\rd") == [0x61, -1, 0x62, -1, 0x63, -1, 0x64])
+        #expect(RDPTyping.keystrokes(for: "\r\n\r\n") == [-1, -1])
+        #expect(RDPTyping.keystrokes(for: "x\ty") == [0x78, -2, 0x79])
+        #expect(RDPTyping.keystrokes(for: "őű") == [0x0151, 0x0171])
+        #expect(RDPTyping.keystrokes(for: "😀") == [0xD83D, 0xDE00])
+        #expect(RDPTyping.keystrokes(for: "").isEmpty)
+    }
 }
