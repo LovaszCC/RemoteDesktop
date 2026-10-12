@@ -52,6 +52,21 @@ public enum ConnectionType: String, Codable, CaseIterable, Sendable {
     public var usesSSH: Bool { self == .ssh || self == .mikrotik }
 }
 
+/// Where an SSH session runs.
+public enum SSHTerminal: String, Codable, CaseIterable, Sendable {
+    /// Tab inside the main window.
+    case embedded
+    /// Separate Ghostty window.
+    case ghostty
+
+    public var displayName: String {
+        switch self {
+        case .embedded: "Beágyazott"
+        case .ghostty: "Ghostty"
+        }
+    }
+}
+
 /// How a MikroTik connection is opened.
 public enum MikrotikMode: String, Codable, CaseIterable, Sendable {
     case winbox
@@ -88,6 +103,8 @@ public struct Connection: Codable, Hashable, Identifiable, Sendable {
     public var browserBundleId: String?
     /// MikroTik only: mode used by double-click / ⌘↩.
     public var mikrotikMode: MikrotikMode
+    /// SSH / MikroTik SSH: embedded tab or Ghostty window.
+    public var sshTerminal: SSHTerminal
     public var notes: String
     public var createdAt: Date
     public var updatedAt: Date
@@ -109,6 +126,7 @@ public struct Connection: Codable, Hashable, Identifiable, Sendable {
         rdpAdminSession: Bool = false,
         browserBundleId: String? = nil,
         mikrotikMode: MikrotikMode = .winbox,
+        sshTerminal: SSHTerminal = .embedded,
         notes: String = "",
         createdAt: Date = .now,
         updatedAt: Date = .now
@@ -129,6 +147,7 @@ public struct Connection: Codable, Hashable, Identifiable, Sendable {
         self.rdpAdminSession = rdpAdminSession
         self.browserBundleId = browserBundleId
         self.mikrotikMode = mikrotikMode
+        self.sshTerminal = sshTerminal
         self.notes = notes
         self.createdAt = createdAt
         self.updatedAt = updatedAt

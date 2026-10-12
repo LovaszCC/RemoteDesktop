@@ -123,6 +123,12 @@ public final class AppDatabase: Sendable {
             }
         }
 
+        migrator.registerMigration("v7-ssh-terminal") { db in
+            try db.alter(table: "connection") { t in
+                t.add(column: "sshTerminal", .text).notNull().defaults(to: SSHTerminal.embedded.rawValue)
+            }
+        }
+
         return migrator
     }
 }
