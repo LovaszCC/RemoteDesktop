@@ -8,7 +8,7 @@ A lightweight, native macOS connection manager for **RDP, SSH, web and MikroTik*
 alternative to Devolutions Remote Desktop Manager. Around 30 MB of memory, instant start, everything
 behind one master password.
 
-> The user interface is in Hungarian.
+> Available in **English** and **Hungarian**. Switch in *Settings → Language*; it applies after a restart.
 
 ## Install
 
@@ -38,7 +38,7 @@ Requires an Apple Silicon Mac with macOS 15 or later. Optional apps it can hand 
 | **Web** | Chosen browser or the default one | Password, then username copied to the clipboard for pasting into the login form |
 | **MikroTik** | SSH or WinBox | WinBox logs in directly; double-click uses the per-connection default mode |
 
-**RDP** credentials go straight into FreeRDP, never on a command line. The *Vágólap begépelése* button
+**RDP** credentials go straight into FreeRDP, never on a command line. The *Type clipboard* button
 (⇧⌘V) types the local clipboard into the session as keystrokes, which works where clipboard sharing does
 not (logon screen, consoles). A logoff closes the tab; a dropped connection keeps it with the reason and a
 reconnect button. With Windows App, the password is typed into its prompt automatically, or copied to the
@@ -54,6 +54,7 @@ clean `exit` closes the tab, a dropped connection keeps it with a reconnect butt
 - **Folders and favourites**: nested folders with drag & drop, favourites on top.
 - **Instant search** across name, host, user, notes and folder.
 - **Tabs** for embedded sessions; quitting with open sessions asks first.
+- **English and Hungarian** interface, switchable in Settings.
 - **Import** from a Devolutions RDM `.rdm` export (see below).
 - **Portable database**: a single SQLite file whose location you choose in Settings, so it can live in
   iCloud Drive or Dropbox.
