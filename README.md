@@ -3,8 +3,12 @@
 Lightweight native macOS launcher for saved RDP, SSH, browser and MikroTik connections — a fast replacement for
 Devolutions Remote Desktop Manager. ~30 MB memory footprint, instant start.
 
-- **RDP** → opens in **Windows App**; the password is typed into its credential prompt automatically
-  (Accessibility API), or copied to the clipboard for 30 s as a fallback.
+- **RDP** → opens in an **embedded FreeRDP tab** (statically linked FreeRDP 3.32.1, native Mac client):
+  credentials go straight into FreeRDP (never on a command line), clipboard text is shared and the remote
+  desktop follows the tab size (Display Control). Unknown or changed server certificates ask first.
+  A logoff closes the tab; a dropped connection keeps it with the reason and a reconnect button.
+  Per connection, **Windows App** can be used instead: the password is typed into its credential
+  prompt automatically (Accessibility API), or copied to the clipboard for 30 s as a fallback.
 - **SSH** → opens in an **embedded terminal tab** (SwiftTerm, like RDM) or, per connection, a new
   **Ghostty** window. Both run the system `ssh`, so `~/.ssh/config`, `known_hosts` and jump hosts work;
   password / key passphrase are supplied automatically through `SSH_ASKPASS` (no `sshpass` needed).
@@ -43,7 +47,9 @@ Devolutions Remote Desktop Manager. ~30 MB memory footprint, instant start.
 
 ## Build & install
 
-Requires Xcode 16+ / Swift 6 and macOS 15+. SwiftTerm compiles a Metal shader, so newer Xcode
+Requires Xcode 16+ / Swift 6 and macOS 15+. The embedded RDP client needs a one-time static FreeRDP
+build (`scripts/build-freerdp.sh`, ~10 min, requires `brew install cmake ninja`); `build-app.sh` runs it
+automatically when `Vendor/FreeRDP.xcframework` is missing. Upstream fixes live in `patches/freerdp/`. SwiftTerm compiles a Metal shader, so newer Xcode
 versions need the Metal Toolchain once: `xcodebuild -downloadComponent MetalToolchain`.
 
 ```sh
