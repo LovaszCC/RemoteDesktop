@@ -111,6 +111,12 @@ public final class AppDatabase: Sendable {
             }
         }
 
+        migrator.registerMigration("v5-web") { db in
+            try db.alter(table: "connection") { t in
+                t.add(column: "browserBundleId", .text)
+            }
+        }
+
         return migrator
     }
 }
