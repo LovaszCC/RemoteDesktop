@@ -13,12 +13,12 @@ struct RootView: View {
                 MainView()
             case .failed(let message):
                 ContentUnavailableView {
-                    Label("Hiba", systemImage: "exclamationmark.triangle")
+                    Label("Error", systemImage: "exclamationmark.triangle")
                 } description: {
                     Text(message)
                 } actions: {
-                    SettingsLink { Text("Beállítások…") }
-                    Button("Újra") { state.openDatabase() }
+                    SettingsLink { Text("Settings…") }
+                    Button("Retry") { state.openDatabase() }
                 }
             }
         }

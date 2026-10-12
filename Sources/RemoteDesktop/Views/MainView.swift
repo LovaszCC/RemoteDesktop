@@ -14,7 +14,7 @@ struct MainView: View {
             DetailArea()
         }
         .onChange(of: state.selection) { state.selectTab(nil) }
-        .searchable(text: $state.searchText, placement: .sidebar, prompt: "Keresés")
+        .searchable(text: $state.searchText, placement: .sidebar, prompt: "Search")
         .toolbar {
             ToolbarItemGroup {
                 Menu {
@@ -22,15 +22,15 @@ struct MainView: View {
                         Button(type.newTitle, systemImage: type.systemImage) { state.newConnection(type) }
                     }
                     Divider()
-                    Button("Új mappa", systemImage: "folder.badge.plus") { state.newFolder() }
-                    Button("Új credential", systemImage: "person.badge.key") { state.newCredential() }
+                    Button("New folder", systemImage: "folder.badge.plus") { state.newFolder() }
+                    Button("New credential", systemImage: "person.badge.key") { state.newCredential() }
                 } label: {
-                    Label("Új", systemImage: "plus")
+                    Label("New", systemImage: "plus")
                 }
-                .help("Új kapcsolat vagy mappa")
+                .help("New connection or folder")
 
-                Button("Importálás", systemImage: "square.and.arrow.down") { state.isImporting = true }
-                    .help("Importálás Devolutions RDM exportból (.rdm)")
+                Button("Import", systemImage: "square.and.arrow.down") { state.isImporting = true }
+                    .help("Import from a Devolutions RDM export (.rdm)")
             }
         }
         .sheet(item: $state.editorDraft) { draft in
@@ -43,18 +43,18 @@ struct MainView: View {
             CredentialEditorView(draft: draft)
         }
         .confirmationDialog(
-            "Credential törlése?",
+            "Delete credential?",
             isPresented: Binding(
                 get: { state.pendingCredentialDeletion != nil },
                 set: { if !$0 { state.pendingCredentialDeletion = nil } }
             ),
             presenting: state.pendingCredentialDeletion
         ) { credential in
-            Button("Törlés", role: .destructive) { state.confirmDelete(credential) }
-            Button("Mégse", role: .cancel) {}
+            Button("Delete", role: .destructive) { state.confirmDelete(credential) }
+            Button("Cancel", role: .cancel) {}
         } message: { credential in
             let count = state.library.connections(using: credential.id).count
-            Text("\(count) kapcsolat használja a(z) „\(credential.name)” credentialt. Törlés után ezek a saját mentett adataikat használják.")
+            Text("\(count) connections use the credential “\(credential.name)”. After deleting it they use their own saved login.")
         }
         .fileImporter(
             isPresented: $state.isImporting,

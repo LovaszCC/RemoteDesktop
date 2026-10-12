@@ -20,7 +20,7 @@ public enum ConnectionType: String, Codable, CaseIterable, Sendable {
         switch self {
         case .rdp: "RDP"
         case .ssh: "SSH"
-        case .web: "Böngésző"
+        case .web: String(localized: "Web", bundle: .module)
         case .mikrotik: "MikroTik"
         }
     }
@@ -28,10 +28,10 @@ public enum ConnectionType: String, Codable, CaseIterable, Sendable {
     /// Menu title for creating a connection of this type.
     public var newTitle: String {
         switch self {
-        case .rdp: "Új RDP kapcsolat"
-        case .ssh: "Új SSH kapcsolat"
-        case .web: "Új böngésző kapcsolat"
-        case .mikrotik: "Új MikroTik kapcsolat"
+        case .rdp: String(localized: "New RDP connection", bundle: .module)
+        case .ssh: String(localized: "New SSH connection", bundle: .module)
+        case .web: String(localized: "New web connection", bundle: .module)
+        case .mikrotik: String(localized: "New MikroTik connection", bundle: .module)
         }
     }
 
@@ -61,7 +61,7 @@ public enum SSHTerminal: String, Codable, CaseIterable, Sendable {
 
     public var displayName: String {
         switch self {
-        case .embedded: "Beágyazott"
+        case .embedded: String(localized: "Embedded", bundle: .module)
         case .ghostty: "Ghostty"
         }
     }
@@ -76,7 +76,7 @@ public enum RDPClient: String, Codable, CaseIterable, Sendable {
 
     public var displayName: String {
         switch self {
-        case .embedded: "Beágyazott (FreeRDP)"
+        case .embedded: String(localized: "Embedded (FreeRDP)", bundle: .module)
         case .windowsApp: "Windows App"
         }
     }

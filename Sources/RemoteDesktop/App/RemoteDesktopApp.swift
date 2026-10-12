@@ -8,6 +8,8 @@ struct RemoteDesktopApp: App {
     @State private var state = AppState()
 
     init() {
+        // Before any string is looked up, so a Hungarian system doesn't pick Hungarian on its own.
+        AppLanguage.applyDefaultIfUnset()
         // Needed when launched as a bare executable (`swift run`) instead of from the .app bundle.
         NSApplication.shared.setActivationPolicy(.regular)
     }
@@ -22,41 +24,41 @@ struct RemoteDesktopApp: App {
         .defaultSize(width: 1000, height: 640)
         .commands {
             CommandGroup(replacing: .newItem) {
-                Button("Új RDP kapcsolat") { state.newConnection(.rdp) }
+                Button(ConnectionType.rdp.newTitle) { state.newConnection(.rdp) }
                     .keyboardShortcut("n")
-                Button("Új SSH kapcsolat") { state.newConnection(.ssh) }
+                Button(ConnectionType.ssh.newTitle) { state.newConnection(.ssh) }
                     .keyboardShortcut("n", modifiers: [.command, .shift])
-                Button("Új böngésző kapcsolat") { state.newConnection(.web) }
+                Button(ConnectionType.web.newTitle) { state.newConnection(.web) }
                     .keyboardShortcut("b", modifiers: [.command, .shift])
-                Button("Új MikroTik kapcsolat") { state.newConnection(.mikrotik) }
+                Button(ConnectionType.mikrotik.newTitle) { state.newConnection(.mikrotik) }
                     .keyboardShortcut("m", modifiers: [.command, .shift])
-                Button("Új mappa") { state.newFolder() }
+                Button("New folder") { state.newFolder() }
                     .keyboardShortcut("n", modifiers: [.command, .option])
-                Button("Új credential") { state.newCredential() }
+                Button("New credential") { state.newCredential() }
                     .keyboardShortcut("n", modifiers: [.command, .control])
                 Divider()
-                Button("Importálás RDM-ből…") { state.isImporting = true }
+                Button("Import from RDM…") { state.isImporting = true }
                     .keyboardShortcut("i")
                     .disabled(state.phase != .unlocked)
             }
-            CommandMenu("Kapcsolat") {
-                Button("Kapcsolódás") {
+            CommandMenu("Connection") {
+                Button("Connect") {
                     if let tag = state.selection { state.activate(tag: tag) }
                 }
                 .keyboardShortcut(.return, modifiers: .command)
                 .disabled(state.phase != .unlocked)
                 Divider()
-                Button("Vágólap begépelése az RDP sessionbe") { state.typeClipboardIntoActiveSession() }
+                Button("Type clipboard into RDP session") { state.typeClipboardIntoActiveSession() }
                     .keyboardShortcut("v", modifiers: [.command, .shift])
                     .disabled(state.activeRDPSession?.status != .connected)
-                Button("Session bezárása") { state.closeActiveSession() }
+                Button("Close session") { state.closeActiveSession() }
                     .disabled(state.activeSession == nil)
-                Button("Következő fül") { state.cycleTabs(forward: true) }
+                Button("Next tab") { state.cycleTabs(forward: true) }
                     .disabled(state.sessions.isEmpty)
-                Button("Előző fül") { state.cycleTabs(forward: false) }
+                Button("Previous tab") { state.cycleTabs(forward: false) }
                     .disabled(state.sessions.isEmpty)
                 Divider()
-                Button("Zárolás") { state.lock() }
+                Button("Lock") { state.lock() }
                     .keyboardShortcut("l", modifiers: [.command, .control])
                     .disabled(state.phase != .unlocked)
             }
@@ -116,13 +118,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let state, state.hasRunningSessions else { return .terminateNow }
         let alert = NSAlert()
-        alert.messageText = "Futó SSH sessionök"
+        alert.messageText = String(localized: "Sessions are running")
         let count = state.sessions.filter(\.isRunning).count
-        alert.informativeText = "\(count) session még fut. Kilépéskor mind lezárul."
-        alert.addButton(withTitle: "Kilépés")
-        alert.addButton(withTitle: "Mégse")
-        guard alert.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
+        alert.informativeText = String(localized: "\(count) sessions are still running. Quitting closes all of them.")
+        alert.addButton(withTitle: String(localized: "Quit"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            AppRelaunch.isRequested = false // a later, ordinary quit must not relaunch
+            return .terminateCancel
+        }
         state.terminateAllSessions()
         return .terminateNow
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        AppRelaunch.launchReplacementIfRequested()
     }
 }

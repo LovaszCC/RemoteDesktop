@@ -50,10 +50,10 @@ struct RDPSessionView: View {
                 Button {
                     state.typeClipboardIntoActiveSession()
                 } label: {
-                    Label(session.isTyping ? "Begépelés…" : "Vágólap begépelése", systemImage: "keyboard.badge.ellipsis")
+                    Label(session.isTyping ? "Typing…" : "Type clipboard", systemImage: "keyboard.badge.ellipsis")
                 }
                 .disabled(session.status != .connected || session.isTyping)
-                .help("A helyi vágólap szövegét begépeli oda, ahol a kurzor áll a távoli gépen (⌘⇧V)")
+                .help("Types the local clipboard text where the cursor is on the remote machine (⇧⌘V)")
                 Spacer()
             }
             .controlSize(.small)
@@ -68,7 +68,7 @@ struct RDPSessionView: View {
                         .id(ObjectIdentifier(bridge))
                 }
                 if session.status == .connecting {
-                    ProgressView("Kapcsolódás: \(session.title)…")
+                    ProgressView("Connecting: \(session.title)…")
                         .padding(20)
                         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
                 }
@@ -76,12 +76,18 @@ struct RDPSessionView: View {
             if case .ended(_, let message) = session.status {
                 HStack(spacing: 10) {
                     Image(systemName: "bolt.horizontal.circle").foregroundStyle(.orange)
-                    Text(message.isEmpty ? "A kapcsolat váratlanul megszakadt (a szerver nem adott okot)" : message)
-                        .lineLimit(2)
+                    Group {
+                        if message.isEmpty {
+                            Text("The connection dropped unexpectedly (the server gave no reason)")
+                        } else {
+                            Text(message)
+                        }
+                    }
+                    .lineLimit(2)
                     Spacer()
-                    Button("Újrakapcsolódás", systemImage: "arrow.clockwise") { state.reconnect(session) }
+                    Button("Reconnect", systemImage: "arrow.clockwise") { state.reconnect(session) }
                         .keyboardShortcut("r")
-                    Button("Bezárás") { state.closeSession(session.id) }
+                    Button("Close") { state.closeSession(session.id) }
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)

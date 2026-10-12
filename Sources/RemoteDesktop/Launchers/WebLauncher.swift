@@ -10,7 +10,7 @@ enum WebLauncher {
     /// the other — without the concealed marker or auto-clear, so the clipboard history keeps both.
     static func launch(_ connection: Connection, password: String?) throws -> LaunchOutcome {
         guard let url = WebLaunch.url(from: connection.host) else {
-            throw LaunchError.openFailed("Érvénytelen URL: \(connection.host)")
+            throw LaunchError.openFailed(String(localized: "Invalid URL: \(connection.host)"))
         }
         if let bundleID = connection.browserBundleId,
            NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) == nil {

@@ -3,7 +3,12 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleDevelopmentRegion</key>
-    <string>hu</string>
+    <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>hu</string>
+    </array>
     <key>CFBundleExecutable</key>
     <string>RemoteDesktop</string>
     <key>CFBundleIdentifier</key>

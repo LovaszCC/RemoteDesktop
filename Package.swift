@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "RemoteDesktop",
+    defaultLocalization: "en",
     platforms: [.macOS(.v15)],
     products: [
         .executable(name: "RemoteDesktop", targets: ["RemoteDesktop"]),
@@ -14,7 +15,8 @@ let package = Package(
     targets: [
         .target(
             name: "RemoteDesktopCore",
-            dependencies: [.product(name: "GRDB", package: "GRDB.swift")]
+            dependencies: [.product(name: "GRDB", package: "GRDB.swift")],
+            resources: [.process("Resources")]
         ),
         .executableTarget(
             name: "RemoteDesktop",
@@ -23,7 +25,8 @@ let package = Package(
                 .product(name: "GRDB", package: "GRDB.swift"),
                 .product(name: "SwiftTerm", package: "SwiftTerm"),
                 "RDPBridge",
-            ]
+            ],
+            resources: [.process("Resources")]
         ),
         // Static FreeRDP + OpenSSL built by scripts/build-freerdp.sh.
         .binaryTarget(name: "FreeRDP", path: "Vendor/FreeRDP.xcframework"),

@@ -20,53 +20,53 @@ struct ConnectionEditorView: View {
             Form {
                 Section {
                     if draft.isNew {
-                        Picker("Típus", selection: $draft.type) {
+                        Picker("Type", selection: $draft.type) {
                             ForEach(ConnectionType.allCases, id: \.self) { Text($0.displayName).tag($0) }
                         }
                         .pickerStyle(.segmented)
                     }
-                    TextField("Név", text: $draft.name, prompt: Text("pl. web01 – prod"))
-                    FolderPicker(title: "Mappa", library: state.library, selection: $draft.folderId)
-                    Toggle("Kedvenc", isOn: $draft.isFavorite)
+                    TextField("Name", text: $draft.name, prompt: Text("e.g. web01 – prod"))
+                    FolderPicker(title: "Folder", library: state.library, selection: $draft.folderId)
+                    Toggle("Favorite", isOn: $draft.isFavorite)
                 }
 
-                Section("Kapcsolat") {
+                Section("Connection") {
                     if draft.type.usesPort {
-                        TextField("Host / IP", text: $draft.host, prompt: Text("10.0.0.10 vagy server.local"))
+                        TextField("Host / IP", text: $draft.host, prompt: Text("10.0.0.10 or server.local"))
                         TextField("Port", text: $draft.port, prompt: Text(String(draft.type.defaultPort)))
                     } else {
                         TextField("URL", text: $draft.host, prompt: Text("https://router.local/admin"))
-                        Picker("Böngésző", selection: $draft.browserBundleId) {
-                            Text("Alapértelmezett").tag(String?.none)
+                        Picker("Browser", selection: $draft.browserBundleId) {
+                            Text("Default").tag(String?.none)
                             Divider()
                             ForEach(browsers) { Text($0.name).tag(Optional($0.bundleID)) }
                         }
                     }
                     if draft.type == .mikrotik {
-                        Picker("Alapértelmezett mód", selection: $draft.mikrotikMode) {
+                        Picker("Default mode", selection: $draft.mikrotikMode) {
                             ForEach(MikrotikMode.allCases, id: \.self) { Text($0.displayName).tag($0) }
                         }
-                        .help("Dupla kattintás / ⌘↩ ezzel kapcsolódik; a másik mód a részleteknél és a helyi menüben érhető el. A port az SSH port, a WinBox a 8291-et használja.")
+                        .help("Double-click / ⌘↩ connects with this mode; the other one is in the details and the context menu. The port is the SSH port; WinBox uses 8291.")
                     }
                     if draft.type.usesSSH {
-                        Picker("SSH terminál", selection: $draft.sshTerminal) {
+                        Picker("SSH terminal", selection: $draft.sshTerminal) {
                             ForEach(SSHTerminal.allCases, id: \.self) { Text($0.displayName).tag($0) }
                         }
-                        .help("Beágyazott: fül az ablakon belül · Ghostty: külön terminálablak")
+                        .help("Embedded: tab inside the window · Ghostty: separate terminal window")
                     }
                     if draft.type == .rdp {
-                        Picker("RDP kliens", selection: $draft.rdpClient) {
+                        Picker("RDP client", selection: $draft.rdpClient) {
                             ForEach(RDPClient.allCases, id: \.self) { Text($0.displayName).tag($0) }
                         }
-                        .help("Beágyazott: FreeRDP fül az ablakon belül · Windows App: külön alkalmazás")
+                        .help("Embedded: FreeRDP tab inside the window · Windows App: separate app")
                         Toggle("Admin session (/admin)", isOn: $draft.rdpAdminSession)
-                            .help("Kapcsolódás az adminisztratív (konzol) sessionhöz, mint mstsc /admin")
+                            .help("Connect to the administrative (console) session, like mstsc /admin")
                     }
                 }
 
-                Section("Hitelesítés") {
+                Section("Authentication") {
                     Picker("Credential", selection: $draft.credentialId) {
-                        Text("Saját adatok").tag(String?.none)
+                        Text("Own login").tag(String?.none)
                         if !state.library.credentials.isEmpty { Divider() }
                         ForEach(state.library.credentials) { credential in
                             Text(credential.displayUser.isEmpty ? credential.name : "\(credential.name) (\(credential.displayUser))")
@@ -75,27 +75,27 @@ struct ConnectionEditorView: View {
                     }
 
                     if let credential = state.library.credential(id: draft.credentialId) {
-                        LabeledContent("Felhasználó", value: credential.displayUser.isEmpty ? "—" : credential.displayUser)
-                        LabeledContent("Jelszó", value: credential.passwordEnc == nil ? "—" : "••••••••")
+                        LabeledContent("User", value: credential.displayUser.isEmpty ? "—" : credential.displayUser)
+                        LabeledContent("Password", value: credential.passwordEnc == nil ? "—" : "••••••••")
                         if draft.type.usesSSH {
-                            LabeledContent("SSH kulcs", value: credential.sshKeyPath ?? "—")
+                            LabeledContent("SSH key", value: credential.sshKeyPath ?? "—")
                         }
                     } else {
-                        TextField("Felhasználónév", text: $draft.username)
+                        TextField("Username", text: $draft.username)
                         if draft.type == .rdp {
-                            TextField("Domain", text: $draft.domain, prompt: Text("opcionális"))
+                            TextField("Domain", text: $draft.domain, prompt: Text("optional"))
                         }
-                        SecretField(title: "Jelszó", text: $draft.password)
+                        SecretField(title: "Password", text: $draft.password)
                         if draft.type.usesSSH {
                             SSHKeyField(path: $draft.sshKeyPath)
                             if !draft.sshKeyPath.isEmpty {
-                                SecretField(title: "Kulcs jelmondat", text: $draft.sshKeyPassphrase)
+                                SecretField(title: "Key passphrase", text: $draft.sshKeyPassphrase)
                             }
                         }
                     }
                 }
 
-                Section("Jegyzet") {
+                Section("Notes") {
                     TextEditor(text: $draft.notes)
                         .frame(minHeight: 60)
                         .font(.body)
@@ -105,9 +105,9 @@ struct ConnectionEditorView: View {
 
             HStack {
                 Spacer()
-                Button("Mégse", role: .cancel) { dismiss() }
+                Button("Cancel", role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button(draft.isNew ? "Létrehozás" : "Mentés") {
+                Button(draft.isNew ? "Create" : "Save") {
                     state.save(draft)
                     if draft.isNew { state.select(afterSave: "c:\(draft.id)") }
                     dismiss()
@@ -131,20 +131,20 @@ struct CredentialEditorView: View {
         VStack(spacing: 0) {
             Form {
                 Section {
-                    TextField("Név", text: $draft.name, prompt: Text("pl. Domain Admin"))
+                    TextField("Name", text: $draft.name, prompt: Text("e.g. Domain Admin"))
                 }
                 Section("Windows / RDP") {
-                    TextField("Felhasználónév", text: $draft.username)
-                    TextField("Domain", text: $draft.domain, prompt: Text("opcionális, SSH-nál nem használt"))
-                    SecretField(title: "Jelszó", text: $draft.password)
+                    TextField("Username", text: $draft.username)
+                    TextField("Domain", text: $draft.domain, prompt: Text("optional, not used for SSH"))
+                    SecretField(title: "Password", text: $draft.password)
                 }
-                Section("SSH kulcs (opcionális)") {
+                Section("SSH key (optional)") {
                     SSHKeyField(path: $draft.sshKeyPath)
                     if !draft.sshKeyPath.isEmpty {
-                        SecretField(title: "Kulcs jelmondat", text: $draft.sshKeyPassphrase)
+                        SecretField(title: "Key passphrase", text: $draft.sshKeyPassphrase)
                     }
                 }
-                Section("Jegyzet") {
+                Section("Notes") {
                     TextEditor(text: $draft.notes)
                         .frame(minHeight: 50)
                         .font(.body)
@@ -159,9 +159,9 @@ struct CredentialEditorView: View {
                         .lineLimit(3)
                 }
                 Spacer()
-                Button("Mégse", role: .cancel) { dismiss() }
+                Button("Cancel", role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button(draft.isNew ? "Létrehozás" : "Mentés") {
+                Button(draft.isNew ? "Create" : "Save") {
                     do {
                         try state.save(draft)
                     } catch {
@@ -188,17 +188,17 @@ struct FolderEditorView: View {
     var body: some View {
         let isNew = !state.library.folders.contains { $0.id == folder.id }
         VStack(alignment: .leading, spacing: 14) {
-            Text(isNew ? "Új mappa" : "Mappa átnevezése").font(.headline)
-            TextField("Név", text: $folder.name)
+            Text(isNew ? "New folder" : "Rename folder").font(.headline)
+            TextField("Name", text: $folder.name)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(save)
             if isNew {
-                FolderPicker(title: "Szülő", library: state.library, selection: $folder.parentId)
+                FolderPicker(title: "Parent", library: state.library, selection: $folder.parentId)
             }
             HStack {
                 Spacer()
-                Button("Mégse", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
-                Button(isNew ? "Létrehozás" : "Mentés", action: save)
+                Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
+                Button(isNew ? "Create" : "Save", action: save)
                     .keyboardShortcut(.defaultAction)
                     .disabled(folder.name.trimmingCharacters(in: .whitespaces).isEmpty)
             }

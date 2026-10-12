@@ -28,7 +28,8 @@ import Testing
     }
 
     @Test func typeMetadata() {
-        #expect(ConnectionType.web.displayName == "Böngésző")
+        // Localized: English or Hungarian depending on the test process language.
+        #expect(["Web", "Böngésző"].contains(ConnectionType.web.displayName))
         #expect(!ConnectionType.web.usesPort)
         #expect(ConnectionType.ssh.usesPort)
         #expect(Set(ConnectionType.allCases.map(\.systemImage)).count == ConnectionType.allCases.count)

@@ -1,0 +1,116 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ (no host)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (nincs host)"
+          }
+        }
+      }
+    },
+    "Can't read the SSH key: %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az SSH kulcs nem olvasható: %@"
+          }
+        }
+      }
+    },
+    "Couldn't unlock the SSH key: %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az SSH kulcs feloldása nem sikerült: %@"
+          }
+        }
+      }
+    },
+    "Embedded" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beágyazott"
+          }
+        }
+      }
+    },
+    "Embedded (FreeRDP)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beágyazott (FreeRDP)"
+          }
+        }
+      }
+    },
+    "New MikroTik connection" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Új MikroTik kapcsolat"
+          }
+        }
+      }
+    },
+    "New RDP connection" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Új RDP kapcsolat"
+          }
+        }
+      }
+    },
+    "New SSH connection" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Új SSH kapcsolat"
+          }
+        }
+      }
+    },
+    "New web connection" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Új böngésző kapcsolat"
+          }
+        }
+      }
+    },
+    "Web" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Böngésző"
+          }
+        }
+      }
+    },
+    "Wrong key passphrase." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hibás kulcs jelmondat."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
