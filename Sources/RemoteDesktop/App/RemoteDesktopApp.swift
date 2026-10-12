@@ -22,41 +22,41 @@ struct RemoteDesktopApp: App {
         .defaultSize(width: 1000, height: 640)
         .commands {
             CommandGroup(replacing: .newItem) {
-                Button("Új RDP kapcsolat") { state.newConnection(.rdp) }
+                Button(ConnectionType.rdp.newTitle) { state.newConnection(.rdp) }
                     .keyboardShortcut("n")
-                Button("Új SSH kapcsolat") { state.newConnection(.ssh) }
+                Button(ConnectionType.ssh.newTitle) { state.newConnection(.ssh) }
                     .keyboardShortcut("n", modifiers: [.command, .shift])
-                Button("Új böngésző kapcsolat") { state.newConnection(.web) }
+                Button(ConnectionType.web.newTitle) { state.newConnection(.web) }
                     .keyboardShortcut("b", modifiers: [.command, .shift])
-                Button("Új MikroTik kapcsolat") { state.newConnection(.mikrotik) }
+                Button(ConnectionType.mikrotik.newTitle) { state.newConnection(.mikrotik) }
                     .keyboardShortcut("m", modifiers: [.command, .shift])
-                Button("Új mappa") { state.newFolder() }
+                Button("New folder") { state.newFolder() }
                     .keyboardShortcut("n", modifiers: [.command, .option])
-                Button("Új credential") { state.newCredential() }
+                Button("New credential") { state.newCredential() }
                     .keyboardShortcut("n", modifiers: [.command, .control])
                 Divider()
-                Button("Importálás RDM-ből…") { state.isImporting = true }
+                Button("Import from RDM…") { state.isImporting = true }
                     .keyboardShortcut("i")
                     .disabled(state.phase != .unlocked)
             }
-            CommandMenu("Kapcsolat") {
-                Button("Kapcsolódás") {
+            CommandMenu("Connection") {
+                Button("Connect") {
                     if let tag = state.selection { state.activate(tag: tag) }
                 }
                 .keyboardShortcut(.return, modifiers: .command)
                 .disabled(state.phase != .unlocked)
                 Divider()
-                Button("Vágólap begépelése az RDP sessionbe") { state.typeClipboardIntoActiveSession() }
+                Button("Type clipboard into RDP session") { state.typeClipboardIntoActiveSession() }
                     .keyboardShortcut("v", modifiers: [.command, .shift])
                     .disabled(state.activeRDPSession?.status != .connected)
-                Button("Session bezárása") { state.closeActiveSession() }
+                Button("Close session") { state.closeActiveSession() }
                     .disabled(state.activeSession == nil)
-                Button("Következő fül") { state.cycleTabs(forward: true) }
+                Button("Next tab") { state.cycleTabs(forward: true) }
                     .disabled(state.sessions.isEmpty)
-                Button("Előző fül") { state.cycleTabs(forward: false) }
+                Button("Previous tab") { state.cycleTabs(forward: false) }
                     .disabled(state.sessions.isEmpty)
                 Divider()
-                Button("Zárolás") { state.lock() }
+                Button("Lock") { state.lock() }
                     .keyboardShortcut("l", modifiers: [.command, .control])
                     .disabled(state.phase != .unlocked)
             }

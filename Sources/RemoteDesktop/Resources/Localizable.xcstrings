@@ -1,7 +1,1612 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-
+    "%@ here" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ itt"
+          }
+        }
+      }
+    },
+    "%@ · %@%@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · %@%@"
+          }
+        }
+      }
+    },
+    "%lld" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld"
+          }
+        }
+      }
+    },
+    "%lld connections use the credential “%@”. After deleting it they use their own saved login." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld kapcsolat használja a(z) „%@” credentialt. Törlés után ezek a saját mentett adataikat használják."
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld connection uses the credential “%@”. After deleting it, it uses its own saved login."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld connections use the credential “%@”. After deleting it they use their own saved login."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld connections · %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld kapcsolat · %@"
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld connection · %@"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld connections · %@"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "(Root)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(Gyökér)"
+          }
+        }
+      }
+    },
+    "10.0.0.10 or server.local" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "10.0.0.10 vagy server.local"
+          }
+        }
+      }
+    },
+    "Accessibility permission" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accessibility engedély"
+          }
+        }
+      }
+    },
+    "Add to favorites" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hozzáadás a kedvencekhez"
+          }
+        }
+      }
+    },
+    "Admin session" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Admin session"
+          }
+        }
+      }
+    },
+    "Admin session (/admin)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Admin session (/admin)"
+          }
+        }
+      }
+    },
+    "Authentication" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hitelesítés"
+          }
+        }
+      }
+    },
+    "Browser" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Böngésző"
+          }
+        }
+      }
+    },
+    "Browse…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tallózás…"
+          }
+        }
+      }
+    },
+    "Can live in iCloud Drive or Dropbox — passwords are encrypted with the master password." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud Drive / Dropbox mappába is tehető — a jelszavak a mesterjelszóval titkosítva vannak."
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mégse"
+          }
+        }
+      }
+    },
+    "Change" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Módosítás"
+          }
+        }
+      }
+    },
+    "Change master password" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mesterjelszó módosítása"
+          }
+        }
+      }
+    },
+    "Check" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ellenőrzés"
+          }
+        }
+      }
+    },
+    "Choose" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kiválasztás"
+          }
+        }
+      }
+    },
+    "Close" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bezárás"
+          }
+        }
+      }
+    },
+    "Close session" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session bezárása"
+          }
+        }
+      }
+    },
+    "Close session (⌘W)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session bezárása (⌘W)"
+          }
+        }
+      }
+    },
+    "Connect" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kapcsolódás"
+          }
+        }
+      }
+    },
+    "Connect to the administrative (console) session, like mstsc /admin" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kapcsolódás az adminisztratív (konzol) sessionhöz, mint mstsc /admin"
+          }
+        }
+      }
+    },
+    "Connect – %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kapcsolódás – %@"
+          }
+        }
+      }
+    },
+    "Connecting: %@…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kapcsolódás: %@…"
+          }
+        }
+      }
+    },
+    "Connection" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kapcsolat"
+          }
+        }
+      }
+    },
+    "Connection closed" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kapcsolat megszakadt"
+          }
+        }
+      }
+    },
+    "Connection closed (code: %d)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kapcsolat megszakadt (kód: %d)"
+          }
+        }
+      }
+    },
+    "Connections" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kapcsolatok"
+          }
+        }
+      }
+    },
+    "Copied" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Másolva"
+          }
+        }
+      }
+    },
+    "Copy" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Másolás"
+          }
+        }
+      }
+    },
+    "Copy host" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Host másolása"
+          }
+        }
+      }
+    },
+    "Copy password" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jelszó másolása"
+          }
+        }
+      }
+    },
+    "Create" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Létrehozás"
+          }
+        }
+      }
+    },
+    "Create master password" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mesterjelszó létrehozása"
+          }
+        }
+      }
+    },
+    "Create new…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Új létrehozása…"
+          }
+        }
+      }
+    },
+    "Credential" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Credential"
+          }
+        }
+      }
+    },
+    "Credentials" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Credentialok"
+          }
+        }
+      }
+    },
+    "Current" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jelenlegi"
+          }
+        }
+      }
+    },
+    "Database" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adatbázis"
+          }
+        }
+      }
+    },
+    "Default" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alapértelmezett"
+          }
+        }
+      }
+    },
+    "default browser" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "alapértelmezett"
+          }
+        }
+      }
+    },
+    "Default mode" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alapértelmezett mód"
+          }
+        }
+      }
+    },
+    "Delete" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Törlés"
+          }
+        }
+      }
+    },
+    "Delete credential" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Credential törlése"
+          }
+        }
+      }
+    },
+    "Delete credential?" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Credential törlése?"
+          }
+        }
+      }
+    },
+    "Delete folder" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mappa törlése"
+          }
+        }
+      }
+    },
+    "Details" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Részletek"
+          }
+        }
+      }
+    },
+    "Domain" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Domain"
+          }
+        }
+      }
+    },
+    "Double-click / ⌘↩ connects with this mode; the other one is in the details and the context menu. The port is the SSH port; WinBox uses 8291." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dupla kattintás / ⌘↩ ezzel kapcsolódik; a másik mód a részleteknél és a helyi menüben érhető el. A port az SSH port, a WinBox a 8291-et használja."
+          }
+        }
+      }
+    },
+    "Double-click or ⌘↩ to connect" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dupla kattintás vagy ⌘↩ a kapcsolódáshoz"
+          }
+        }
+      }
+    },
+    "Duplicate" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Duplikálás"
+          }
+        }
+      }
+    },
+    "e.g. Domain Admin" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "pl. Domain Admin"
+          }
+        }
+      }
+    },
+    "e.g. web01 – prod" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "pl. web01 – prod"
+          }
+        }
+      }
+    },
+    "Edit" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Szerkesztés"
+          }
+        }
+      }
+    },
+    "Edit…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Szerkesztés…"
+          }
+        }
+      }
+    },
+    "embedded (FreeRDP)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "beágyazott (FreeRDP)"
+          }
+        }
+      }
+    },
+    "Embedded RDP" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beágyazott RDP"
+          }
+        }
+      }
+    },
+    "embedded terminal" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "beágyazott terminál"
+          }
+        }
+      }
+    },
+    "Embedded: FreeRDP tab inside the window · Windows App: separate app" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beágyazott: FreeRDP fül az ablakon belül · Windows App: külön alkalmazás"
+          }
+        }
+      }
+    },
+    "Embedded: tab inside the window · Ghostty: separate terminal window" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beágyazott: fül az ablakon belül · Ghostty: külön terminálablak"
+          }
+        }
+      }
+    },
+    "Error" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hiba"
+          }
+        }
+      }
+    },
+    "Favorite" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kedvenc"
+          }
+        }
+      }
+    },
+    "Favorites" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kedvencek"
+          }
+        }
+      }
+    },
+    "File" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fájl"
+          }
+        }
+      }
+    },
+    "Folder" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mappa"
+          }
+        }
+      }
+    },
+    "FreeRDP" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FreeRDP"
+          }
+        }
+      }
+    },
+    "Granted" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Megadva"
+          }
+        }
+      }
+    },
+    "Hide" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elrejtés"
+          }
+        }
+      }
+    },
+    "Host" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Host"
+          }
+        }
+      }
+    },
+    "Host / IP" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Host / IP"
+          }
+        }
+      }
+    },
+    "https://router.local/admin" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "https://router.local/admin"
+          }
+        }
+      }
+    },
+    "Import" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importálás"
+          }
+        }
+      }
+    },
+    "Import from a Devolutions RDM export (.rdm)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importálás Devolutions RDM exportból (.rdm)"
+          }
+        }
+      }
+    },
+    "Import from RDM…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importálás RDM-ből…"
+          }
+        }
+      }
+    },
+    "It encrypts your saved passwords. If you forget it, it can't be recovered." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ezzel titkosítjuk a mentett jelszavakat. Elfelejtve nem állítható vissza."
+          }
+        }
+      }
+    },
+    "Key passphrase" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kulcs jelmondat"
+          }
+        }
+      }
+    },
+    "Lock" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zárolás"
+          }
+        }
+      }
+    },
+    "Lock now" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zárolás most"
+          }
+        }
+      }
+    },
+    "Master password" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mesterjelszó"
+          }
+        }
+      }
+    },
+    "Master password again" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mesterjelszó újra"
+          }
+        }
+      }
+    },
+    "MikroTik · default %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MikroTik · alapból %@"
+          }
+        }
+      }
+    },
+    "Missing" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hiányzik"
+          }
+        }
+      }
+    },
+    "Move" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Áthelyezés"
+          }
+        }
+      }
+    },
+    "Name" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Név"
+          }
+        }
+      }
+    },
+    "New" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Új"
+          }
+        }
+      }
+    },
+    "New %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Új %@"
+          }
+        }
+      }
+    },
+    "New again" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Új újra"
+          }
+        }
+      }
+    },
+    "New connection or folder" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Új kapcsolat vagy mappa"
+          }
+        }
+      }
+    },
+    "New credential" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Új credential"
+          }
+        }
+      }
+    },
+    "New embedded RDP session" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Új beágyazott RDP session"
+          }
+        }
+      }
+    },
+    "New embedded SSH session" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Új beágyazott SSH session"
+          }
+        }
+      }
+    },
+    "New folder" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Új mappa"
+          }
+        }
+      }
+    },
+    "New subfolder" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Új almappa"
+          }
+        }
+      }
+    },
+    "Next tab" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Következő fül"
+          }
+        }
+      }
+    },
+    "No" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nem"
+          }
+        }
+      }
+    },
+    "No connections" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Egy kapcsolat sem"
+          }
+        }
+      }
+    },
+    "Notes" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jegyzet"
+          }
+        }
+      }
+    },
+    "OK" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
+    },
+    "Open" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Megnyitás"
+          }
+        }
+      }
+    },
+    "Open existing…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meglévő megnyitása…"
+          }
+        }
+      }
+    },
+    "Open in Ghostty" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Megnyitás Ghostty-ban"
+          }
+        }
+      }
+    },
+    "Open in Windows App" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Megnyitás Windows App-ban"
+          }
+        }
+      }
+    },
+    "Open session" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nyitott session"
+          }
+        }
+      }
+    },
+    "Open System Settings" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rendszerbeállítások megnyitása"
+          }
+        }
+      }
+    },
+    "optional" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "opcionális"
+          }
+        }
+      }
+    },
+    "optional, not used for SSH" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "opcionális, SSH-nál nem használt"
+          }
+        }
+      }
+    },
+    "Other database…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Másik adatbázis…"
+          }
+        }
+      }
+    },
+    "Own login" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saját adatok"
+          }
+        }
+      }
+    },
+    "Parent" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Szülő"
+          }
+        }
+      }
+    },
+    "Password" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jelszó"
+          }
+        }
+      }
+    },
+    "Port" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Port"
+          }
+        }
+      }
+    },
+    "Previous tab" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Előző fül"
+          }
+        }
+      }
+    },
+    "RDP client" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RDP kliens"
+          }
+        }
+      }
+    },
+    "RDP password autofill" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RDP jelszó automatikus beírása"
+          }
+        }
+      }
+    },
+    "Reconnect" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Újrakapcsolódás"
+          }
+        }
+      }
+    },
+    "Remember on this Mac (Keychain)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Megjegyzés ezen a Macen (Keychain)"
+          }
+        }
+      }
+    },
+    "Remember the master key on this Mac (Keychain)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mesterkulcs megjegyzése ezen a Macen (Keychain)"
+          }
+        }
+      }
+    },
+    "RemoteDesktop" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RemoteDesktop"
+          }
+        }
+      }
+    },
+    "RemoteDesktop is locked" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RemoteDesktop zárolva"
+          }
+        }
+      }
+    },
+    "Remove from favorites" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eltávolítás a kedvencekből"
+          }
+        }
+      }
+    },
+    "Rename" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Átnevezés"
+          }
+        }
+      }
+    },
+    "Rename folder" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mappa átnevezése"
+          }
+        }
+      }
+    },
+    "Rename…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Átnevezés…"
+          }
+        }
+      }
+    },
+    "Results" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Találatok"
+          }
+        }
+      }
+    },
+    "Retry" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Újra"
+          }
+        }
+      }
+    },
+    "Save" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mentés"
+          }
+        }
+      }
+    },
+    "Search" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keresés"
+          }
+        }
+      }
+    },
+    "Security" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Biztonság"
+          }
+        }
+      }
+    },
+    "Select a connection" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Válassz kapcsolatot"
+          }
+        }
+      }
+    },
+    "Settings…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beállítások…"
+          }
+        }
+      }
+    },
+    "Show" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Megjelenítés"
+          }
+        }
+      }
+    },
+    "Show in Finder" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Megjelenítés Finderben"
+          }
+        }
+      }
+    },
+    "SSH key" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SSH kulcs"
+          }
+        }
+      }
+    },
+    "SSH key (optional)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SSH kulcs (opcionális)"
+          }
+        }
+      }
+    },
+    "SSH terminal" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SSH terminál"
+          }
+        }
+      }
+    },
+    "stored" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "tárolva"
+          }
+        }
+      }
+    },
+    "The connection dropped unexpectedly (the server gave no reason)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A kapcsolat váratlanul megszakadt (a szerver nem adott okot)"
+          }
+        }
+      }
+    },
+    "Type" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Típus"
+          }
+        }
+      }
+    },
+    "Type clipboard" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vágólap begépelése"
+          }
+        }
+      }
+    },
+    "Type clipboard into RDP session" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vágólap begépelése az RDP sessionbe"
+          }
+        }
+      }
+    },
+    "Types the local clipboard text where the cursor is on the remote machine (⇧⌘V)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A helyi vágólap szövegét begépeli oda, ahol a kurzor áll a távoli gépen (⇧⌘V)"
+          }
+        }
+      }
+    },
+    "Typing…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Begépelés…"
+          }
+        }
+      }
+    },
+    "Unlock" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Feloldás"
+          }
+        }
+      }
+    },
+    "Unlocked key" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Feloldott kulcs"
+          }
+        }
+      }
+    },
+    "URL" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL"
+          }
+        }
+      }
+    },
+    "Used by (%lld)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Használja (%lld)"
+          }
+        }
+      }
+    },
+    "User" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Felhasználó"
+          }
+        }
+      }
+    },
+    "Username" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Felhasználónév"
+          }
+        }
+      }
+    },
+    "Windows / RDP" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Windows / RDP"
+          }
+        }
+      }
+    },
+    "Without it, the password is copied to the clipboard for 30 seconds." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enélkül a jelszó a vágólapra kerül 30 másodpercre."
+          }
+        }
+      }
+    },
+    "Wrong password" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hibás jelszó"
+          }
+        }
+      }
+    },
+    "Yes (/admin)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Igen (/admin)"
+          }
+        }
+      }
+    },
+    "~/.ssh/id_ed25519" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~/.ssh/id_ed25519"
+          }
+        }
+      }
+    },
+    "⌘N new RDP, ⇧⌘N new SSH connection, ⌘I import" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⌘N új RDP, ⇧⌘N új SSH kapcsolat, ⌘I import"
+          }
+        }
+      }
+    }
   },
   "version" : "1.0"
 }

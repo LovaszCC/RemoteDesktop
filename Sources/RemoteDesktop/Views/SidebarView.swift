@@ -11,7 +11,7 @@ struct SidebarView: View {
 
         List(selection: $state.selection) {
             if !state.searchText.isEmpty {
-                Section("Találatok") {
+                Section("Results") {
                     ForEach(LibraryTree.search(library, query: state.searchText)) { connection in
                         ConnectionRow(connection: connection, subtitle: LibraryTree.folderPath(connection.folderId, in: library))
                             .tag("c:\(connection.id)")
@@ -19,14 +19,14 @@ struct SidebarView: View {
                 }
                 let credentials = LibraryTree.searchCredentials(library, query: state.searchText)
                 if !credentials.isEmpty {
-                    Section("Credentialok") {
+                    Section("Credentials") {
                         ForEach(credentials) { CredentialRow(credential: $0).tag("k:\($0.id)") }
                     }
                 }
             } else {
                 let favorites = LibraryTree.favorites(library)
                 if !favorites.isEmpty {
-                    Section("Kedvencek") {
+                    Section("Favorites") {
                         ForEach(favorites) { connection in
                             ConnectionRow(connection: connection, subtitle: nil)
                                 .tag("fav:\(connection.id)")
@@ -36,7 +36,7 @@ struct SidebarView: View {
                 Section {
                     TreeRows(nodes: LibraryTree.build(library), expanded: expandedBinding)
                 } header: {
-                    Text("Kapcsolatok")
+                    Text("Connections")
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
                         .dropDestination(for: String.self) { tags, _ in
@@ -44,7 +44,7 @@ struct SidebarView: View {
                         }
                 }
                 // Always present: inserting the section together with its first row confuses the List.
-                Section("Credentialok") {
+                Section("Credentials") {
                     ForEach(library.credentials) { CredentialRow(credential: $0).tag("k:\($0.id)") }
                 }
             }
@@ -60,8 +60,8 @@ struct SidebarView: View {
                 ForEach(ConnectionType.allCases, id: \.self) { type in
                     Button(type.newTitle) { state.newConnection(type) }
                 }
-                Button("Új mappa") { state.newFolder() }
-                Button("Új credential") { state.newCredential() }
+                Button("New folder") { state.newFolder() }
+                Button("New credential") { state.newCredential() }
             }
         } primaryAction: { tags in
             guard let tag = tags.first else { return }
@@ -76,9 +76,9 @@ struct SidebarView: View {
         .overlay {
             if library.folders.isEmpty && library.connections.isEmpty && library.credentials.isEmpty && state.searchText.isEmpty {
                 ContentUnavailableView {
-                    Label("Nincs kapcsolat", systemImage: "network")
+                    Label("No connections", systemImage: "network")
                 } description: {
-                    Text("⌘N új RDP, ⇧⌘N új SSH kapcsolat, ⌘I import")
+                    Text("⌘N new RDP, ⇧⌘N new SSH connection, ⌘I import")
                 }
             }
         }
@@ -169,7 +169,7 @@ struct ConnectionRow: View {
             }
             Spacer(minLength: 4)
             if state.isConnected(connection.id) {
-                Circle().fill(.green).frame(width: 6, height: 6).help("Nyitott session")
+                Circle().fill(.green).frame(width: 6, height: 6).help("Open session")
             }
             if connection.isFavorite {
                 Image(systemName: "star.fill").font(.caption2).foregroundStyle(.yellow)
@@ -219,45 +219,45 @@ struct ItemContextMenu: View {
         case .connection(let connection):
             if connection.type == .mikrotik {
                 ForEach(MikrotikMode.allCases, id: \.self) { mode in
-                    Button("Kapcsolódás – \(mode.displayName)") { state.connect(connection, mode: mode) }
+                    Button("Connect – \(mode.displayName)") { state.connect(connection, mode: mode) }
                 }
             } else {
-                Button("Kapcsolódás") { state.connect(connection) }
+                Button("Connect") { state.connect(connection) }
             }
             if connection.type == .rdp {
-                Button("Új beágyazott RDP session") { state.connect(connection, rdpClient: .embedded) }
-                Button("Megnyitás Windows App-ban") { state.connect(connection, rdpClient: .windowsApp) }
+                Button("New embedded RDP session") { state.connect(connection, rdpClient: .embedded) }
+                Button("Open in Windows App") { state.connect(connection, rdpClient: .windowsApp) }
             }
             if connection.type.usesSSH {
-                Button("Új beágyazott SSH session") { state.connect(connection, mode: .ssh, terminal: .embedded) }
-                Button("Megnyitás Ghostty-ban") { state.connect(connection, mode: .ssh, terminal: .ghostty) }
+                Button("New embedded SSH session") { state.connect(connection, mode: .ssh, terminal: .embedded) }
+                Button("Open in Ghostty") { state.connect(connection, mode: .ssh, terminal: .ghostty) }
             }
             Divider()
-            Button("Szerkesztés…") { state.edit(connection) }
-            Button("Duplikálás") { state.duplicate(connection) }
-            Button(connection.isFavorite ? "Eltávolítás a kedvencekből" : "Hozzáadás a kedvencekhez") {
+            Button("Edit…") { state.edit(connection) }
+            Button("Duplicate") { state.duplicate(connection) }
+            Button(connection.isFavorite ? "Remove from favorites" : "Add to favorites") {
                 state.toggleFavorite(connection)
             }
             MoveMenu(currentFolderId: connection.folderId, excluding: nil) { state.move(connectionId: connection.id, to: $0) }
             Divider()
-            Button("Jelszó másolása") { state.copyPassword(connection) }
-            Button("Host másolása") { Clipboard.copy(connection.host, clearAfter: nil) }
+            Button("Copy password") { state.copyPassword(connection) }
+            Button("Copy host") { Clipboard.copy(connection.host, clearAfter: nil) }
             Divider()
-            Button("Törlés", role: .destructive) { state.delete(connection) }
+            Button("Delete", role: .destructive) { state.delete(connection) }
         case .folder(let folder):
             ForEach(ConnectionType.allCases, id: \.self) { type in
-                Button("\(type.newTitle) itt") { state.selection = tag; state.newConnection(type) }
+                Button("\(type.newTitle) here") { state.selection = tag; state.newConnection(type) }
             }
-            Button("Új almappa") { state.selection = tag; state.newFolder() }
+            Button("New subfolder") { state.selection = tag; state.newFolder() }
             Divider()
-            Button("Átnevezés…") { state.folderEditor = folder }
+            Button("Rename…") { state.folderEditor = folder }
             MoveMenu(currentFolderId: folder.parentId, excluding: folder.id) { state.move(folderId: folder.id, to: $0) }
             Divider()
-            Button("Mappa törlése", role: .destructive) { state.deleteFolder(folder) }
+            Button("Delete folder", role: .destructive) { state.deleteFolder(folder) }
         case .credential(let credential):
-            Button("Szerkesztés…") { state.edit(credential) }
+            Button("Edit…") { state.edit(credential) }
             Divider()
-            Button("Credential törlése", role: .destructive) { state.requestDelete(credential) }
+            Button("Delete credential", role: .destructive) { state.requestDelete(credential) }
         case nil:
             EmptyView()
         }
@@ -271,8 +271,8 @@ struct MoveMenu: View {
     let move: (String?) -> Void
 
     var body: some View {
-        Menu("Áthelyezés") {
-            Button("(Gyökér)") { move(nil) }.disabled(currentFolderId == nil)
+        Menu("Move") {
+            Button("(Root)") { move(nil) }.disabled(currentFolderId == nil)
             ForEach(LibraryTree.flattenedFolders(state.library, excluding: excluding), id: \.folder.id) { entry in
                 Button(String(repeating: "   ", count: entry.depth) + entry.folder.name) { move(entry.folder.id) }
                     .disabled(entry.folder.id == currentFolderId)

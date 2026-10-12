@@ -14,40 +14,40 @@ struct SettingsView: View {
     var body: some View {
         @Bindable var state = state
         Form {
-            Section("Adatbázis") {
-                LabeledContent("Fájl") {
+            Section("Database") {
+                LabeledContent("File") {
                     Text(state.databaseURL.path(percentEncoded: false))
                         .textSelection(.enabled)
                         .lineLimit(2)
                         .truncationMode(.middle)
                 }
                 HStack {
-                    Button("Meglévő megnyitása…", action: openExisting)
-                    Button("Új létrehozása…", action: createNew)
-                    Button("Megjelenítés Finderben") {
+                    Button("Open existing…", action: openExisting)
+                    Button("Create new…", action: createNew)
+                    Button("Show in Finder") {
                         NSWorkspace.shared.activateFileViewerSelecting([state.databaseURL])
                     }
                 }
-                Text("iCloud Drive / Dropbox mappába is tehető — a jelszavak a mesterjelszóval titkosítva vannak.")
+                Text("Can live in iCloud Drive or Dropbox — passwords are encrypted with the master password.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Section("Biztonság") {
-                Toggle("Mesterkulcs megjegyzése ezen a Macen (Keychain)", isOn: Binding(
+            Section("Security") {
+                Toggle("Remember the master key on this Mac (Keychain)", isOn: Binding(
                     get: { state.rememberKey },
                     set: { state.rememberKey = $0 }
                 ))
-                Button("Zárolás most") { state.lock() }
+                Button("Lock now") { state.lock() }
                     .disabled(state.phase != .unlocked)
             }
 
             if state.phase == .unlocked {
-                Section("Mesterjelszó módosítása") {
-                    SecureField("Jelenlegi", text: $currentPassword)
-                    SecureField("Új", text: $newPassword)
-                    SecureField("Új újra", text: $confirmPassword)
-                    Button("Módosítás") {
+                Section("Change master password") {
+                    SecureField("Current", text: $currentPassword)
+                    SecureField("New", text: $newPassword)
+                    SecureField("New again", text: $confirmPassword)
+                    Button("Change") {
                         if state.changeMasterPassword(current: currentPassword, new: newPassword) {
                             currentPassword = ""; newPassword = ""; confirmPassword = ""
                         }
@@ -56,23 +56,23 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Beágyazott RDP") {
+            Section("Embedded RDP") {
                 LabeledContent("FreeRDP", value: RDPSessionBridge.freeRDPVersion())
             }
-            Section("RDP jelszó automatikus beírása") {
-                LabeledContent("Accessibility engedély") {
-                    Label(accessibilityTrusted ? "Megadva" : "Hiányzik",
+            Section("RDP password autofill") {
+                LabeledContent("Accessibility permission") {
+                    Label(accessibilityTrusted ? "Granted" : "Missing",
                           systemImage: accessibilityTrusted ? "checkmark.circle.fill" : "xmark.circle.fill")
                         .foregroundStyle(accessibilityTrusted ? .green : .red)
                 }
                 HStack {
-                    Button("Rendszerbeállítások megnyitása") {
+                    Button("Open System Settings") {
                         _ = AccessibilityAutofill.isTrusted(prompt: true)
                         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
                     }
-                    Button("Ellenőrzés") { accessibilityTrusted = AccessibilityAutofill.isTrusted(prompt: false) }
+                    Button("Check") { accessibilityTrusted = AccessibilityAutofill.isTrusted(prompt: false) }
                 }
-                Text("Enélkül a jelszó a vágólapra kerül 30 másodpercre.")
+                Text("Without it, the password is copied to the clipboard for 30 seconds.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -85,7 +85,7 @@ struct SettingsView: View {
     private func openExisting() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [UTType(filenameExtension: "sqlite") ?? .data, .data]
-        panel.prompt = "Megnyitás"
+        panel.prompt = String(localized: "Open")
         if panel.runModal() == .OK, let url = panel.url {
             state.useDatabase(at: url)
         }
@@ -94,7 +94,7 @@ struct SettingsView: View {
     private func createNew() {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = "connections.sqlite"
-        panel.prompt = "Létrehozás"
+        panel.prompt = String(localized: "Create")
         if panel.runModal() == .OK, let url = panel.url {
             state.useDatabase(at: url)
         }

@@ -17,11 +17,15 @@ struct UnlockView: View {
                 .foregroundStyle(.secondary)
 
             VStack(spacing: 4) {
-                Text(needsSetup ? "Mesterjelszó létrehozása" : "RemoteDesktop zárolva")
+                Text(needsSetup ? "Create master password" : "RemoteDesktop is locked")
                     .font(.title2.weight(.semibold))
-                Text(needsSetup
-                     ? "Ezzel titkosítjuk a mentett jelszavakat. Elfelejtve nem állítható vissza."
-                     : state.databaseURL.path(percentEncoded: false))
+                Group {
+                    if needsSetup {
+                        Text("It encrypts your saved passwords. If you forget it, it can't be recovered.")
+                    } else {
+                        Text(state.databaseURL.path(percentEncoded: false))
+                    }
+                }
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -30,29 +34,29 @@ struct UnlockView: View {
             }
 
             VStack(spacing: 8) {
-                SecureField("Mesterjelszó", text: $password)
+                SecureField("Master password", text: $password)
                     .focused($focused)
                     .onSubmit(submit)
                 if needsSetup {
-                    SecureField("Mesterjelszó újra", text: $confirmation)
+                    SecureField("Master password again", text: $confirmation)
                         .onSubmit(submit)
                 }
                 if wrongPassword {
-                    Text("Hibás jelszó").font(.caption).foregroundStyle(.red)
+                    Text("Wrong password").font(.caption).foregroundStyle(.red)
                 }
             }
             .textFieldStyle(.roundedBorder)
             .frame(width: 280)
 
-            Toggle("Megjegyzés ezen a Macen (Keychain)", isOn: $remember)
+            Toggle("Remember on this Mac (Keychain)", isOn: $remember)
                 .toggleStyle(.checkbox)
 
-            Button(needsSetup ? "Létrehozás" : "Feloldás", action: submit)
+            Button(needsSetup ? "Create" : "Unlock", action: submit)
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
                 .disabled(!canSubmit)
 
-            SettingsLink { Text("Másik adatbázis…") }
+            SettingsLink { Text("Other database…") }
                 .buttonStyle(.link)
                 .font(.callout)
         }

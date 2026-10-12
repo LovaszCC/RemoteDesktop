@@ -39,11 +39,15 @@ struct TerminalSessionView: View {
             if case .exited(let code) = session.status {
                 HStack(spacing: 10) {
                     Image(systemName: "bolt.horizontal.circle").foregroundStyle(.orange)
-                    Text(code.map { "Kapcsolat megszakadt (kód: \($0))" } ?? "Kapcsolat megszakadt")
+                    if let code {
+                        Text("Connection closed (code: \(code))")
+                    } else {
+                        Text("Connection closed")
+                    }
                     Spacer()
-                    Button("Újrakapcsolódás", systemImage: "arrow.clockwise") { state.reconnect(session) }
+                    Button("Reconnect", systemImage: "arrow.clockwise") { state.reconnect(session) }
                         .keyboardShortcut("r")
-                    Button("Bezárás") { state.closeSession(session.id) }
+                    Button("Close") { state.closeSession(session.id) }
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
@@ -53,14 +57,14 @@ struct TerminalSessionView: View {
     }
 }
 
-/// Tab strip above the detail area: "Részletek" followed by one tab per session.
+/// Tab strip above the detail area: "Details" followed by one tab per session.
 struct SessionTabBar: View {
     @Environment(AppState.self) private var state
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 4) {
-                tab(title: "Részletek", systemImage: "info.circle", isActive: state.tabs.active == nil, tint: .secondary) {
+                tab(title: String(localized: "Details"), systemImage: "info.circle", isActive: state.tabs.active == nil, tint: .secondary) {
                     state.selectTab(nil)
                 }
                 ForEach(state.sessions) { session in
@@ -98,7 +102,7 @@ struct SessionTabBar: View {
                     Image(systemName: "xmark").font(.caption2.weight(.bold))
                 }
                 .buttonStyle(.borderless)
-                .help("Session bezárása (⌘W)")
+                .help("Close session (⌘W)")
             }
         }
         .padding(.horizontal, 10)

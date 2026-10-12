@@ -13,8 +13,8 @@ struct DetailView: View {
         case .credential(let credential):
             CredentialDetailView(credential: credential)
         case nil:
-            ContentUnavailableView("Válassz kapcsolatot", systemImage: "rectangle.connected.to.line.below",
-                                   description: Text("Dupla kattintás vagy ⌘↩ a kapcsolódáshoz"))
+            ContentUnavailableView("Select a connection", systemImage: "rectangle.connected.to.line.below",
+                                   description: Text("Double-click or ⌘↩ to connect"))
         }
     }
 }
@@ -28,11 +28,12 @@ struct ConnectionDetailView: View {
 
     private var subtitle: String {
         switch connection.type {
-        case .rdp: "RDP · " + (connection.rdpClient == .embedded ? "beágyazott (FreeRDP)" : "Windows App")
+        case .rdp: "RDP · " + (connection.rdpClient == .embedded ? String(localized: "embedded (FreeRDP)") : "Windows App")
             + (connection.rdpAdminSession ? " · /admin" : "")
-        case .ssh: "SSH · " + (connection.sshTerminal == .embedded ? "beágyazott terminál" : "Ghostty")
-        case .mikrotik: "MikroTik · alapból \(connection.mikrotikMode.displayName)"
-        case .web: "Böngésző · " + (connection.browserBundleId.map(InstalledBrowsers.name(for:)) ?? "alapértelmezett")
+        case .ssh: "SSH · " + (connection.sshTerminal == .embedded ? String(localized: "embedded terminal") : "Ghostty")
+        case .mikrotik: String(localized: "MikroTik · default \(connection.mikrotikMode.displayName)")
+        case .web: connection.type.displayName + " · "
+            + (connection.browserBundleId.map(InstalledBrowsers.name(for:)) ?? String(localized: "default browser"))
         }
     }
 
@@ -56,7 +57,7 @@ struct ConnectionDetailView: View {
                             .foregroundStyle(connection.isFavorite ? .yellow : .secondary)
                     }
                     .buttonStyle(.plain)
-                    .help("Kedvenc")
+                    .help("Favorite")
                 }
 
                 HStack {
@@ -65,14 +66,14 @@ struct ConnectionDetailView: View {
                             mikrotikButton(mode)
                         }
                     } else {
-                        Button("Kapcsolódás", systemImage: "play.fill") { state.connect(connection) }
+                        Button("Connect", systemImage: "play.fill") { state.connect(connection) }
                             .buttonStyle(.borderedProminent)
                             .controlSize(.large)
                     }
-                    Button("Szerkesztés", systemImage: "pencil") { state.edit(connection) }
+                    Button("Edit", systemImage: "pencil") { state.edit(connection) }
                         .controlSize(.large)
                     if resolved.passwordEnc != nil {
-                        Button("Jelszó másolása", systemImage: "key") { state.copyPassword(connection) }
+                        Button("Copy password", systemImage: "key") { state.copyPassword(connection) }
                             .controlSize(.large)
                     }
                 }
@@ -85,7 +86,7 @@ struct ConnectionDetailView: View {
                         field("URL", WebLaunch.url(from: connection.host)?.absoluteString ?? connection.host, copyable: true)
                     }
                     if connection.type == .rdp {
-                        field("Admin session", connection.rdpAdminSession ? "Igen (/admin)" : "Nem")
+                        field("Admin session", connection.rdpAdminSession ? String(localized: "Yes (/admin)") : String(localized: "No"))
                     }
                     if let credential {
                         GridRow {
@@ -98,21 +99,21 @@ struct ConnectionDetailView: View {
                             .buttonStyle(.link)
                         }
                     }
-                    field("Felhasználó", resolved.username, copyable: true)
+                    field("User", resolved.username, copyable: true)
                     if connection.type == .rdp {
                         field("Domain", resolved.domain)
                     }
-                    field("Jelszó", resolved.passwordEnc == nil ? "—" : "••••••••")
+                    field("Password", resolved.passwordEnc == nil ? "—" : "••••••••")
                     if connection.type.usesSSH {
-                        field("SSH kulcs", resolved.sshKeyPath ?? "—")
-                        if resolved.sshKeyPassphraseEnc != nil { field("Kulcs jelmondat", "••••••••") }
+                        field("SSH key", resolved.sshKeyPath ?? "—")
+                        if resolved.sshKeyPassphraseEnc != nil { field("Key passphrase", "••••••••") }
                     }
-                    field("Mappa", LibraryTree.folderPath(connection.folderId, in: state.library))
+                    field("Folder", LibraryTree.folderPath(connection.folderId, in: state.library))
                 }
 
                 if !connection.notes.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Jegyzet").font(.headline)
+                        Text("Notes").font(.headline)
                         Text(connection.notes).textSelection(.enabled)
                     }
                 }
@@ -137,7 +138,7 @@ struct ConnectionDetailView: View {
     }
 
     @ViewBuilder
-    private func field(_ label: String, _ value: String, copyable: Bool = false) -> some View {
+    private func field(_ label: LocalizedStringKey, _ value: String, copyable: Bool = false) -> some View {
         GridRow {
             Text(label).foregroundStyle(.secondary).gridColumnAlignment(.trailing)
             HStack(spacing: 6) {
@@ -145,12 +146,12 @@ struct ConnectionDetailView: View {
                 if copyable && !value.isEmpty {
                     Button {
                         Clipboard.copy(value, clearAfter: nil)
-                        state.showToast("Másolva")
+                        state.showToast(String(localized: "Copied"))
                     } label: {
                         Image(systemName: "doc.on.doc").font(.caption)
                     }
                     .buttonStyle(.borderless)
-                    .help("Másolás")
+                    .help("Copy")
                 }
             }
         }
@@ -166,13 +167,13 @@ struct FolderDetailView: View {
         ContentUnavailableView {
             Label(folder.name, systemImage: "folder")
         } description: {
-            Text("\(count) kapcsolat · \(LibraryTree.folderPath(folder.id, in: state.library))")
+            Text("\(count) connections · \(LibraryTree.folderPath(folder.id, in: state.library))")
         } actions: {
             HStack {
                 ForEach(ConnectionType.allCases, id: \.self) { type in
-                    Button("Új \(type.displayName)") { state.newConnection(type) }
+                    Button("New \(type.displayName)") { state.newConnection(type) }
                 }
-                Button("Átnevezés") { state.folderEditor = folder }
+                Button("Rename") { state.folderEditor = folder }
             }
         }
     }
@@ -198,32 +199,32 @@ struct CredentialDetailView: View {
                 }
 
                 HStack {
-                    Button("Szerkesztés", systemImage: "pencil") { state.edit(credential) }
+                    Button("Edit", systemImage: "pencil") { state.edit(credential) }
                         .controlSize(.large)
-                    Button("Törlés", systemImage: "trash", role: .destructive) { state.requestDelete(credential) }
+                    Button("Delete", systemImage: "trash", role: .destructive) { state.requestDelete(credential) }
                         .controlSize(.large)
                 }
 
                 Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
-                    row("Felhasználó", credential.username)
+                    row("User", credential.username)
                     row("Domain", credential.domain)
-                    row("Jelszó", credential.passwordEnc == nil ? "" : "••••••••")
-                    row("SSH kulcs", credential.sshKeyPath ?? "")
-                    if credential.sshKeyPassphraseEnc != nil { row("Kulcs jelmondat", "••••••••") }
-                    if credential.sshKeyUnlockedEnc != nil { row("Feloldott kulcs", "tárolva") }
+                    row("Password", credential.passwordEnc == nil ? "" : "••••••••")
+                    row("SSH key", credential.sshKeyPath ?? "")
+                    if credential.sshKeyPassphraseEnc != nil { row("Key passphrase", "••••••••") }
+                    if credential.sshKeyUnlockedEnc != nil { row("Unlocked key", String(localized: "stored")) }
                 }
 
                 if !credential.notes.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Jegyzet").font(.headline)
+                        Text("Notes").font(.headline)
                         Text(credential.notes).textSelection(.enabled)
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Használja (\(users.count))").font(.headline)
+                    Text("Used by (\(users.count))").font(.headline)
                     if users.isEmpty {
-                        Text("Egy kapcsolat sem").foregroundStyle(.secondary)
+                        Text("No connections").foregroundStyle(.secondary)
                     }
                     ForEach(users) { connection in
                         Button {
@@ -245,7 +246,7 @@ struct CredentialDetailView: View {
         }
     }
 
-    private func row(_ label: String, _ value: String) -> some View {
+    private func row(_ label: LocalizedStringKey, _ value: String) -> some View {
         GridRow {
             Text(label).foregroundStyle(.secondary).gridColumnAlignment(.trailing)
             Text(value.isEmpty ? "—" : value).textSelection(.enabled)
