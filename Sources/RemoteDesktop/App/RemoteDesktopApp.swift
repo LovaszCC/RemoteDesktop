@@ -116,11 +116,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let state, state.hasRunningSessions else { return .terminateNow }
         let alert = NSAlert()
-        alert.messageText = "Futó SSH sessionök"
+        alert.messageText = String(localized: "Sessions are running")
         let count = state.sessions.filter(\.isRunning).count
-        alert.informativeText = "\(count) session még fut. Kilépéskor mind lezárul."
-        alert.addButton(withTitle: "Kilépés")
-        alert.addButton(withTitle: "Mégse")
+        alert.informativeText = String(localized: "\(count) sessions are still running. Quitting closes all of them.")
+        alert.addButton(withTitle: String(localized: "Quit"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
         guard alert.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
         state.terminateAllSessions()
         return .terminateNow

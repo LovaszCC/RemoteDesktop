@@ -136,7 +136,7 @@ final class AppState {
                 phase = .locked(needsSetup: false)
             }
         } catch {
-            phase = .failed("Az adatbázis nem nyitható meg: \(error.localizedDescription)")
+            phase = .failed(String(localized: "Can't open the database: \(error.localizedDescription)"))
         }
     }
 
@@ -194,10 +194,10 @@ final class AppState {
             let old = try Vault.unlock(password: current, in: repo)
             let updated = try old.changePassword(to: new, in: repo)
             didUnlock(updated)
-            showToast("Mesterjelszó módosítva")
+            showToast(String(localized: "Master password changed"))
             return true
         } catch VaultError.wrongPassword {
-            errorMessage = "A jelenlegi mesterjelszó hibás."
+            errorMessage = String(localized: "The current master password is wrong.")
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -291,7 +291,7 @@ final class AppState {
     func draft(for connection: Connection) -> ConnectionDraft? {
         guard let vault else { return nil }
         do { return try ConnectionDraft(connection: connection, vault: vault) }
-        catch { errorMessage = "Nem sikerült visszafejteni: \(error.localizedDescription)"; return nil }
+        catch { errorMessage = String(localized: "Couldn't decrypt: \(error.localizedDescription)"); return nil }
     }
 
     func save(_ draft: ConnectionDraft) {
@@ -328,7 +328,7 @@ final class AppState {
         guard let repo else { return }
         var copy = connection
         copy.id = UUID().uuidString
-        copy.name += " (másolat)"
+        copy.name += String(localized: " (copy)")
         copy.createdAt = .now
         perform { try repo.save(copy) }
     }
@@ -348,7 +348,7 @@ final class AppState {
     func move(folderId: String, to parentId: String?) {
         perform {
             do { try repo?.moveFolder(id: folderId, to: parentId) }
-            catch RepositoryError.folderCycle { showToast("Mappa nem helyezhető saját magába") }
+            catch RepositoryError.folderCycle { showToast(String(localized: "A folder can't be moved into itself")) }
         }
     }
 
@@ -370,7 +370,7 @@ final class AppState {
     func edit(_ credential: Credential) {
         guard let vault else { return }
         do { credentialEditor = try CredentialDraft(credential: credential, vault: vault) }
-        catch { errorMessage = "Nem sikerült visszafejteni: \(error.localizedDescription)" }
+        catch { errorMessage = String(localized: "Couldn't decrypt: \(error.localizedDescription)") }
     }
 
     /// Throws when saving failed (e.g. wrong key passphrase) so the editor can stay open and show it.
@@ -431,12 +431,13 @@ final class AppState {
             let accessing = url.startAccessingSecurityScopedResource()
             defer { if accessing { url.stopAccessingSecurityScopedResource() } }
             let summary = try RDMImporter.importFile(Data(contentsOf: url), into: repo, vault: vault)
-            var message = "\(summary.imported) kapcsolat, \(summary.credentialsImported) credential, \(summary.foldersCreated) új mappa importálva."
+            var message = String(localized: "Imported — connections: \(summary.imported), credentials: \(summary.credentialsImported), new folders: \(summary.foldersCreated).")
             if summary.withoutPassword > 0 {
-                message += "\n\(summary.withoutPassword) bejegyzés jelszava titkosított volt az exportban, ezeket kézzel kell megadni."
+                message += "\n" + String(localized: "\(summary.withoutPassword) entries had an encrypted password in the export; enter those by hand.")
             }
             if !summary.skipped.isEmpty {
-                message += "\nKihagyva (\(summary.skipped.count)): " + summary.skipped.prefix(15).joined(separator: ", ")
+                let skipped = summary.skipped.prefix(15).joined(separator: ", ")
+                message += "\n" + String(localized: "Skipped (\(summary.skipped.count)): \(skipped)")
             }
             errorMessage = message
         }
@@ -479,10 +480,10 @@ final class AppState {
                 outcome = try WebLauncher.launch(connection, password: password)
             }
             switch outcome {
-            case .launched: showToast("Kapcsolódás: \(connection.name)")
+            case .launched: showToast(String(localized: "Connecting: \(connection.name)"))
             case .embedded: break
-            case .passwordCopied(let reason): showToast("Jelszó a vágólapon (\(reason))")
-            case .loginCopied: showToast("Megnyitva: \(connection.name) · jelszó, majd felhasználónév a vágólapon")
+            case .passwordCopied(let reason): showToast(String(localized: "Password on the clipboard (\(reason))"))
+            case .loginCopied: showToast(String(localized: "Opened: \(connection.name) · password, then username on the clipboard"))
             }
         } catch {
             errorMessage = error.localizedDescription
@@ -589,19 +590,19 @@ final class AppState {
     func typeClipboardIntoActiveSession() {
         guard let session = activeRDPSession, session.status == .connected, !session.isTyping else { return }
         guard let text = NSPasteboard.general.string(forType: .string), !text.isEmpty else {
-            showToast("A vágólapon nincs szöveg")
+            showToast(String(localized: "There's no text on the clipboard"))
             return
         }
         if text.count > RDPTyping.confirmationThreshold {
             let alert = NSAlert()
-            alert.messageText = "Hosszú szöveg begépelése"
-            alert.informativeText = "\(text.count) karakter, a begépelés kb. \(text.count * 2 / 1000 + 1) mp. Folytatod?"
-            alert.addButton(withTitle: "Begépelés")
-            alert.addButton(withTitle: "Mégse")
+            alert.messageText = String(localized: "Type a long text?")
+            alert.informativeText = String(localized: "\(text.count) characters, typing takes about \(text.count * 2 / 1000 + 1) s. Continue?")
+            alert.addButton(withTitle: String(localized: "Type"))
+            alert.addButton(withTitle: String(localized: "Cancel"))
             guard alert.runModal() == .alertFirstButtonReturn else { return }
         }
         session.type(text) { [weak self] finished in
-            if !finished { self?.showToast("A begépelés megszakadt") }
+            if !finished { self?.showToast(String(localized: "Typing was interrupted")) }
         }
     }
 
@@ -626,11 +627,11 @@ final class AppState {
         let connection = library.resolved(connection)
         perform {
             guard let password = try vault.decryptOptional(connection.passwordEnc) else {
-                showToast("Nincs mentett jelszó")
+                showToast(String(localized: "No saved password"))
                 return
             }
             Clipboard.copy(password)
-            showToast("Jelszó a vágólapon (30 mp)")
+            showToast(String(localized: "Password on the clipboard (30 s)"))
         }
     }
 

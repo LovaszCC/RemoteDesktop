@@ -56,7 +56,7 @@ final class TerminalSession: Identifiable {
     }
 
     func reconnect() throws {
-        view.feed(text: "\r\n\u{1b}[2m— Újrakapcsolódás —\u{1b}[0m\r\n")
+        view.feed(text: "\r\n\u{1b}[2m— " + String(localized: "Reconnecting") + " —\u{1b}[0m\r\n")
         try start()
     }
 

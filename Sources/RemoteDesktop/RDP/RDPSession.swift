@@ -39,7 +39,7 @@ final class RDPSession: NSObject, Identifiable {
     func start() throws {
         let bridge = RDPSessionBridge(configuration: try makeConfiguration())
         bridge.delegate = self
-        guard bridge.start() else { throw LaunchError.openFailed("A FreeRDP session nem hozható létre.") }
+        guard bridge.start() else { throw LaunchError.openFailed(String(localized: "Couldn't create the FreeRDP session.")) }
         status = .connecting
         self.bridge = bridge
     }
@@ -108,21 +108,21 @@ enum CertificatePrompt {
         let alert = NSAlert()
         alert.alertStyle = certificate.changed || certificate.hostMismatch ? .critical : .warning
         alert.messageText = certificate.changed
-            ? "A(z) \(name) tanúsítványa megváltozott!"
-            : "Ismeretlen tanúsítvány: \(name)"
+            ? String(localized: "The certificate of \(name) has changed!")
+            : String(localized: "Unknown certificate: \(name)")
         var lines = [
-            "Szerver: \(certificate.host):\(certificate.port)",
-            "Név: \(certificate.commonName)",
-            "Tárgy: \(certificate.subject)",
-            "Kiállító: \(certificate.issuer)",
-            "Ujjlenyomat: \(certificate.fingerprint)",
+            String(localized: "Server: \(certificate.host):\(certificate.port)"),
+            String(localized: "Name: \(certificate.commonName)"),
+            String(localized: "Subject: \(certificate.subject)"),
+            String(localized: "Issuer: \(certificate.issuer)"),
+            String(localized: "Fingerprint: \(certificate.fingerprint)"),
         ]
-        if certificate.hostMismatch { lines.append("\nFigyelem: a tanúsítvány nem erre a hostnévre szól.") }
-        if certificate.changed { lines.append("\nFigyelem: korábban más tanúsítványt fogadtál el ehhez a szerverhez.") }
+        if certificate.hostMismatch { lines.append("\n" + String(localized: "Warning: the certificate is not for this host name.")) }
+        if certificate.changed { lines.append("\n" + String(localized: "Warning: you accepted a different certificate for this server before.")) }
         alert.informativeText = lines.joined(separator: "\n")
-        alert.addButton(withTitle: "Elfogadás")
-        alert.addButton(withTitle: "Csak most")
-        alert.addButton(withTitle: "Elutasítás")
+        alert.addButton(withTitle: String(localized: "Accept"))
+        alert.addButton(withTitle: String(localized: "Just this time"))
+        alert.addButton(withTitle: String(localized: "Reject"))
         switch alert.runModal() {
         case .alertFirstButtonReturn: return .acceptPermanently
         case .alertSecondButtonReturn: return .acceptOnce

@@ -6,8 +6,8 @@ enum LaunchError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .appNotInstalled(let name): "\(name) nincs telepítve."
-        case .openFailed(let detail): "Nem sikerült elindítani: \(detail)"
+        case .appNotInstalled(let name): String(localized: "\(name) is not installed.")
+        case .openFailed(let detail): String(localized: "Couldn't launch: \(detail)")
         }
     }
 }

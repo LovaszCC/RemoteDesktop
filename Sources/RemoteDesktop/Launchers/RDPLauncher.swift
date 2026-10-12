@@ -24,7 +24,7 @@ enum RDPLauncher {
 
         guard AccessibilityAutofill.isTrusted(prompt: true) else {
             Clipboard.copy(password)
-            return .passwordCopied(reason: "Accessibility engedély hiányzik")
+            return .passwordCopied(reason: String(localized: "Accessibility permission missing"))
         }
 
         Task { @MainActor in
@@ -34,7 +34,7 @@ enum RDPLauncher {
             )
             if !filled {
                 Clipboard.copy(password)
-                onFallback("Nem találtam a jelszómezőt — jelszó a vágólapon (30 mp)")
+                onFallback(String(localized: "Couldn't find the password field — password on the clipboard (30 s)"))
             }
         }
         return .launched
