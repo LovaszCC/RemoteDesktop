@@ -29,7 +29,16 @@ codesign --force --options runtime --sign "${IDENTITY:--}" "$APP"
 echo "Built $APP (signed: ${IDENTITY:-ad-hoc})"
 
 if [ "${1:-}" = "--install" ]; then
-    pkill -x RemoteDesktop 2>/dev/null || true
+    # Ask the running app to quit (it confirms open sessions) and wait up to 30 s; if it stays
+    # running, stop: installing over a running copy would leave the old version in use.
+    if pgrep -x RemoteDesktop >/dev/null; then
+        osascript -e 'quit app "RemoteDesktop"' >/dev/null 2>&1 || true
+        for _ in $(seq 1 30); do pgrep -x RemoteDesktop >/dev/null || break; sleep 1; done
+        if pgrep -x RemoteDesktop >/dev/null; then
+            echo "RemoteDesktop did not quit (open sessions not confirmed?); not installing" >&2
+            exit 1
+        fi
+    fi
     rm -rf /Applications/RemoteDesktop.app
     cp -R "$APP" /Applications/
     echo "Installed /Applications/RemoteDesktop.app"

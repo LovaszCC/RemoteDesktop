@@ -77,4 +77,31 @@ import Testing
         bridge.stop()
         try await Task.sleep(for: .milliseconds(500))
     }
+
+    /// FreeRDP's own SIGTERM/SIGINT handler aborts connections but never exits the process,
+    /// which made `kill` (and the installer's pkill) ineffective once an RDP session had run.
+    @Test func sessionLeavesProcessSignalHandlersAlone() async throws {
+        func handler(_ signal: Int32) -> UnsafeMutableRawPointer? {
+            var action = sigaction()
+            sigaction(signal, nil, &action)
+            return unsafeBitCast(action.__sigaction_u.__sa_handler, to: UnsafeMutableRawPointer?.self)
+        }
+        let before = (handler(SIGTERM), handler(SIGINT))
+
+        let configuration = RDPConnectionConfiguration()
+        configuration.host = "127.0.0.1"
+        configuration.port = 1
+        configuration.username = ""
+        configuration.domain = ""
+        configuration.width = 800
+        configuration.height = 600
+        let bridge = RDPSessionBridge(configuration: configuration)
+        #expect(bridge.start())
+        try await Task.sleep(for: .milliseconds(300))
+
+        #expect(handler(SIGTERM) == before.0)
+        #expect(handler(SIGINT) == before.1)
+        bridge.stop()
+        try await Task.sleep(for: .milliseconds(500))
+    }
 }
