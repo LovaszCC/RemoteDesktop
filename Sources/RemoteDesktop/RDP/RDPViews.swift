@@ -76,7 +76,7 @@ struct RDPSessionView: View {
             if case .ended(_, let message) = session.status {
                 HStack(spacing: 10) {
                     Image(systemName: "bolt.horizontal.circle").foregroundStyle(.orange)
-                    Text(message.isEmpty ? "A kapcsolat megszakadt" : message)
+                    Text(message.isEmpty ? "A kapcsolat váratlanul megszakadt (a szerver nem adott okot)" : message)
                         .lineLimit(2)
                     Spacer()
                     Button("Újrakapcsolódás", systemImage: "arrow.clockwise") { state.reconnect(session) }

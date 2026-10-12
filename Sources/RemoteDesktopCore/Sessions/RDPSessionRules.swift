@@ -40,12 +40,10 @@ public enum RDPDisconnectReason: Equatable, Sendable {
         0x0000_000C, // logoff by user
     ]
 
+    /// Only an explicit logoff / disconnect reason from the server counts as clean; a session that
+    /// ends without any code (client-side channel failure, dropped transport) keeps its tab.
     public init(lastError: UInt32, errorInfo: UInt32) {
-        if Self.cleanErrorInfo.contains(errorInfo) || (errorInfo == 0 && lastError == 0) {
-            self = .clean
-        } else {
-            self = .failure
-        }
+        self = Self.cleanErrorInfo.contains(errorInfo) ? .clean : .failure
     }
 }
 
