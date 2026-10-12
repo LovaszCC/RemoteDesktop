@@ -10,10 +10,30 @@ struct SettingsView: View {
     @State private var newPassword = ""
     @State private var confirmPassword = ""
     @State private var accessibilityTrusted = AccessibilityAutofill.isTrusted(prompt: false)
+    @State private var language = AppLanguage.current()
+    @State private var showsRestartPrompt = false
+
+    /// Language the running app actually uses (a new choice applies after a restart).
+    private let runningLanguage = Bundle.main.preferredLocalizations.first
 
     var body: some View {
         @Bindable var state = state
         Form {
+            Section("Language") {
+                Picker("Language", selection: $language) {
+                    ForEach(AppLanguage.allCases, id: \.self) { Text(verbatim: $0.displayName).tag($0) }
+                }
+                .onChange(of: language) {
+                    language.apply()
+                    showsRestartPrompt = true
+                }
+                if language.rawValue != runningLanguage {
+                    Text("Takes effect after RemoteDesktop restarts.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             Section("Database") {
                 LabeledContent("File") {
                     Text(state.databaseURL.path(percentEncoded: false))
@@ -78,6 +98,19 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .alert("Restart RemoteDesktop to change the language?", isPresented: $showsRestartPrompt) {
+            if AppRelaunch.isAvailable {
+                Button("Restart now") {
+                    AppRelaunch.isRequested = true
+                    NSApp.terminate(nil)
+                }
+                Button("Later", role: .cancel) {}
+            } else {
+                Button("OK", role: .cancel) {}
+            }
+        } message: {
+            Text("Running sessions are closed when the app quits.")
+        }
         .frame(width: 520)
         .fixedSize(horizontal: false, vertical: true)
     }

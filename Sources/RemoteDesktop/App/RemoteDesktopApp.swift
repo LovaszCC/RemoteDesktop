@@ -8,6 +8,8 @@ struct RemoteDesktopApp: App {
     @State private var state = AppState()
 
     init() {
+        // Before any string is looked up, so a Hungarian system doesn't pick Hungarian on its own.
+        AppLanguage.applyDefaultIfUnset()
         // Needed when launched as a bare executable (`swift run`) instead of from the .app bundle.
         NSApplication.shared.setActivationPolicy(.regular)
     }
@@ -121,8 +123,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.informativeText = String(localized: "\(count) sessions are still running. Quitting closes all of them.")
         alert.addButton(withTitle: String(localized: "Quit"))
         alert.addButton(withTitle: String(localized: "Cancel"))
-        guard alert.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            AppRelaunch.isRequested = false // a later, ordinary quit must not relaunch
+            return .terminateCancel
+        }
         state.terminateAllSessions()
         return .terminateNow
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        AppRelaunch.launchReplacementIfRequested()
     }
 }

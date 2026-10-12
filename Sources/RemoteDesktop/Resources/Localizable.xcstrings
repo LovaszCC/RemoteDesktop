@@ -1053,6 +1053,26 @@
         }
       }
     },
+    "Language" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nyelv"
+          }
+        }
+      }
+    },
+    "Later" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Később"
+          }
+        }
+      }
+    },
     "Lock" : {
       "localizations" : {
         "hu" : {
@@ -1613,6 +1633,26 @@
         }
       }
     },
+    "Restart now" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Újraindítás most"
+          }
+        }
+      }
+    },
+    "Restart RemoteDesktop to change the language?" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Újraindítod a RemoteDesktopot a nyelv váltásához?"
+          }
+        }
+      }
+    },
     "Results" : {
       "localizations" : {
         "hu" : {
@@ -1629,6 +1669,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Újra"
+          }
+        }
+      }
+    },
+    "Running sessions are closed when the app quits." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A futó sessionök kilépéskor lezárulnak."
           }
         }
       }
@@ -1779,6 +1829,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tárgy: %@"
+          }
+        }
+      }
+    },
+    "Takes effect after RemoteDesktop restarts." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A RemoteDesktop újraindítása után lép életbe."
           }
         }
       }
