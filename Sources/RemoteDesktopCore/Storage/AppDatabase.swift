@@ -105,6 +105,12 @@ public final class AppDatabase: Sendable {
             }
         }
 
+        migrator.registerMigration("v4-unlocked-key") { db in
+            try db.alter(table: "credential") { t in
+                t.add(column: "sshKeyUnlockedEnc", .blob)
+            }
+        }
+
         return migrator
     }
 }
