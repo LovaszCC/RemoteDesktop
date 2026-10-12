@@ -2,7 +2,8 @@
 # Builds a release RemoteDesktop.app into ./build and signs it.
 #   scripts/build-app.sh            build only
 #   scripts/build-app.sh --install  build and copy to /Applications
-# SIGN_IDENTITY overrides the signing identity (default: first "Apple Development" identity, else ad-hoc).
+# SIGN_IDENTITY overrides the signing identity (default: first "Apple Development" identity, else ad-hoc;
+# "-" forces ad-hoc). VERSION / BUILD_NUMBER override CFBundleShortVersionString / CFBundleVersion.
 set -eu
 cd "$(dirname "$0")/.."
 
@@ -17,6 +18,11 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/RemoteDesktop"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+# Release builds (CI) stamp the version from the git tag; local builds keep the plist values.
+if [ -n "${VERSION:-}" ]; then
+    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" \
+        -c "Set :CFBundleVersion ${BUILD_NUMBER:-1}" "$APP/Contents/Info.plist"
+fi
 [ -f Resources/AppIcon.icns ] && cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 # Bundled licenses: FreeRDP and OpenSSL (Apache-2.0) must ship with the binary.
 cp LICENSE THIRD_PARTY_NOTICES.md "$APP/Contents/Resources/"
