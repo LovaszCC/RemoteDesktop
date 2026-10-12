@@ -47,7 +47,22 @@ Devolutions Remote Desktop Manager. ~30 MB memory footprint, instant start.
 - Names, hosts and user names are stored unencrypted (needed for fast listing/search).
 - SSH secrets are written to a `0700` temp directory as `0600` files, deleted on first use (≤ 90 s).
 
-## Build & install
+## Install
+
+Download `RemoteDesktop-<version>.dmg` from the [Releases](../../releases) page, open it and drag
+**RemoteDesktop** to **Applications**. Requires an Apple Silicon Mac with macOS 15 or later.
+
+Release builds are ad-hoc signed, not notarized, so macOS blocks the first launch. Allow it once:
+open the app, then *System Settings → Privacy & Security → Open Anyway*. Or, from Terminal:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/RemoteDesktop.app
+```
+
+Every release has a new signature, so after an update grant the Accessibility permission (used for the
+Windows App password autofill) again.
+
+## Build from source
 
 Requires Xcode 16+ / Swift 6 and macOS 15+. The embedded RDP client needs a one-time static FreeRDP
 build (`scripts/build-freerdp.sh`, ~10 min, requires `brew install cmake ninja`); `build-app.sh` runs it
@@ -60,7 +75,7 @@ swift test                       # unit tests
 swift scripts/make-icon.swift    # regenerate Resources/AppIcon.icns
 ```
 
-Signing uses the first *Apple Development* identity (override with `SIGN_IDENTITY`), so the
+Signing uses the first *Apple Development* identity (override with `SIGN_IDENTITY`, `-` for ad-hoc), so the
 Accessibility permission survives rebuilds. Grant it in *System Settings → Privacy & Security →
 Accessibility* (Settings window has a shortcut).
 
@@ -69,3 +84,20 @@ Accessibility* (Settings window has a shortcut).
 RDM → *File → Export → Export all entries…* → **.rdm** format. To import passwords, tick *include
 credentials* and **do not** encrypt the export (otherwise passwords stay in RDM's `SafePassword` form and
 must be entered manually — the import summary tells you how many). Delete the export file afterwards.
+
+## Releasing
+
+Push a version tag; the *Release* GitHub Actions workflow tests, builds the ad-hoc signed app, packages
+it with `scripts/make-dmg.sh` and publishes a GitHub Release with the DMG and its SHA-256 checksum:
+
+```sh
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+The version comes from the tag (`Info.plist` is stamped at build time). *Actions → Release → Run
+workflow* is a dry run: it builds the DMG and attaches it to the workflow run without releasing.
+
+## License
+
+MIT, see [LICENSE](LICENSE). Bundled third-party software (FreeRDP, OpenSSL, SwiftTerm, GRDB) and its
+licenses are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
