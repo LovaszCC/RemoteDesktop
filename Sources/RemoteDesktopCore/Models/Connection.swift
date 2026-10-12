@@ -5,12 +5,14 @@ public enum ConnectionType: String, Codable, CaseIterable, Sendable {
     case rdp
     case ssh
     case web
+    case mikrotik
 
     public var defaultPort: Int {
         switch self {
         case .rdp: 3389
         case .ssh: 22
         case .web: 443
+        case .mikrotik: 22
         }
     }
 
@@ -19,6 +21,7 @@ public enum ConnectionType: String, Codable, CaseIterable, Sendable {
         case .rdp: "RDP"
         case .ssh: "SSH"
         case .web: "Böngésző"
+        case .mikrotik: "MikroTik"
         }
     }
 
@@ -28,6 +31,7 @@ public enum ConnectionType: String, Codable, CaseIterable, Sendable {
         case .rdp: "Új RDP kapcsolat"
         case .ssh: "Új SSH kapcsolat"
         case .web: "Új böngésző kapcsolat"
+        case .mikrotik: "Új MikroTik kapcsolat"
         }
     }
 
@@ -37,11 +41,28 @@ public enum ConnectionType: String, Codable, CaseIterable, Sendable {
         case .rdp: "display"
         case .ssh: "apple.terminal"
         case .web: "globe"
+        case .mikrotik: "network"
         }
     }
 
     /// Whether the connection has a host + port (as opposed to a URL).
     public var usesPort: Bool { self != .web }
+
+    /// Whether the connection can be opened over SSH (and so has SSH key settings).
+    public var usesSSH: Bool { self == .ssh || self == .mikrotik }
+}
+
+/// How a MikroTik connection is opened.
+public enum MikrotikMode: String, Codable, CaseIterable, Sendable {
+    case winbox
+    case ssh
+
+    public var displayName: String {
+        switch self {
+        case .winbox: "WinBox"
+        case .ssh: "SSH"
+        }
+    }
 }
 
 /// A saved connection. Secret fields (`passwordEnc`, `sshKeyPassphraseEnc`) hold AES-GCM
@@ -65,6 +86,8 @@ public struct Connection: Codable, Hashable, Identifiable, Sendable {
     public var rdpAdminSession: Bool
     /// Web only: browser to open the URL with; `nil` means the system default browser.
     public var browserBundleId: String?
+    /// MikroTik only: mode used by double-click / ⌘↩.
+    public var mikrotikMode: MikrotikMode
     public var notes: String
     public var createdAt: Date
     public var updatedAt: Date
@@ -85,6 +108,7 @@ public struct Connection: Codable, Hashable, Identifiable, Sendable {
         isFavorite: Bool = false,
         rdpAdminSession: Bool = false,
         browserBundleId: String? = nil,
+        mikrotikMode: MikrotikMode = .winbox,
         notes: String = "",
         createdAt: Date = .now,
         updatedAt: Date = .now
@@ -104,6 +128,7 @@ public struct Connection: Codable, Hashable, Identifiable, Sendable {
         self.isFavorite = isFavorite
         self.rdpAdminSession = rdpAdminSession
         self.browserBundleId = browserBundleId
+        self.mikrotikMode = mikrotikMode
         self.notes = notes
         self.createdAt = createdAt
         self.updatedAt = updatedAt

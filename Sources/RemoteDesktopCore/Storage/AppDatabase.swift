@@ -117,6 +117,12 @@ public final class AppDatabase: Sendable {
             }
         }
 
+        migrator.registerMigration("v6-mikrotik") { db in
+            try db.alter(table: "connection") { t in
+                t.add(column: "mikrotikMode", .text).notNull().defaults(to: MikrotikMode.winbox.rawValue)
+            }
+        }
+
         return migrator
     }
 }
