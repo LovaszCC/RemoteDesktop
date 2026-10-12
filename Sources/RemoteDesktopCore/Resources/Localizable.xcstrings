@@ -110,6 +110,56 @@
           }
         }
       }
+    },
+    "Couldn't reach GitHub. Check your internet connection." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A GitHub nem érhető el. Ellenőrizd az internetkapcsolatot."
+          }
+        }
+      }
+    },
+    "GitHub is limiting requests right now. Try again later." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A GitHub most korlátozza a kéréseket. Próbáld újra később."
+          }
+        }
+      }
+    },
+    "GitHub sent an unexpected response." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A GitHub váratlan választ küldött."
+          }
+        }
+      }
+    },
+    "This release has no downloadable disk image." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ehhez a kiadáshoz nincs letölthető lemezkép."
+          }
+        }
+      }
+    },
+    "The download is corrupted. Try again." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A letöltött fájl sérült. Próbáld újra."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
