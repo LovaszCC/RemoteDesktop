@@ -9,6 +9,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.0.0"),
+        .package(url: "https://github.com/migueldeicaza/SwiftTerm.git", exact: "1.20.0"),
     ],
     targets: [
         .target(
@@ -17,7 +18,11 @@ let package = Package(
         ),
         .executableTarget(
             name: "RemoteDesktop",
-            dependencies: ["RemoteDesktopCore", .product(name: "GRDB", package: "GRDB.swift")]
+            dependencies: [
+                "RemoteDesktopCore",
+                .product(name: "GRDB", package: "GRDB.swift"),
+                .product(name: "SwiftTerm", package: "SwiftTerm"),
+            ]
         ),
         .testTarget(
             name: "RemoteDesktopCoreTests",

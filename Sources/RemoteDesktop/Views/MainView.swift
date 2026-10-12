@@ -11,8 +11,9 @@ struct MainView: View {
             SidebarView()
                 .navigationSplitViewColumnWidth(min: 220, ideal: 280, max: 420)
         } detail: {
-            DetailView()
+            DetailArea()
         }
+        .onChange(of: state.selection) { state.selectTab(nil) }
         .searchable(text: $state.searchText, placement: .sidebar, prompt: "Keresés")
         .toolbar {
             ToolbarItemGroup {

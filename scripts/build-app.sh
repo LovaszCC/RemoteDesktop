@@ -15,6 +15,10 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/RemoteDesktop"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 [ -f Resources/AppIcon.icns ] && cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+# SwiftPM resource bundles of dependencies (SwiftTerm shaders, GRDB privacy manifest).
+for bundle in "$(dirname "$BIN")"/*.bundle; do
+    [ -d "$bundle" ] && cp -R "$bundle" "$APP/Contents/Resources/"
+done
 
 IDENTITY="${SIGN_IDENTITY:-$(security find-identity -v -p codesigning | awk -F'"' '/Apple Development/ { print $2; exit }')}"
 # A stable identity keeps the Accessibility permission across rebuilds; ad-hoc resets it every time.
