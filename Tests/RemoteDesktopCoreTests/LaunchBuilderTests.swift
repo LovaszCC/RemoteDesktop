@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 import Testing
 @testable import RemoteDesktopCore
 
@@ -118,5 +119,41 @@ import Testing
     @Test func openArguments() {
         #expect(ExternalApps.windowsAppOpenArguments(rdpFile: URL(filePath: "/tmp/a.rdp")) == ["-b", "com.microsoft.rdc.macos", "/tmp/a.rdp"])
         #expect(ExternalApps.ghosttyOpenArguments(launchScript: URL(filePath: "/tmp/l.sh")) == ["-n", "-b", "com.mitchellh.ghostty", "--args", "-e", "/tmp/l.sh"])
+    }
+}
+
+@Suite struct RDPAdminSessionTests {
+    @Test func adminSessionLineOnlyWhenEnabled() {
+        let normal = RDPFileBuilder.contents(for: Connection(type: .rdp, name: "a", host: "h"))
+        let admin = RDPFileBuilder.contents(for: Connection(type: .rdp, name: "a", host: "h", rdpAdminSession: true))
+        #expect(!normal.contains("administrative session"))
+        #expect(admin.contains("administrative session:i:1\r\n"))
+    }
+
+    @Test func flagRoundtripsAndDefaultsFalseAfterMigration() throws {
+        let queue = try GRDB.DatabaseQueue()
+        try AppDatabase.migrator.migrate(queue, upTo: "v2-credentials")
+        try queue.write { db in
+            try db.execute(sql: """
+                INSERT INTO connection (id, type, name, host, username, domain, isFavorite, notes, createdAt, updatedAt)
+                VALUES ('old', 'rdp', 'legacy', 'h', '', '', 0, '', '2025-01-01 00:00:00', '2025-01-01 00:00:00')
+                """)
+        }
+        let repo = ConnectionRepository(database: try AppDatabase(queue))
+        #expect(try repo.connection(id: "old")?.rdpAdminSession == false)
+
+        let saved = try repo.save(Connection(type: .rdp, name: "n", host: "h", rdpAdminSession: true))
+        #expect(try repo.connection(id: saved.id)?.rdpAdminSession == true)
+    }
+
+    @Test func importerMapsAdminMode() throws {
+        let xml = """
+        <ArrayOfConnection>
+          <Connection><ConnectionType>RDPConfigured</ConnectionType><Name>a</Name><Url>a</Url><RDP><AdminMode>true</AdminMode></RDP></Connection>
+          <Connection><ConnectionType>RDPConfigured</ConnectionType><Name>b</Name><Url>b</Url></Connection>
+        </ArrayOfConnection>
+        """
+        let result = try RDMImporter.parse(Data(xml.utf8))
+        #expect(result.connections.map(\.rdpAdminSession) == [true, false])
     }
 }

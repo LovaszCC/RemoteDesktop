@@ -10,6 +10,7 @@ Devolutions Remote Desktop Manager. ~30 MB memory footprint, instant start.
 
 ## Features
 
+- **RDP admin session** toggle per connection (`mstsc /admin` equivalent, `administrative session:i:1`)
 - **Linked credentials**: reusable user/domain/password/SSH key entries (sidebar *Credentialok*) that
   connections link to; a linked credential replaces the entry's own login. Deleting one asks for
   confirmation and linked entries fall back to their own saved login.

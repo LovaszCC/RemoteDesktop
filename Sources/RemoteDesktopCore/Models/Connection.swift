@@ -37,6 +37,8 @@ public struct Connection: Codable, Hashable, Identifiable, Sendable {
     public var sshKeyPath: String?
     public var sshKeyPassphraseEnc: Data?
     public var isFavorite: Bool
+    /// RDP only: connect to the administrative session (`mstsc /admin`).
+    public var rdpAdminSession: Bool
     public var notes: String
     public var createdAt: Date
     public var updatedAt: Date
@@ -55,6 +57,7 @@ public struct Connection: Codable, Hashable, Identifiable, Sendable {
         sshKeyPath: String? = nil,
         sshKeyPassphraseEnc: Data? = nil,
         isFavorite: Bool = false,
+        rdpAdminSession: Bool = false,
         notes: String = "",
         createdAt: Date = .now,
         updatedAt: Date = .now
@@ -72,6 +75,7 @@ public struct Connection: Codable, Hashable, Identifiable, Sendable {
         self.sshKeyPath = sshKeyPath
         self.sshKeyPassphraseEnc = sshKeyPassphraseEnc
         self.isFavorite = isFavorite
+        self.rdpAdminSession = rdpAdminSession
         self.notes = notes
         self.createdAt = createdAt
         self.updatedAt = updatedAt

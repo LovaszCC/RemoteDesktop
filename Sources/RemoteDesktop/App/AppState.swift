@@ -21,6 +21,7 @@ struct ConnectionDraft: Identifiable, Equatable {
     var sshKeyPassphrase = ""
     var notes = ""
     var isFavorite = false
+    var rdpAdminSession = false
 
     init(type: ConnectionType, folderId: String?) {
         id = UUID().uuidString
@@ -45,6 +46,7 @@ struct ConnectionDraft: Identifiable, Equatable {
         sshKeyPassphrase = try vault.decryptOptional(connection.sshKeyPassphraseEnc) ?? ""
         notes = connection.notes
         isFavorite = connection.isFavorite
+        rdpAdminSession = connection.rdpAdminSession
     }
 
     var isValid: Bool {
@@ -279,6 +281,7 @@ final class AppState {
                 sshKeyPath: draft.type == .ssh && !trimmedKey.isEmpty ? trimmedKey : nil,
                 sshKeyPassphraseEnc: draft.type == .ssh ? try vault.encryptOptional(draft.sshKeyPassphrase) : nil,
                 isFavorite: draft.isFavorite,
+                rdpAdminSession: draft.type == .rdp && draft.rdpAdminSession,
                 notes: draft.notes,
                 createdAt: existing?.createdAt ?? .now
             ))

@@ -19,6 +19,9 @@ public enum RDPFileBuilder {
         if !user.isEmpty {
             lines.append("username:s:\(user)")
         }
+        if connection.rdpAdminSession {
+            lines.append("administrative session:i:1")
+        }
         return lines.joined(separator: "\r\n") + "\r\n"
     }
 

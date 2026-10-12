@@ -24,6 +24,10 @@ struct ConnectionEditorView: View {
                 Section("Kapcsolat") {
                     TextField("Host / IP", text: $draft.host, prompt: Text("10.0.0.10 vagy server.local"))
                     TextField("Port", text: $draft.port, prompt: Text(String(draft.type.defaultPort)))
+                    if draft.type == .rdp {
+                        Toggle("Admin session (/admin)", isOn: $draft.rdpAdminSession)
+                            .help("Kapcsolódás az adminisztratív (konzol) sessionhöz, mint mstsc /admin")
+                    }
                 }
 
                 Section("Hitelesítés") {

@@ -99,6 +99,12 @@ public final class AppDatabase: Sendable {
             try db.create(index: "connection_on_credentialId", on: "connection", columns: ["credentialId"])
         }
 
+        migrator.registerMigration("v3-rdp-admin") { db in
+            try db.alter(table: "connection") { t in
+                t.add(column: "rdpAdminSession", .boolean).notNull().defaults(to: false)
+            }
+        }
+
         return migrator
     }
 }

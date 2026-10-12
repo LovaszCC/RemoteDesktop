@@ -35,7 +35,9 @@ struct ConnectionDetailView: View {
                         .frame(width: 44)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(connection.name).font(.title2.weight(.semibold))
-                        Text(connection.type == .rdp ? "RDP · Windows App" : "SSH · Ghostty")
+                        Text(connection.type == .rdp
+                             ? "RDP · Windows App" + (connection.rdpAdminSession ? " · /admin" : "")
+                             : "SSH · Ghostty")
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -64,6 +66,9 @@ struct ConnectionDetailView: View {
                 Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
                     field("Host", connection.host, copyable: true)
                     field("Port", String(connection.effectivePort))
+                    if connection.type == .rdp {
+                        field("Admin session", connection.rdpAdminSession ? "Igen (/admin)" : "Nem")
+                    }
                     if let credential {
                         GridRow {
                             Text("Credential").foregroundStyle(.secondary).gridColumnAlignment(.trailing)
