@@ -10,54 +10,11 @@ struct SidebarView: View {
         let library = state.library
 
         List(selection: $state.selectedTags) {
+            // Separate builders keep each body small enough for the type checker on CI.
             if !state.searchText.isEmpty {
-                Section("Results") {
-                    ForEach(LibraryTree.search(library, query: state.searchText)) { connection in
-                        ConnectionRow(connection: connection, subtitle: LibraryTree.folderPath(connection.folderId, in: library))
-                            .draggable(state.dragPayload(for: "c:\(connection.id)"))
-                            .tag("c:\(connection.id)")
-                    }
-                }
-                let credentials = LibraryTree.searchCredentials(library, query: state.searchText)
-                if !credentials.isEmpty {
-                    Section("Credentials") {
-                        ForEach(credentials) { CredentialRow(credential: $0).tag("k:\($0.id)") }
-                    }
-                }
+                searchSections(library)
             } else {
-                let favorites = LibraryTree.favorites(library)
-                if !favorites.isEmpty {
-                    Section("Favorites") {
-                        ForEach(favorites) { connection in
-                            ConnectionRow(connection: connection, subtitle: nil)
-                                .draggable(state.dragPayload(for: "fav:\(connection.id)"))
-                                .tag("fav:\(connection.id)")
-                        }
-                    }
-                }
-                if !library.savedSplits.isEmpty {
-                    Section("Saved splits") {
-                        ForEach(library.savedSplits) { saved in
-                            SavedSplitRow(saved: saved).tag("s:\(saved.id)")
-                        }
-                        .onMove { state.moveSavedSplits(from: $0, to: $1) }
-                    }
-                }
-                Section {
-                    TreeRows(nodes: LibraryTree.build(library), expanded: expandedBinding)
-                } header: {
-                    Text("Connections")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                        .dropDestination(for: String.self) { payloads, _ in
-                            state.move(tags: SidebarDrag.tags(from: payloads), to: nil)
-                            return true
-                        }
-                }
-                // Always present: inserting the section together with its first row confuses the List.
-                Section("Credentials") {
-                    ForEach(library.credentials) { CredentialRow(credential: $0).tag("k:\($0.id)") }
-                }
+                librarySections(library)
             }
         }
         .listStyle(.sidebar)
@@ -112,6 +69,60 @@ struct SidebarView: View {
             get: { Set(expandedStorage.split(separator: ",").map(String.init)) },
             set: { expandedStorage = $0.sorted().joined(separator: ",") }
         )
+    }
+
+    @ViewBuilder
+    private func searchSections(_ library: Library) -> some View {
+        Section("Results") {
+            ForEach(LibraryTree.search(library, query: state.searchText)) { connection in
+                ConnectionRow(connection: connection, subtitle: LibraryTree.folderPath(connection.folderId, in: library))
+                    .draggable(state.dragPayload(for: "c:\(connection.id)"))
+                    .tag("c:\(connection.id)")
+            }
+        }
+        let credentials = LibraryTree.searchCredentials(library, query: state.searchText)
+        if !credentials.isEmpty {
+            Section("Credentials") {
+                ForEach(credentials) { CredentialRow(credential: $0).tag("k:\($0.id)") }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func librarySections(_ library: Library) -> some View {
+        let favorites = LibraryTree.favorites(library)
+        if !favorites.isEmpty {
+            Section("Favorites") {
+                ForEach(favorites) { connection in
+                    ConnectionRow(connection: connection, subtitle: nil)
+                        .draggable(state.dragPayload(for: "fav:\(connection.id)"))
+                        .tag("fav:\(connection.id)")
+                }
+            }
+        }
+        if !library.savedSplits.isEmpty {
+            Section("Saved splits") {
+                ForEach(library.savedSplits) { saved in
+                    SavedSplitRow(saved: saved).tag("s:\(saved.id)")
+                }
+                .onMove { state.moveSavedSplits(from: $0, to: $1) }
+            }
+        }
+        Section {
+            TreeRows(nodes: LibraryTree.build(library), expanded: expandedBinding)
+        } header: {
+            Text("Connections")
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .dropDestination(for: String.self) { payloads, _ in
+                    state.move(tags: SidebarDrag.tags(from: payloads), to: nil)
+                    return true
+                }
+        }
+        // Always present: inserting the section together with its first row confuses the List.
+        Section("Credentials") {
+            ForEach(library.credentials) { CredentialRow(credential: $0).tag("k:\($0.id)") }
+        }
     }
 
     private func toggle(_ folderId: String) {

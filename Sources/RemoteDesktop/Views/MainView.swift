@@ -4,7 +4,6 @@ import UniformTypeIdentifiers
 
 struct MainView: View {
     @Environment(AppState.self) private var state
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         @Bindable var state = state
@@ -39,84 +38,88 @@ struct MainView: View {
                 .help("Import from a Devolutions RDM export (.rdm) or a WinBox address book (.cdb)")
             }
         }
-        // Shown here, not on the port forward list: tunnels and file browsers start from anywhere.
-        .alert("Unknown host key", isPresented: Binding(
-            get: { state.pendingHostKey != nil },
-            set: { if !$0 { state.pendingHostKey = nil } }
-        ), presenting: state.pendingHostKey) { _ in
-            Button("Accept and Start") { state.acceptPendingHostKey() }
-            Button("Reject", role: .cancel) { state.pendingHostKey = nil }
-        } message: { pending in
-            Text("\(pending.target.lookupName) isn't in known_hosts yet. Accept only if these fingerprints match the server's keys:\n\n\(pending.fingerprints.joined(separator: "\n"))")
-        }
-        .onChange(of: state.filesWindowRequest) {
-            guard let target = state.filesWindowRequest else { return }
-            state.filesWindowRequest = nil
-            openWindow(id: "files", value: target)
-        }
-        .sheet(item: $state.editorDraft) { draft in
-            ConnectionEditorView(draft: draft)
-        }
-        .sheet(item: $state.folderEditor) { folder in
-            FolderEditorView(folder: folder)
-        }
-        .sheet(item: $state.credentialEditor) { draft in
-            CredentialEditorView(draft: draft)
-        }
-        .confirmationDialog(
-            Text("Delete \(state.pendingBulkDeletion?.count ?? 0) items?"),
-            isPresented: Binding(
-                get: { state.pendingBulkDeletion != nil },
-                set: { if !$0 { state.pendingBulkDeletion = nil } }
-            ),
-            presenting: state.pendingBulkDeletion
-        ) { _ in
-            Button("Delete", role: .destructive) { state.confirmBulkDelete() }
-            Button("Cancel", role: .cancel) {}
-        } message: { deletion in
-            Text(bulkDeletionMessage(deletion))
-        }
-        .confirmationDialog(
-            "Delete credential?",
-            isPresented: Binding(
-                get: { state.pendingCredentialDeletion != nil },
-                set: { if !$0 { state.pendingCredentialDeletion = nil } }
-            ),
-            presenting: state.pendingCredentialDeletion
-        ) { credential in
-            Button("Delete", role: .destructive) { state.confirmDelete(credential) }
-            Button("Cancel", role: .cancel) {}
-        } message: { credential in
-            let count = state.library.connections(using: credential.id).count
-            Text("\(count) connections use the credential “\(credential.name)”. After deleting it they use their own saved login.")
-        }
-        .sheet(item: $state.savedSplitPrompt) { prompt in
-            SavedSplitNameSheet(name: prompt.name, isRename: { if case .rename = prompt.source { true } else { false } }())
-        }
-        .sheet(item: $state.winboxImport) { draft in
-            WinboxImportSheet(draft: draft)
-        }
-        // A second file importer must sit on another view: one view shows only its last one.
-        .background {
-            Color.clear.fileImporter(
-                isPresented: $state.isImportingWinbox,
-                allowedContentTypes: [UTType(filenameExtension: "cdb") ?? .data, .data]
-            ) { result in
-                switch result {
-                case .success(let url): state.loadWinbox(from: url)
-                case .failure(let error): state.errorMessage = error.localizedDescription
-                }
+        // Split up: one long modifier chain is too slow for the type checker on CI.
+        .modifier(MainSheets())
+        .modifier(MainDialogs())
+        .modifier(MainImporters())
+    }
+}
+
+/// Editors and other sheets of the main window.
+private struct MainSheets: ViewModifier {
+    @Environment(AppState.self) private var state
+
+    func body(content: Content) -> some View {
+        @Bindable var state = state
+        content
+            .sheet(item: $state.editorDraft) { draft in
+                ConnectionEditorView(draft: draft)
             }
-        }
-        .fileImporter(
-            isPresented: $state.isImporting,
-            allowedContentTypes: [UTType(filenameExtension: "rdm") ?? .xml, .xml]
-        ) { result in
-            switch result {
-            case .success(let url): state.importRDM(from: url)
-            case .failure(let error): state.errorMessage = error.localizedDescription
+            .sheet(item: $state.folderEditor) { folder in
+                FolderEditorView(folder: folder)
             }
-        }
+            .sheet(item: $state.credentialEditor) { draft in
+                CredentialEditorView(draft: draft)
+            }
+            .sheet(item: $state.savedSplitPrompt) { prompt in
+                SavedSplitNameSheet(name: prompt.name, isRename: { if case .rename = prompt.source { true } else { false } }())
+            }
+            .sheet(item: $state.winboxImport) { draft in
+                WinboxImportSheet(draft: draft)
+            }
+    }
+}
+
+/// Confirmations, the host key alert and opening file browser windows.
+private struct MainDialogs: ViewModifier {
+    @Environment(AppState.self) private var state
+    @Environment(\.openWindow) private var openWindow
+
+    func body(content: Content) -> some View {
+        @Bindable var state = state
+        content
+            // Shown here, not on the port forward list: tunnels and file browsers start from anywhere.
+            .alert("Unknown host key", isPresented: Binding(
+                get: { state.pendingHostKey != nil },
+                set: { if !$0 { state.pendingHostKey = nil } }
+            ), presenting: state.pendingHostKey) { _ in
+                Button("Accept and Start") { state.acceptPendingHostKey() }
+                Button("Reject", role: .cancel) { state.pendingHostKey = nil }
+            } message: { pending in
+                Text("\(pending.target.lookupName) isn't in known_hosts yet. Accept only if these fingerprints match the server's keys:\n\n\(pending.fingerprints.joined(separator: "\n"))")
+            }
+            .onChange(of: state.filesWindowRequest) {
+                guard let target = state.filesWindowRequest else { return }
+                state.filesWindowRequest = nil
+                openWindow(id: "files", value: target)
+            }
+            .confirmationDialog(
+                Text("Delete \(state.pendingBulkDeletion?.count ?? 0) items?"),
+                isPresented: Binding(
+                    get: { state.pendingBulkDeletion != nil },
+                    set: { if !$0 { state.pendingBulkDeletion = nil } }
+                ),
+                presenting: state.pendingBulkDeletion
+            ) { _ in
+                Button("Delete", role: .destructive) { state.confirmBulkDelete() }
+                Button("Cancel", role: .cancel) {}
+            } message: { deletion in
+                Text(bulkDeletionMessage(deletion))
+            }
+            .confirmationDialog(
+                "Delete credential?",
+                isPresented: Binding(
+                    get: { state.pendingCredentialDeletion != nil },
+                    set: { if !$0 { state.pendingCredentialDeletion = nil } }
+                ),
+                presenting: state.pendingCredentialDeletion
+            ) { credential in
+                Button("Delete", role: .destructive) { state.confirmDelete(credential) }
+                Button("Cancel", role: .cancel) {}
+            } message: { credential in
+                let count = state.library.connections(using: credential.id).count
+                Text("\(count) connections use the credential “\(credential.name)”. After deleting it they use their own saved login.")
+            }
     }
 
     private func bulkDeletionMessage(_ deletion: AppState.BulkDeletion) -> String {
@@ -129,5 +132,36 @@ struct MainView: View {
         }
         lines.append(String(localized: "This can't be undone."))
         return lines.joined(separator: "\n")
+    }
+}
+
+/// File pickers of the imports.
+private struct MainImporters: ViewModifier {
+    @Environment(AppState.self) private var state
+
+    func body(content: Content) -> some View {
+        @Bindable var state = state
+        content
+            // A second file importer must sit on another view: one view shows only its last one.
+            .background {
+                Color.clear.fileImporter(
+                    isPresented: $state.isImportingWinbox,
+                    allowedContentTypes: [UTType(filenameExtension: "cdb") ?? .data, .data]
+                ) { result in
+                    switch result {
+                    case .success(let url): state.loadWinbox(from: url)
+                    case .failure(let error): state.errorMessage = error.localizedDescription
+                    }
+                }
+            }
+            .fileImporter(
+                isPresented: $state.isImporting,
+                allowedContentTypes: [UTType(filenameExtension: "rdm") ?? .xml, .xml]
+            ) { result in
+                switch result {
+                case .success(let url): state.importRDM(from: url)
+                case .failure(let error): state.errorMessage = error.localizedDescription
+                }
+            }
     }
 }

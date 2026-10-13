@@ -16,6 +16,50 @@ struct ConnectionEditorView: View {
         return list
     }
 
+    /// Own login or a linked credential (a separate builder keeps `body` quick to type-check).
+    private var authenticationSection: some View {
+    Section("Authentication") {
+        Picker("Credential", selection: $draft.credentialId) {
+            Text("Own login").tag(String?.none)
+            if !state.library.credentials.isEmpty { Divider() }
+            ForEach(state.library.credentials) { credential in
+                Text(credential.displayUser.isEmpty ? credential.name : "\(credential.name) (\(credential.displayUser))")
+                    .tag(Optional(credential.id))
+            }
+        }
+
+        if let credential = state.library.credential(id: draft.credentialId) {
+            if credential.username.isEmpty {
+                TextField("Username", text: $draft.username)
+                if draft.type == .rdp {
+                    TextField("Domain", text: $draft.domain, prompt: Text("optional"))
+                }
+                Text("The credential has no username – this connection uses its own.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                LabeledContent("User", value: credential.displayUser)
+            }
+            LabeledContent("Password", value: credential.passwordEnc == nil ? "—" : "••••••••")
+            if draft.type.usesSSH {
+                LabeledContent("SSH key", value: credential.sshKeyPath ?? "—")
+            }
+        } else {
+            TextField("Username", text: $draft.username)
+            if draft.type == .rdp {
+                TextField("Domain", text: $draft.domain, prompt: Text("optional"))
+            }
+            SecretField(title: "Password", text: $draft.password)
+            if draft.type.usesSSH {
+                SSHKeyField(path: $draft.sshKeyPath)
+                if !draft.sshKeyPath.isEmpty {
+                    SecretField(title: "Key passphrase", text: $draft.sshKeyPassphrase)
+                }
+            }
+        }
+    }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             Form {
@@ -69,46 +113,7 @@ struct ConnectionEditorView: View {
                     }
                 }
 
-                Section("Authentication") {
-                    Picker("Credential", selection: $draft.credentialId) {
-                        Text("Own login").tag(String?.none)
-                        if !state.library.credentials.isEmpty { Divider() }
-                        ForEach(state.library.credentials) { credential in
-                            Text(credential.displayUser.isEmpty ? credential.name : "\(credential.name) (\(credential.displayUser))")
-                                .tag(Optional(credential.id))
-                        }
-                    }
-
-                    if let credential = state.library.credential(id: draft.credentialId) {
-                        if credential.username.isEmpty {
-                            TextField("Username", text: $draft.username)
-                            if draft.type == .rdp {
-                                TextField("Domain", text: $draft.domain, prompt: Text("optional"))
-                            }
-                            Text("The credential has no username – this connection uses its own.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        } else {
-                            LabeledContent("User", value: credential.displayUser)
-                        }
-                        LabeledContent("Password", value: credential.passwordEnc == nil ? "—" : "••••••••")
-                        if draft.type.usesSSH {
-                            LabeledContent("SSH key", value: credential.sshKeyPath ?? "—")
-                        }
-                    } else {
-                        TextField("Username", text: $draft.username)
-                        if draft.type == .rdp {
-                            TextField("Domain", text: $draft.domain, prompt: Text("optional"))
-                        }
-                        SecretField(title: "Password", text: $draft.password)
-                        if draft.type.usesSSH {
-                            SSHKeyField(path: $draft.sshKeyPath)
-                            if !draft.sshKeyPath.isEmpty {
-                                SecretField(title: "Key passphrase", text: $draft.sshKeyPassphrase)
-                            }
-                        }
-                    }
-                }
+                authenticationSection
 
                 Section("Notes") {
                     TextEditor(text: $draft.notes)
