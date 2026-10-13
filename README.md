@@ -68,9 +68,9 @@ broadcasting pane, iTerm2 style — configure several switches at once. ⌥⌘I 
 all panes. Broadcast is off by default; broadcasting panes have an orange frame and a *BROADCAST* badge, and
 the tab turns orange. The pane you type into has a green frame.
 
-**Root warning**: SSH entries that log in as `root` get a yellow warning sign in the sidebar. Embedded
-terminals also notice `sudo -i` / `su -` from the `user@host` title most shells set: the tab, split pane and
-entry show the warning while the session is root.
+**Root warning**: while an embedded SSH session is root, its tab (and split pane header) shows a yellow
+warning sign — when logging in as `root`, and after `sudo -i` / `su -`, read from the `user@host` title most
+shells set.
 
 **Port forwards** (SSH connections): save forwards such as `localhost:13389 → 10.0.0.20:3389` on the
 connection's page and start or stop them with one click; a green dot shows a running tunnel, and the
