@@ -23,6 +23,13 @@ typedef NS_ENUM(NSInteger, RDPCertificateDecision) {
 @property(nonatomic) BOOL hostMismatch;
 @end
 
+/// Sign-in details asked for when the server requires NLA and the connection lacks them.
+@interface RDPCredentials : NSObject
+@property(nonatomic, copy) NSString *username;
+@property(nonatomic, copy) NSString *domain;
+@property(nonatomic, copy) NSString *password;
+@end
+
 /// Everything needed to open one session; secrets are copied into FreeRDP settings, never argv.
 @interface RDPConnectionConfiguration : NSObject
 @property(nonatomic, copy) NSString *host;
@@ -49,6 +56,13 @@ typedef NS_ENUM(NSInteger, RDPCertificateDecision) {
 /// Blocks the connection thread until answered.
 - (RDPCertificateDecision)rdpSession:(RDPSessionBridge *)session
                    verifyCertificate:(RDPCertificateInfo *)certificate;
+@optional
+/// NLA needs a username or password the configuration does not have; `current` holds what is set.
+/// Blocks the connection thread until answered; nil cancels the connection. Without it the
+/// connection continues with what it has.
+- (nullable RDPCredentials *)rdpSession:(RDPSessionBridge *)session
+                     requestCredentials:(RDPCredentials *)current
+    NS_SWIFT_NAME(rdpSession(_:requestCredentials:));
 @end
 
 /// One embedded FreeRDP session rendering into `view`.

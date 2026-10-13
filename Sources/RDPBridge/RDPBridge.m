@@ -27,12 +27,16 @@ typedef struct
 @implementation RDPConnectionConfiguration
 @end
 
+@implementation RDPCredentials
+@end
+
 @interface RDPSessionBridge ()
 - (void)channelConnected:(const ChannelConnectedEventArgs *)event;
 - (void)channelDisconnected:(const ChannelDisconnectedEventArgs *)event;
 - (void)connectionResult:(int)result;
 - (void)desktopResized;
 - (DWORD)verifyCertificate:(RDPCertificateInfo *)info;
+- (nullable RDPCredentials *)requestCredentials:(RDPCredentials *)current;
 @end
 
 static pRdpClientNew macClientNew;
@@ -107,16 +111,32 @@ static DWORD bridge_verify_changed_certificate(freerdp *instance, const char *ho
 	return [bridge_of(instance->context) verifyCertificate:info];
 }
 
-/// Credentials are preset in the settings; an interactive prompt is not supported (yet).
+static BOOL replace_string(char **target, NSString *value)
+{
+	char *copy = _strdup(value.UTF8String);
+	if (!copy)
+		return FALSE;
+	free(*target);
+	*target = copy;
+	return TRUE;
+}
+
+/// FreeRDP asks only when the username is empty or no password is set. Only NLA gets a prompt: TLS
+/// and RDP security fall back to the server's own logon screen, as before.
 static BOOL bridge_authenticate(freerdp *instance, char **username, char **password,
                                 char **domain, rdp_auth_reason reason)
 {
-	(void)instance;
-	(void)username;
-	(void)password;
-	(void)domain;
-	(void)reason;
-	return TRUE;
+	if (reason != AUTH_NLA)
+		return TRUE;
+	RDPCredentials *current = [RDPCredentials new];
+	current.username = string_or_empty(*username);
+	current.domain = string_or_empty(*domain);
+	current.password = string_or_empty(*password);
+	RDPCredentials *answer = [bridge_of(instance->context) requestCredentials:current];
+	if (!answer)
+		return FALSE;
+	return replace_string(username, answer.username) && replace_string(domain, answer.domain) &&
+	       replace_string(password, answer.password);
 }
 
 static BOOL bridge_client_new(freerdp *instance, rdpContext *context)
@@ -396,6 +416,20 @@ static BOOL bridge_client_new(freerdp *instance, rdpContext *context)
 			decision = [delegate rdpSession:self verifyCertificate:info];
 	});
 	return (DWORD)decision;
+}
+
+- (RDPCredentials *)requestCredentials:(RDPCredentials *)current
+{
+	__block RDPCredentials *answer = nil;
+	dispatch_sync(dispatch_get_main_queue(), ^{
+		id<RDPSessionBridgeDelegate> delegate = self.delegate;
+		if (!delegate || self->_stopping)
+			return;
+		answer = [delegate respondsToSelector:@selector(rdpSession:requestCredentials:)]
+		             ? [delegate rdpSession:self requestCredentials:current]
+		             : current;
+	});
+	return answer;
 }
 
 #pragma mark Main thread
