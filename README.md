@@ -90,7 +90,8 @@ and then saved to `~/.ssh/known_hosts`. Tunnels stop when you quit the app.
 - **Linked credentials**: reusable user / domain / password / SSH key entries that many connections can
   share. Passphrase-protected SSH keys are unlocked once on save and stored encrypted. A credential without a
   username (e.g. just an SSH key) can be used with a different username on each connection.
-- **Folders and favourites**: nested folders with drag & drop and an optional icon color, favourites on top.
+- **Folders and favourites**: nested folders with drag & drop (several selected items move together, or
+  use *Move* in their context menu) and an optional icon color, favourites on top.
 - **Instant search** across name, host, user, notes and folder.
 - **Tabs** for embedded sessions; quitting with open sessions asks first. A connection's color (e.g. red
   for production) colors its tabs and a stripe above the session; any tab can be recolored from its context menu
