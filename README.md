@@ -45,7 +45,9 @@ skip the first-launch *Open Anyway* step.
 | **Web** | Chosen browser or the default one | Password, then username copied to the clipboard for pasting into the login form |
 | **MikroTik** | SSH or WinBox | WinBox logs in directly; double-click uses the per-connection default mode |
 
-**RDP** credentials go straight into FreeRDP, never on a command line. The *Type clipboard* button
+**RDP** credentials go straight into FreeRDP, never on a command line. When a server requires NLA and
+the connection has no username or password, the embedded client asks for them; *Save to this connection*
+stores them (encrypted) for next time, *Cancel* closes the tab. The *Type clipboard* button
 (⇧⌘V) types the local clipboard into the session as keystrokes, which works where clipboard sharing does
 not (logon screen, consoles). A logoff closes the tab; a dropped connection keeps it with the reason and a
 reconnect button. With Windows App, the password is typed into its prompt automatically, or copied to the
