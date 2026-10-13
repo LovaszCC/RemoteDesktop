@@ -2812,6 +2812,76 @@
           }
         }
       }
+    },
+    "General" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Általános"
+          }
+        }
+      }
+    },
+    "Keyboard Shortcuts" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gyorsbillentyűk"
+          }
+        }
+      }
+    },
+    "Click a shortcut, then press the new keys. ⎋ cancels, ⌫ removes the shortcut." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kattints egy gyorsbillentyűre, majd nyomd le az újat. ⎋ megszakít, ⌫ törli a gyorsbillentyűt."
+          }
+        }
+      }
+    },
+    "Restore defaults" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Összes alapértelmezésre"
+          }
+        }
+      }
+    },
+    "Restore default (%@)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alapértelmezés visszaállítása (%@)"
+          }
+        }
+      }
+    },
+    "Press keys…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nyomd le a billentyűket…"
+          }
+        }
+      }
+    },
+    "None" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nincs"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
