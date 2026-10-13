@@ -63,6 +63,8 @@ struct SidebarView: View {
                     .disabled(connections.count < 2)
                 // "" matches no folder, so no target is disabled for a mixed selection.
                 MoveMenu(currentFolderId: "", excluding: nil) { state.move(tags: Array(tags), to: $0) }
+                Divider()
+                Button("Delete \(tags.count) items…", role: .destructive) { state.requestDelete(tags: tags) }
             } else if let tag = tags.first {
                 ItemContextMenu(tag: tag)
             } else {

@@ -64,6 +64,19 @@ struct MainView: View {
             CredentialEditorView(draft: draft)
         }
         .confirmationDialog(
+            Text("Delete \(state.pendingBulkDeletion?.count ?? 0) items?"),
+            isPresented: Binding(
+                get: { state.pendingBulkDeletion != nil },
+                set: { if !$0 { state.pendingBulkDeletion = nil } }
+            ),
+            presenting: state.pendingBulkDeletion
+        ) { _ in
+            Button("Delete", role: .destructive) { state.confirmBulkDelete() }
+            Button("Cancel", role: .cancel) {}
+        } message: { deletion in
+            Text(bulkDeletionMessage(deletion))
+        }
+        .confirmationDialog(
             "Delete credential?",
             isPresented: Binding(
                 get: { state.pendingCredentialDeletion != nil },
@@ -101,5 +114,17 @@ struct MainView: View {
             case .failure(let error): state.errorMessage = error.localizedDescription
             }
         }
+    }
+
+    private func bulkDeletionMessage(_ deletion: AppState.BulkDeletion) -> String {
+        var lines = [String(localized: "Connections: \(deletion.connectionIds.count), folders: \(deletion.folderIds.count), credentials: \(deletion.credentialIds.count).")]
+        if !deletion.folderIds.isEmpty {
+            lines.append(String(localized: "Subfolders are deleted too; connections inside the folders are kept and move to Connections."))
+        }
+        if !deletion.credentialIds.isEmpty {
+            lines.append(String(localized: "Connections using a deleted credential fall back to their own saved login."))
+        }
+        lines.append(String(localized: "This can't be undone."))
+        return lines.joined(separator: "\n")
     }
 }
