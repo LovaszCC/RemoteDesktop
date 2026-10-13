@@ -8,3 +8,6 @@ Vendor/
 
 # WinBox address books contain plain-text passwords
 *.cdb
+
+# Local planning notes, kept out of the repo
+docs/plans/
