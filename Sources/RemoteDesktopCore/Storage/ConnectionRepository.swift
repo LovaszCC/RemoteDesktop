@@ -7,13 +7,15 @@ public struct Library: Equatable, Sendable {
     public var connections: [Connection]
     public var credentials: [Credential]
     public var portForwards: [PortForward]
+    public var savedSplits: [SavedSplit]
 
     public init(folders: [Folder] = [], connections: [Connection] = [], credentials: [Credential] = [],
-                portForwards: [PortForward] = []) {
+                portForwards: [PortForward] = [], savedSplits: [SavedSplit] = []) {
         self.folders = folders
         self.connections = connections
         self.credentials = credentials
         self.portForwards = portForwards
+        self.savedSplits = savedSplits
     }
 
     public func credential(id: String?) -> Credential? {
@@ -58,7 +60,8 @@ public struct ConnectionRepository: Sendable {
             folders: try Folder.order(Column("sortOrder"), Column("name").collating(.nocase)).fetchAll(db),
             connections: try Connection.order(Column("name").collating(.nocase)).fetchAll(db),
             credentials: try Credential.order(Column("name").collating(.nocase)).fetchAll(db),
-            portForwards: try PortForward.order(Column("localPort")).fetchAll(db)
+            portForwards: try PortForward.order(Column("localPort")).fetchAll(db),
+            savedSplits: try SavedSplit.order(Column("sortOrder"), Column("createdAt")).fetchAll(db)
         )
     }
 
@@ -155,6 +158,34 @@ public struct ConnectionRepository: Sendable {
     /// Deletes the credential; linked connections fall back to their own auth fields.
     public func deleteCredential(id: String) throws {
         _ = try database.writer.write { db in try Credential.deleteOne(db, key: id) }
+    }
+
+    // MARK: Saved splits
+
+    /// Inserts or updates (same id); a new split goes to the end.
+    @discardableResult
+    public func save(_ split: SavedSplit) throws -> SavedSplit {
+        try database.writer.write { db in
+            var split = split
+            if try !split.exists(db) {
+                split.sortOrder = (try Int.fetchOne(db, sql: "SELECT MAX(sortOrder) FROM savedSplit") ?? -1) + 1
+            }
+            try split.save(db)
+            return split
+        }
+    }
+
+    public func deleteSavedSplit(id: String) throws {
+        _ = try database.writer.write { db in try SavedSplit.deleteOne(db, key: id) }
+    }
+
+    /// Stores the order of the saved splits as given (unknown ids are ignored).
+    public func reorderSavedSplits(_ ids: [String]) throws {
+        try database.writer.write { db in
+            for (index, id) in ids.enumerated() {
+                try db.execute(sql: "UPDATE savedSplit SET sortOrder = ? WHERE id = ?", arguments: [index, id])
+            }
+        }
     }
 
     // MARK: Port forwards
