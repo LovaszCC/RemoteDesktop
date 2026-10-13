@@ -113,7 +113,7 @@ command or by macOS is refused).
 | Connect (several selected SSH connections: split view) | Double-click / ⌘↩ |
 | New RDP / SSH / web / MikroTik connection | ⌘N / ⇧⌘N / ⇧⌘B / ⇧⌘M |
 | New folder / credential | ⌥⌘N / ⌃⌘N |
-| Import | ⌘I |
+| Import from RDM / WinBox | ⌘I / ⇧⌘I |
 | Lock | ⌃⌘L |
 | Close tab / reconnect | ⌘W / ⌘R |
 | Next / previous tab | ⌃Tab / ⌃⇧Tab |
@@ -138,6 +138,14 @@ In RDM choose *File → Export → Export all entries…* and the **.rdm** forma
 tick *include credentials* and **do not** encrypt the export; otherwise passwords must be entered again by
 hand (the import summary tells you how many). Folders, RDP, SSH and credential entries and their links are
 imported. Delete the export file afterwards.
+
+## Importing from WinBox
+
+*File → Import from WinBox…* (⇧⌘I) reads a WinBox address book (`.cdb`, e.g. an exported `addresses.cdb`).
+A preview lists the entries; pick a target folder — WinBox groups become subfolders in it — and the entries
+to import (ones already there are unchecked). They become MikroTik connections with their login; a custom
+WinBox port is noted in the entry's notes. WinBox keeps passwords in plain text, so delete the export
+afterwards.
 
 ## Build from source
 

@@ -49,6 +49,9 @@ struct RemoteDesktopApp: App {
                 Button("Import from RDM…") { state.isImporting = true }
                     .keyboardShortcut(shortcuts.keyboardShortcut(for: .importRDM))
                     .disabled(state.phase != .unlocked)
+                Button("Import from WinBox…") { state.isImportingWinbox = true }
+                    .keyboardShortcut(shortcuts.keyboardShortcut(for: .importWinbox))
+                    .disabled(state.phase != .unlocked)
             }
             CommandMenu("Connection") {
                 Button("Connect") {

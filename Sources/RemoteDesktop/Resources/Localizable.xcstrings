@@ -3322,6 +3322,146 @@
           }
         }
       }
+    },
+    "Import from WinBox…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importálás WinBoxból…"
+          }
+        }
+      }
+    },
+    "Import from WinBox" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importálás WinBoxból"
+          }
+        }
+      }
+    },
+    "Import from a Devolutions RDM export (.rdm) or a WinBox address book (.cdb)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importálás Devolutions RDM exportból (.rdm) vagy WinBox címjegyzékből (.cdb)"
+          }
+        }
+      }
+    },
+    "Target folder" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Célmappa"
+          }
+        }
+      }
+    },
+    "WinBox groups become subfolders of the target folder." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A WinBox csoportokból almappák lesznek a célmappában."
+          }
+        }
+      }
+    },
+    "already exists" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "már létezik"
+          }
+        }
+      }
+    },
+    "Address" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cím"
+          }
+        }
+      }
+    },
+    "Group" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Csoport"
+          }
+        }
+      }
+    },
+    "Select all" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mind kijelölése"
+          }
+        }
+      }
+    },
+    "Select none" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kijelölés törlése"
+          }
+        }
+      }
+    },
+    "Import %lld" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld importálása"
+          }
+        }
+      }
+    },
+    "The file has no WinBox addresses." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A fájlban nincs WinBox cím."
+          }
+        }
+      }
+    },
+    "This isn't a WinBox address book (.cdb) or it is damaged." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ez nem WinBox címjegyzék (.cdb), vagy sérült."
+          }
+        }
+      }
+    },
+    "Imported from WinBox — connections: %lld, new folders: %lld" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WinBox import — kapcsolatok: %lld, új mappák: %lld"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -2,11 +2,11 @@ import Foundation
 
 /// App commands whose keyboard shortcut can be changed in Settings.
 public enum ShortcutCommand: String, CaseIterable, Codable, Sendable {
-    case newRDP, newSSH, newWeb, newMikrotik, newFolder, newCredential, importRDM
+    case newRDP, newSSH, newWeb, newMikrotik, newFolder, newCredential, importRDM, importWinbox
     case connect, typeClipboard, splitTerminal, broadcastAll, openFiles, closeTab, nextTab, previousTab, reconnect, lock
 
     /// Commands of the File menu (the rest belong to the Connection menu / sessions).
-    public static let fileMenu: [ShortcutCommand] = [.newRDP, .newSSH, .newWeb, .newMikrotik, .newFolder, .newCredential, .importRDM]
+    public static let fileMenu: [ShortcutCommand] = [.newRDP, .newSSH, .newWeb, .newMikrotik, .newFolder, .newCredential, .importRDM, .importWinbox]
     public static let connectionMenu: [ShortcutCommand] = allCases.filter { !fileMenu.contains($0) }
 
     public var title: String {
@@ -18,6 +18,7 @@ public enum ShortcutCommand: String, CaseIterable, Codable, Sendable {
         case .newFolder: String(localized: "New folder", bundle: .core)
         case .newCredential: String(localized: "New credential", bundle: .core)
         case .importRDM: String(localized: "Import from RDM…", bundle: .core)
+        case .importWinbox: String(localized: "Import from WinBox…", bundle: .core)
         case .connect: String(localized: "Connect", bundle: .core)
         case .typeClipboard: String(localized: "Type clipboard into RDP session", bundle: .core)
         case .splitTerminal: String(localized: "Split terminal", bundle: .core)
@@ -40,6 +41,7 @@ public enum ShortcutCommand: String, CaseIterable, Codable, Sendable {
         case .newFolder: KeyShortcut("n", [.command, .option])
         case .newCredential: KeyShortcut("n", [.command, .control])
         case .importRDM: KeyShortcut("i")
+        case .importWinbox: KeyShortcut("i", [.command, .shift])
         case .connect: KeyShortcut("return")
         case .typeClipboard: KeyShortcut("v", [.command, .shift])
         case .splitTerminal: KeyShortcut("d")

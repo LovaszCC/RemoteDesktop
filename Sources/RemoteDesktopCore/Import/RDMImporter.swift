@@ -142,67 +142,12 @@ public enum RDMImporter {
         vault: Vault
     ) throws -> ImportSummary {
         let parsed = try parse(data)
-        let encrypted = try parsed.connections.map { ($0, try vault.encryptOptional($0.password)) }
-        let credentials = try parsed.credentials.map { item in
-            (item.ref, Credential(
-                name: item.name,
-                username: item.username,
-                domain: item.domain,
-                passwordEnc: try vault.encryptOptional(item.password),
-                sshKeyPath: item.sshKeyPath
-            ))
-        }
-        let credentialIds = Dictionary(credentials.map { ($0.0, $0.1.id) }, uniquingKeysWith: { first, _ in first })
-        let foldersBefore = try repo.library().folders.count
-
-        try repo.transaction { db in
-            var cache: [String: String] = [:]   // joined path → folder id
-
-            func folderId(for path: [String]) throws -> String? {
-                var parentId: String?
-                for depth in path.indices {
-                    let key = path[...depth].joined(separator: "\u{1F}")
-                    if let cached = cache[key] { parentId = cached; continue }
-                    let name = path[depth]
-                    let existing = try Folder
-                        .filter(Column("name") == name)
-                        .filter(parentId == nil ? Column("parentId") == nil : Column("parentId") == parentId!)
-                        .fetchOne(db)
-                    let folder = try existing ?? {
-                        let created = Folder(parentId: parentId, name: name)
-                        try created.insert(db)
-                        return created
-                    }()
-                    cache[key] = folder.id
-                    parentId = folder.id
-                }
-                return parentId
-            }
-
-            for (_, credential) in credentials { try credential.insert(db) }
-            for group in parsed.emptyGroups { _ = try folderId(for: group) }
-            for (item, passwordEnc) in encrypted {
-                try Connection(
-                    folderId: try folderId(for: item.groupPath),
-                    credentialId: item.credentialRef.flatMap { credentialIds[$0] },
-                    type: item.type,
-                    name: item.name,
-                    host: item.host,
-                    port: item.port,
-                    username: item.username,
-                    domain: item.domain,
-                    passwordEnc: passwordEnc,
-                    sshKeyPath: item.sshKeyPath,
-                    rdpAdminSession: item.rdpAdminSession,
-                    notes: item.notes
-                ).insert(db)
-            }
-        }
-
+        let written = try ImportWriter.write(connections: parsed.connections, credentials: parsed.credentials,
+                                             emptyGroups: parsed.emptyGroups, into: repo, vault: vault)
         return ImportSummary(
-            imported: parsed.connections.count,
+            imported: written.imported,
             credentialsImported: parsed.credentials.count,
-            foldersCreated: try repo.library().folders.count - foldersBefore,
+            foldersCreated: written.foldersCreated,
             skipped: parsed.skipped,
             withoutPassword: parsed.encryptedPasswords
         )

@@ -470,6 +470,26 @@
           }
         }
       }
+    },
+    "WinBox port %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WinBox port: %@"
+          }
+        }
+      }
+    },
+    "Import from WinBox…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importálás WinBoxból…"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
