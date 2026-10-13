@@ -1,23 +1,23 @@
 import Foundation
 
 /// Runs a command to completion off the main thread and collects its output.
-enum ProcessRunner {
-    struct Result: Sendable {
-        let status: Int32
-        let output: Data
-        let errorOutput: String
+public enum ProcessRunner {
+    public struct Result: Sendable {
+        public let status: Int32
+        public let output: Data
+        public let errorOutput: String
 
-        var succeeded: Bool { status == 0 }
+        public var succeeded: Bool { status == 0 }
 
         /// Last non-empty stderr line, e.g. "tar: x: Cannot open: Permission denied".
-        var errorLine: String {
+        public var errorLine: String {
             errorOutput.split(whereSeparator: \.isNewline)
                 .map { $0.trimmingCharacters(in: .whitespaces) }
                 .last { !$0.isEmpty } ?? ""
         }
     }
 
-    static func run(_ arguments: [String]) async throws -> Result {
+    public static func run(_ arguments: [String]) async throws -> Result {
         try await Task.detached {
             let process = Process()
             process.executableURL = URL(filePath: arguments[0])
