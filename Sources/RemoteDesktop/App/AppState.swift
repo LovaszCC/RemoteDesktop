@@ -687,6 +687,14 @@ final class AppState {
         return tabs.color(for: session.id, automatic: automatic)
     }
 
+    func tabTitle(for session: AppSession) -> String {
+        tabs.title(for: session.id, automatic: session.title)
+    }
+
+    func renameTab(_ sessionId: String, to title: String) {
+        tabs.rename(sessionId, to: title)
+    }
+
     func setTabColor(_ color: LabelColor?, for sessionId: String) {
         tabs.setColor(color, for: sessionId)
     }

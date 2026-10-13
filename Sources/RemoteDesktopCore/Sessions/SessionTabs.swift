@@ -7,6 +7,8 @@ public struct SessionTabs: Equatable, Sendable {
     public private(set) var active: String?
     /// Colors chosen for open tabs, overriding their automatic color (`nil` value: explicitly no color).
     public private(set) var colorOverrides: [String: LabelColor?] = [:]
+    /// Names the user gave to open tabs.
+    public private(set) var customTitles: [String: String] = [:]
 
     public init() {}
 
@@ -22,6 +24,7 @@ public struct SessionTabs: Equatable, Sendable {
         guard let index = ids.firstIndex(of: id) else { return }
         ids.remove(at: index)
         colorOverrides.removeValue(forKey: id)
+        customTitles.removeValue(forKey: id)
         guard active == id else { return }
         active = ids.isEmpty ? nil : ids[min(index, ids.count - 1)]
     }
@@ -32,6 +35,19 @@ public struct SessionTabs: Equatable, Sendable {
         ids[index] = new
         if active == old { active = new }
         if let color = colorOverrides.removeValue(forKey: old) { colorOverrides[new] = color }
+        if let title = customTitles.removeValue(forKey: old) { customTitles[new] = title }
+    }
+
+    /// Renames a tab; an empty name goes back to the automatic title. Unknown ids are ignored.
+    public mutating func rename(_ id: String, to title: String) {
+        guard ids.contains(id) else { return }
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        customTitles[id] = trimmed.isEmpty ? nil : trimmed
+    }
+
+    /// The user's name for the tab, else `automatic` (connection name or terminal title).
+    public func title(for id: String, automatic: String) -> String {
+        customTitles[id] ?? automatic
     }
 
     /// Sets a tab's color (`nil`: no color); `reset` goes back to the automatic one. Unknown ids are ignored.
