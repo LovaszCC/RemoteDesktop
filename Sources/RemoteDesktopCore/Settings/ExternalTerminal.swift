@@ -7,7 +7,7 @@ public enum ExternalTerminal: String, CaseIterable, Sendable {
     case iterm2
     case terminal
 
-    static let defaultsKey = "externalTerminal"
+    public static let defaultsKey = "externalTerminal"
 
     public var bundleID: String {
         switch self {

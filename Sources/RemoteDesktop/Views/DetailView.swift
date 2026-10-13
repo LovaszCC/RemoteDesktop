@@ -21,6 +21,8 @@ struct DetailView: View {
 
 struct ConnectionDetailView: View {
     @Environment(AppState.self) private var state
+    /// Observed so the subtitle follows the external terminal chosen in Settings.
+    @AppStorage(ExternalTerminal.defaultsKey) private var externalTerminalChoice: String?
     let connection: Connection
 
     private var credential: Credential? { state.library.credential(id: connection.credentialId) }
@@ -30,7 +32,7 @@ struct ConnectionDetailView: View {
         switch connection.type {
         case .rdp: "RDP · " + (connection.rdpClient == .embedded ? String(localized: "embedded (FreeRDP)") : "Windows App")
             + (connection.rdpAdminSession ? " · /admin" : "")
-        case .ssh: "SSH · " + (connection.sshTerminal == .embedded ? String(localized: "embedded terminal") : "Ghostty")
+        case .ssh: "SSH · " + (connection.sshTerminal == .embedded ? String(localized: "embedded terminal") : SSHLauncher.currentTerminal.displayName)
         case .mikrotik: String(localized: "MikroTik · default \(connection.mikrotikMode.displayName)")
         case .web: connection.type.displayName + " · "
             + (connection.browserBundleId.map(InstalledBrowsers.name(for:)) ?? String(localized: "default browser"))

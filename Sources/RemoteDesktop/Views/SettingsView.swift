@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var confirmPassword = ""
     @State private var accessibilityTrusted = AccessibilityAutofill.isTrusted(prompt: false)
     @State private var language = AppLanguage.current()
+    @State private var externalTerminal = SSHLauncher.currentTerminal
     @State private var showsRestartPrompt = false
 
     /// Language the running app actually uses (a new choice applies after a restart).
@@ -35,6 +36,22 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+            }
+
+            Section("SSH") {
+                Picker("External terminal", selection: $externalTerminal) {
+                    ForEach(ExternalTerminal.allCases, id: \.self) { terminal in
+                        if SSHLauncher.isInstalled(terminal.bundleID) {
+                            Text(verbatim: terminal.displayName).tag(terminal)
+                        } else {
+                            Text("\(terminal.displayName) (not installed)").tag(terminal)
+                        }
+                    }
+                }
+                .onChange(of: externalTerminal) { externalTerminal.apply() }
+                Text("Connections set to External terminal open in a new window of this app.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Updates") {
