@@ -185,6 +185,12 @@ struct ConnectionRow: View {
                 }
             }
             Spacer(minLength: 4)
+            if state.showsRootWarning(connection) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.yellow)
+                    .help("Root: commands run with full privileges")
+            }
             if state.isConnected(connection.id) {
                 Circle().fill(.green).frame(width: 6, height: 6).help("Open session")
             }
