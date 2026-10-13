@@ -470,6 +470,16 @@
           }
         }
       }
+    },
+    "WinBox port %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WinBox port: %@"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
