@@ -42,7 +42,7 @@ xcrun xcstringstool compile Sources/RemoteDesktop/Resources/Localizable.xcstring
 
 IDENTITY="${SIGN_IDENTITY:-$(security find-identity -v -p codesigning | awk -F'"' '/Apple Development/ { print $2; exit }')}"
 # A stable identity keeps the Accessibility permission across rebuilds; ad-hoc resets it every time.
-codesign --force --options runtime --sign "${IDENTITY:--}" "$APP"
+codesign --force --options runtime --entitlements Resources/RemoteDesktop.entitlements --sign "${IDENTITY:--}" "$APP"
 echo "Built $APP (signed: ${IDENTITY:-ad-hoc})"
 
 if [ "${1:-}" = "--install" ]; then

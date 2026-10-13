@@ -503,7 +503,7 @@ final class AppState {
     private func launchSSH(_ connection: Connection, terminal: SSHTerminal?) throws -> LaunchOutcome {
         switch terminal ?? connection.sshTerminal {
         case .external:
-            return try SSHLauncher.launch(try sshScript(for: connection))
+            return try SSHLauncher.launch(try sshScript(for: connection), in: SSHLauncher.currentTerminal)
         case .embedded:
             try openSession(for: connection)
             return .embedded

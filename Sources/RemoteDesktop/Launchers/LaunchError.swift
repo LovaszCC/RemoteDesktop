@@ -32,8 +32,13 @@ func scheduleRemoval(of url: URL, after seconds: Double) {
 
 /// Runs `/usr/bin/open` with the given arguments and waits for it to hand off.
 func runOpen(_ arguments: [String]) throws {
+    try runProcess("/usr/bin/open", arguments)
+}
+
+/// Runs `executable` with the given arguments and waits for it to finish; a non-zero exit becomes `openFailed`.
+func runProcess(_ executable: String, _ arguments: [String]) throws {
     let process = Process()
-    process.executableURL = URL(filePath: "/usr/bin/open")
+    process.executableURL = URL(filePath: executable)
     process.arguments = arguments
     let errors = Pipe()
     process.standardError = errors
