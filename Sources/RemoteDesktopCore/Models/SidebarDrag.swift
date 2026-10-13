@@ -13,10 +13,11 @@ public enum SidebarDrag {
         payloads.flatMap { $0.split(separator: "\n").map(String.init) }
     }
 
-    /// Connections and folders to move (de-duplicated, credentials ignored).
-    public static func movable(_ tags: [String]) -> (connectionIds: [String], folderIds: [String]) {
+    /// The ids behind sidebar tags, de-duplicated (a favorite row is its connection).
+    public static func items(_ tags: [String]) -> (connectionIds: [String], folderIds: [String], credentialIds: [String]) {
         var connections: [String] = []
         var folders: [String] = []
+        var credentials: [String] = []
         for tag in tags {
             if tag.hasPrefix("f:") {
                 folders.append(String(tag.dropFirst(2)))
@@ -24,9 +25,17 @@ public enum SidebarDrag {
                 connections.append(String(tag.dropFirst(2)))
             } else if tag.hasPrefix("fav:") {
                 connections.append(String(tag.dropFirst(4)))
+            } else if tag.hasPrefix("k:") {
+                credentials.append(String(tag.dropFirst(2)))
             }
         }
-        return (unique(connections), unique(folders))
+        return (unique(connections), unique(folders), unique(credentials))
+    }
+
+    /// Connections and folders to move (credentials have no place in the tree).
+    public static func movable(_ tags: [String]) -> (connectionIds: [String], folderIds: [String]) {
+        let all = items(tags)
+        return (all.connectionIds, all.folderIds)
     }
 
     private static func unique(_ ids: [String]) -> [String] {

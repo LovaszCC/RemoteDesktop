@@ -3462,6 +3462,66 @@
           }
         }
       }
+    },
+    "Delete %lld items…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld elem törlése…"
+          }
+        }
+      }
+    },
+    "Delete %lld items?" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Törlöd a(z) %lld elemet?"
+          }
+        }
+      }
+    },
+    "Connections: %lld, folders: %lld, credentials: %lld." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kapcsolatok: %lld, mappák: %lld, credentialök: %lld."
+          }
+        }
+      }
+    },
+    "Subfolders are deleted too; connections inside the folders are kept and move to Connections." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az almappák is törlődnek; a mappákban lévő kapcsolatok megmaradnak és a Kapcsolatok gyökerébe kerülnek."
+          }
+        }
+      }
+    },
+    "Connections using a deleted credential fall back to their own saved login." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A törölt credentialt használó kapcsolatok a saját mentett loginjukat használják."
+          }
+        }
+      }
+    },
+    "This can't be undone." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ez nem vonható vissza."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

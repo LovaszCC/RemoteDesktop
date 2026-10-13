@@ -379,6 +379,38 @@ final class AppState {
         }
     }
 
+    /// Several sidebar items waiting for the delete confirmation.
+    var pendingBulkDeletion: BulkDeletion?
+
+    struct BulkDeletion: Identifiable {
+        let id = UUID()
+        let connectionIds: [String]
+        let folderIds: [String]
+        let credentialIds: [String]
+
+        var count: Int { connectionIds.count + folderIds.count + credentialIds.count }
+    }
+
+    func requestDelete(tags: Set<String>) {
+        let items = SidebarDrag.items(Array(tags))
+        let deletion = BulkDeletion(connectionIds: items.connectionIds, folderIds: items.folderIds,
+                                    credentialIds: items.credentialIds)
+        if deletion.count > 0 { pendingBulkDeletion = deletion }
+    }
+
+    /// Connections in deleted folders (and their subfolders) are kept and move to the root.
+    func confirmBulkDelete() {
+        guard let deletion = pendingBulkDeletion else { return }
+        pendingBulkDeletion = nil
+        selectedTags = []
+        perform {
+            guard let repo else { return }
+            for id in deletion.connectionIds { try repo.deleteConnection(id: id) }
+            for id in deletion.folderIds { try repo.deleteFolder(id: id) }
+            for id in deletion.credentialIds { try repo.deleteCredential(id: id) }
+        }
+    }
+
     /// Drag payload of a sidebar row (the whole selection when the row is part of it).
     func dragPayload(for tag: String) -> String {
         SidebarDrag.payload(for: tag, selection: selectedTags)
