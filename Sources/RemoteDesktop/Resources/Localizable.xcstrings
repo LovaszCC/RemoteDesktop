@@ -1643,6 +1643,16 @@
         }
       }
     },
+    "Save to this connection" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mentés ehhez a kapcsolathoz"
+          }
+        }
+      }
+    },
     "Search" : {
       "localizations" : {
         "hu" : {
@@ -1719,6 +1729,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Megjelenítés Finderben"
+          }
+        }
+      }
+    },
+    "Sign in to %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bejelentkezés: %@"
           }
         }
       }
@@ -1819,6 +1839,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A jelenlegi mesterjelszó hibás."
+          }
+        }
+      }
+    },
+    "The server requires Network Level Authentication." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A szerver hálózati szintű hitelesítést (NLA) követel."
           }
         }
       }

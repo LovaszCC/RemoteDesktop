@@ -945,9 +945,25 @@ final class AppState {
         session.onEnd = { [weak self] session, reason in
             if reason == .clean { self?.closeSession(session.id) }
         }
+        session.canSaveCredentials = connection.credentialId == nil
+        session.onSaveCredentials = { [weak self] credentials in
+            self?.saveRDPCredentials(credentials, connectionId: snapshot.id)
+        }
         try session.start()
         sessions.append(.rdp(session))
         tabs.open(session.id)
+    }
+
+    /// Stores what was typed into the NLA prompt on the connection itself.
+    private func saveRDPCredentials(_ credentials: RDPCredentials, connectionId: String) {
+        guard let repo, let vault else { return }
+        perform {
+            guard var connection = try repo.connection(id: connectionId) else { return }
+            connection.username = credentials.username
+            connection.domain = credentials.domain
+            connection.passwordEnc = try vault.encryptOptional(credentials.password)
+            try repo.save(connection)
+        }
     }
 
     func reconnect(_ session: TerminalSession) {
