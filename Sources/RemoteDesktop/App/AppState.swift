@@ -923,6 +923,14 @@ final class AppState {
         openFiles(connection, startPath: terminal.terminalTitle.flatMap(RemotePath.directory(fromTerminalTitle:)))
     }
 
+    var canOpenFiles: Bool {
+        switch activeSession {
+        case .terminal, .split: true
+        case .rdp: false
+        case nil: selectedTags.count == 1 && !selectedSSHConnections.isEmpty
+        }
+    }
+
     func makeFileBrowser(_ target: FileBrowserTarget) -> FileBrowserSession? {
         guard let connection = library.connections.first(where: { $0.id == target.connectionId }) else { return nil }
         let resolved = library.resolved(connection)

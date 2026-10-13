@@ -460,6 +460,16 @@
           }
         }
       }
+    },
+    "Files (SCP)…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fájlok (SCP)…"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

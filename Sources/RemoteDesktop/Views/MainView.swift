@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 struct MainView: View {
     @Environment(AppState.self) private var state
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         @Bindable var state = state
@@ -32,6 +33,21 @@ struct MainView: View {
                 Button("Import", systemImage: "square.and.arrow.down") { state.isImporting = true }
                     .help("Import from a Devolutions RDM export (.rdm)")
             }
+        }
+        // Shown here, not on the port forward list: tunnels and file browsers start from anywhere.
+        .alert("Unknown host key", isPresented: Binding(
+            get: { state.pendingHostKey != nil },
+            set: { if !$0 { state.pendingHostKey = nil } }
+        ), presenting: state.pendingHostKey) { _ in
+            Button("Accept and Start") { state.acceptPendingHostKey() }
+            Button("Reject", role: .cancel) { state.pendingHostKey = nil }
+        } message: { pending in
+            Text("\(pending.target.lookupName) isn't in known_hosts yet. Accept only if these fingerprints match the server's keys:\n\n\(pending.fingerprints.joined(separator: "\n"))")
+        }
+        .onChange(of: state.filesWindowRequest) {
+            guard let target = state.filesWindowRequest else { return }
+            state.filesWindowRequest = nil
+            openWindow(id: "files", value: target)
         }
         .sheet(item: $state.editorDraft) { draft in
             ConnectionEditorView(draft: draft)

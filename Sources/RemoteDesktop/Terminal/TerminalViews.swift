@@ -130,6 +130,12 @@ struct SessionTabBar: View {
                     .help(title == session.title ? Text(verbatim: "") : Text(verbatim: session.title))
                     .contextMenu {
                         Button("Rename…") { startRenaming(session.id, current: title) }
+                        if session.type.usesSSH {
+                            Button("Files (SCP)…") {
+                                state.selectTab(session.id)
+                                state.openFilesForActiveTab()
+                            }
+                        }
                         Menu("Color") {
                             Button("Entry color") { state.resetTabColor(for: session.id) }
                             LabelColorMenuItems(selection: state.tabColor(for: session)) {

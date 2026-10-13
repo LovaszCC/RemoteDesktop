@@ -2942,6 +2942,376 @@
           }
         }
       }
+    },
+    "Files (SCP)…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fájlok (SCP)…"
+          }
+        }
+      }
+    },
+    "Files" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fájlok"
+          }
+        }
+      }
+    },
+    "Files – %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fájlok – %@"
+          }
+        }
+      }
+    },
+    "Connection not found" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A kapcsolat nem található"
+          }
+        }
+      }
+    },
+    "Connecting…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kapcsolódás…"
+          }
+        }
+      }
+    },
+    "Can't connect" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nem sikerült kapcsolódni"
+          }
+        }
+      }
+    },
+    "Compress" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tömörítés"
+          }
+        }
+      }
+    },
+    "Compress transfers with gzip (faster for text over slow links, can be slower for already compressed files)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Átvitel gzip tömörítéssel (lassú vonalon szövegnél gyorsabb, már tömörített fájloknál lassabb lehet)"
+          }
+        }
+      }
+    },
+    "Hidden files" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rejtett fájlok"
+          }
+        }
+      }
+    },
+    "Show hidden files" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rejtett fájlok megjelenítése"
+          }
+        }
+      }
+    },
+    "Refresh" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frissítés"
+          }
+        }
+      }
+    },
+    "Download the selected items into the local folder" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A kijelölt elemek letöltése a helyi mappába"
+          }
+        }
+      }
+    },
+    "Upload the selected items into the remote folder" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A kijelölt elemek feltöltése a távoli mappába"
+          }
+        }
+      }
+    },
+    "Parent folder" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Szülőmappa"
+          }
+        }
+      }
+    },
+    "Path" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Útvonal"
+          }
+        }
+      }
+    },
+    "Remote" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Távoli"
+          }
+        }
+      }
+    },
+    "This Mac" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ez a Mac"
+          }
+        }
+      }
+    },
+    "Size" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Méret"
+          }
+        }
+      }
+    },
+    "Modified" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Módosítva"
+          }
+        }
+      }
+    },
+    "Permissions" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jogok"
+          }
+        }
+      }
+    },
+    "Transfers" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Átvitelek"
+          }
+        }
+      }
+    },
+    "Clear finished" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Befejezettek törlése"
+          }
+        }
+      }
+    },
+    "Waiting" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Várakozik"
+          }
+        }
+      }
+    },
+    "Skipped" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kihagyva"
+          }
+        }
+      }
+    },
+    "Cancelled" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Megszakítva"
+          }
+        }
+      }
+    },
+    "“%@” already exists" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%@” már létezik"
+          }
+        }
+      }
+    },
+    "Replacing a folder merges it: files with the same name are overwritten, other files stay." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A mappa cseréje összefésülés: az azonos nevű fájlok felülíródnak, a többi megmarad."
+          }
+        }
+      }
+    },
+    "Replacing overwrites the existing file." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A csere felülírja a meglévő fájlt."
+          }
+        }
+      }
+    },
+    "Apply to all" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mindre alkalmaz"
+          }
+        }
+      }
+    },
+    "Skip" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kihagyás"
+          }
+        }
+      }
+    },
+    "Replace" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Csere"
+          }
+        }
+      }
+    },
+    "The connection didn't open within 30 seconds." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A kapcsolat 30 másodpercen belül nem jött létre."
+          }
+        }
+      }
+    },
+    "The SSH connection closed." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az SSH kapcsolat lezárult."
+          }
+        }
+      }
+    },
+    "Can't open %@." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nem nyitható meg: %@."
+          }
+        }
+      }
+    },
+    "Can't read the folder listing of %@." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nem olvasható a mappa listája: %@."
+          }
+        }
+      }
+    },
+    "Folders need tar on the server." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mappákhoz tar kell a szerveren."
+          }
+        }
+      }
+    },
+    "The transfer failed." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az átvitel sikertelen."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
