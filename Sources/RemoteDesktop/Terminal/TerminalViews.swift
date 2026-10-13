@@ -115,11 +115,12 @@ struct SessionTabBar: View {
                 }
                 ForEach(state.sessions) { session in
                     let title = state.tabTitle(for: session)
+                    let isRoot = state.isRoot(session)
                     tab(
                         title: title,
-                        systemImage: session.systemImage,
+                        systemImage: isRoot ? "exclamationmark.triangle.fill" : session.systemImage,
                         isActive: state.tabs.active == session.id,
-                        tint: session.tint,
+                        tint: isRoot ? .yellow : session.tint,
                         color: state.tabColor(for: session)?.color,
                         renameId: session.id,
                         close: { state.closeSession(session.id) }

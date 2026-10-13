@@ -2932,6 +2932,16 @@
           }
         }
       }
+    },
+    "Root: commands run with full privileges" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Root: a parancsok teljes jogosultsággal futnak"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

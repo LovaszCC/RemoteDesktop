@@ -100,6 +100,11 @@ private struct PaneView: View {
                 Text(pane.title)
                     .lineLimit(1)
                     .fontWeight(split.focusedPaneId == pane.id ? .semibold : .regular)
+                if state.isRoot(pane) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.yellow)
+                        .help("Root: commands run with full privileges")
+                }
                 if isBroadcasting {
                     Text("BROADCAST")
                         .font(.caption2.weight(.bold))

@@ -16,6 +16,9 @@ final class TerminalSession: Identifiable {
     private(set) var title: String
     private(set) var type: ConnectionType
     private(set) var status: Status = .running
+    /// Last `user@host…` title the remote shell set, e.g. `root@web: ~`. Program titles (`htop`) don't replace
+    /// it, so a root shell stays recognized while a program runs in it.
+    private(set) var terminalTitle: String?
 
     @ObservationIgnored let view: BroadcastingTerminalView
     /// Writes a fresh launch script (decrypting secrets again) for each (re)start.
@@ -59,6 +62,7 @@ final class TerminalSession: Identifiable {
             if parts.count == 2 { environment[parts[0]] = parts[1] }
         }
         status = .running
+        terminalTitle = nil
         view.startProcess(
             executable: "/bin/sh",
             args: [files.launchScript.path],
@@ -93,7 +97,10 @@ final class TerminalSession: Identifiable {
 
     fileprivate func titleChanged(_ newTitle: String) {
         let trimmed = newTitle.trimmingCharacters(in: .whitespaces)
-        if !trimmed.isEmpty { title = trimmed }
+        if !trimmed.isEmpty {
+            title = trimmed
+            if RootDetection.user(fromTitle: trimmed) != nil { terminalTitle = trimmed }
+        }
     }
 
     /// SwiftTerm's delegate protocol is not actor-isolated; its callbacks arrive on the main queue,

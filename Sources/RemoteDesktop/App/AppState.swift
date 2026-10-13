@@ -672,6 +672,39 @@ final class AppState {
         }
     }
 
+    // MARK: Root warning
+
+    /// The connection logs in as root (its own or its credential's username).
+    func logsInAsRoot(_ connection: Connection) -> Bool {
+        connection.type.usesSSH && RootDetection.isRootUser(library.resolved(connection).username)
+    }
+
+    /// A running terminal currently is root: per its terminal title, else its login user.
+    func isRoot(_ terminal: TerminalSession) -> Bool {
+        guard terminal.isRunning else { return false }
+        let login = library.connections.first { $0.id == terminal.connectionId }.map { library.resolved($0).username } ?? ""
+        return RootDetection.isRoot(loginUser: login, terminalTitle: terminal.terminalTitle)
+    }
+
+    func isRoot(_ session: AppSession) -> Bool {
+        switch session {
+        case .terminal(let terminal): isRoot(terminal)
+        case .split(let split): split.panes.contains(where: isRoot)
+        case .rdp: false
+        }
+    }
+
+    /// Sidebar warning: logs in as root, or one of its open terminals is root now (e.g. after `sudo -i`).
+    func showsRootWarning(_ connection: Connection) -> Bool {
+        logsInAsRoot(connection) || sessions.contains { session in
+            switch session {
+            case .terminal(let terminal): terminal.connectionId == connection.id && isRoot(terminal)
+            case .split(let split): split.panes.contains { $0.connectionId == connection.id && isRoot($0) }
+            case .rdp: false
+            }
+        }
+    }
+
     // MARK: Tab colors
 
     func connectionColor(_ connectionId: String) -> LabelColor? {
