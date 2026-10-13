@@ -260,12 +260,16 @@ final class AppState {
         case folder(Folder)
         case connection(Connection)
         case credential(Credential)
+        case savedSplit(SavedSplit)
     }
 
-    /// Resolves sidebar tags: `f:<id>`, `c:<id>`, `fav:<id>`, `k:<id>` (credential).
+    /// Resolves sidebar tags: `f:<id>`, `c:<id>`, `fav:<id>`, `k:<id>` (credential), `s:<id>` (saved split).
     func item(for tag: String?) -> SelectedItem? {
         guard let tag, let colon = tag.firstIndex(of: ":") else { return nil }
         let id = String(tag[tag.index(after: colon)...])
+        if tag.hasPrefix("s:") {
+            return library.savedSplits.first { $0.id == id }.map(SelectedItem.savedSplit)
+        }
         if tag.hasPrefix("f:") {
             return library.folders.first { $0.id == id }.map(SelectedItem.folder)
         }
@@ -280,7 +284,7 @@ final class AppState {
         switch item(for: selection) {
         case .folder(let folder): folder.id
         case .connection(let connection): connection.folderId
-        case .credential, nil: nil
+        case .credential, .savedSplit, nil: nil
         }
     }
 
@@ -300,7 +304,11 @@ final class AppState {
 
     /// Double-click / Return on a sidebar row.
     func activate(tag: String) {
-        if case .connection(let connection) = item(for: tag) { connect(connection) }
+        switch item(for: tag) {
+        case .connection(let connection): connect(connection)
+        case .savedSplit(let saved): openSavedSplit(saved)
+        default: break
+        }
     }
 
     // MARK: Editing
@@ -699,8 +707,9 @@ final class AppState {
     }
 
     /// Opens 2–4 SSH connections as panes of one split tab (extra ones are left out with a toast).
-    func openSplit(_ connections: [Connection]) {
-        guard vault != nil, !connections.isEmpty else { return }
+    @discardableResult
+    func openSplit(_ connections: [Connection]) -> SplitSession? {
+        guard vault != nil, !connections.isEmpty else { return nil }
         let split = SplitSession()
         for connection in connections.prefix(SplitLayout.maxPanes) {
             do {
@@ -709,12 +718,103 @@ final class AppState {
                 errorMessage = error.localizedDescription
             }
         }
-        guard !split.panes.isEmpty else { return }
+        guard !split.panes.isEmpty else { return nil }
         if connections.count > SplitLayout.maxPanes {
             showToast(String(localized: "A split view holds at most \(SplitLayout.maxPanes) terminals."))
         }
         sessions.append(.split(split))
         tabs.open(split.id)
+        return split
+    }
+
+    // MARK: Saved splits
+
+    /// The name sheet for saving or renaming a saved split.
+    struct SavedSplitPrompt: Identifiable {
+        enum Source {
+            case split(SplitSession)
+            case connections([String])
+            case rename(SavedSplit)
+        }
+
+        let id = UUID()
+        var name: String
+        let source: Source
+    }
+
+    var savedSplitPrompt: SavedSplitPrompt?
+
+    func promptSaveSplit(_ split: SplitSession) {
+        savedSplitPrompt = SavedSplitPrompt(name: split.title, source: .split(split))
+    }
+
+    func promptSaveSplit(connections: [Connection]) {
+        let picked = Array(connections.prefix(SplitLayout.maxPanes))
+        savedSplitPrompt = SavedSplitPrompt(name: picked.map(\.name).joined(separator: " + "),
+                                            source: .connections(picked.map(\.id)))
+    }
+
+    func promptRename(_ saved: SavedSplit) {
+        savedSplitPrompt = SavedSplitPrompt(name: saved.name, source: .rename(saved))
+    }
+
+    func commitSavedSplitPrompt(name: String) {
+        guard let prompt = savedSplitPrompt, let repo else { return }
+        savedSplitPrompt = nil
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        perform {
+            switch prompt.source {
+            case .split(let split):
+                let saved = try repo.save(SavedSplit(name: trimmed, connectionIds: split.panes.map(\.connectionId)))
+                split.savedSplitId = saved.id
+                showToast(String(localized: "Saved split: \(trimmed)"))
+            case .connections(let ids):
+                try repo.save(SavedSplit(name: trimmed, connectionIds: ids))
+                showToast(String(localized: "Saved split: \(trimmed)"))
+            case .rename(var saved):
+                saved.name = trimmed
+                try repo.save(saved)
+            }
+        }
+    }
+
+    func savedSplit(for split: SplitSession) -> SavedSplit? {
+        split.savedSplitId.flatMap { id in library.savedSplits.first { $0.id == id } }
+    }
+
+    /// The tab came from a saved split whose panes differ from the tab's now.
+    func canUpdateSavedSplit(_ split: SplitSession) -> Bool {
+        guard let saved = savedSplit(for: split) else { return false }
+        return saved.connectionIds != split.panes.map(\.connectionId)
+    }
+
+    func updateSavedSplit(from split: SplitSession) {
+        guard var saved = savedSplit(for: split), let repo else { return }
+        saved.connectionIds = split.panes.map(\.connectionId)
+        perform { try repo.save(saved) }
+        showToast(String(localized: "Saved split updated: \(saved.name)"))
+    }
+
+    /// Opens the saved panes that still exist; broadcast always starts off.
+    func openSavedSplit(_ saved: SavedSplit) {
+        let connections = saved.connections(in: library)
+        guard !connections.isEmpty else {
+            showToast(String(localized: "None of this split's connections exist any more."))
+            return
+        }
+        openSplit(connections)?.savedSplitId = saved.id
+    }
+
+    func deleteSavedSplit(_ saved: SavedSplit) {
+        if selection == "s:\(saved.id)" { selection = nil }
+        perform { try repo?.deleteSavedSplit(id: saved.id) }
+    }
+
+    func moveSavedSplits(from source: IndexSet, to destination: Int) {
+        var ids = library.savedSplits.map(\.id)
+        ids.move(fromOffsets: source, toOffset: destination)
+        perform { try repo?.reorderSavedSplits(ids) }
     }
 
     /// Adds a pane to an open split (the same connection may appear in several panes).

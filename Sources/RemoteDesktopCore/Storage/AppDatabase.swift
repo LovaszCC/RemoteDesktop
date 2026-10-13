@@ -166,6 +166,16 @@ public final class AppDatabase: Sendable {
             }
         }
 
+        migrator.registerMigration("v13-saved-split") { db in
+            try db.create(table: "savedSplit") { t in
+                t.primaryKey("id", .text)
+                t.column("name", .text).notNull()
+                t.column("connectionIds", .text).notNull()
+                t.column("sortOrder", .integer).notNull().defaults(to: 0)
+                t.column("createdAt", .datetime).notNull()
+            }
+        }
+
         return migrator
     }
 }

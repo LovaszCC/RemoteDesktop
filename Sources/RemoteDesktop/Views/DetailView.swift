@@ -13,6 +13,8 @@ struct DetailView: View {
             FolderDetailView(folder: folder)
         case .credential(let credential):
             CredentialDetailView(credential: credential)
+        case .savedSplit(let saved):
+            SavedSplitDetailView(saved: saved)
         case nil where state.selectedTags.count > 1:
             MultipleSelectionView()
         case nil:
@@ -290,5 +292,49 @@ struct CredentialDetailView: View {
             Text(label).foregroundStyle(.secondary).gridColumnAlignment(.trailing)
             Text(value.isEmpty ? "—" : value).textSelection(.enabled)
         }
+    }
+}
+
+/// A saved split: its panes and the actions.
+struct SavedSplitDetailView: View {
+    @Environment(AppState.self) private var state
+    let saved: SavedSplit
+
+    var body: some View {
+        let connections = saved.connections(in: state.library)
+        let missing = saved.connectionIds.count - connections.count
+        Form {
+            Section {
+                HStack(spacing: 12) {
+                    Image(systemName: "rectangle.split.2x2").font(.largeTitle).foregroundStyle(.green)
+                    VStack(alignment: .leading) {
+                        Text(saved.name).font(.title2.bold())
+                        Text("Saved split · \(connections.count) terminals").foregroundStyle(.secondary)
+                    }
+                }
+                HStack {
+                    Button("Open", systemImage: "play.fill") { state.openSavedSplit(saved) }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        .disabled(connections.isEmpty)
+                    Button("Rename…", systemImage: "pencil") { state.promptRename(saved) }
+                        .controlSize(.large)
+                    Button("Delete", systemImage: "trash", role: .destructive) { state.deleteSavedSplit(saved) }
+                        .controlSize(.large)
+                }
+            }
+            Section("Terminals") {
+                ForEach(Array(connections.enumerated()), id: \.offset) { _, connection in
+                    Label(connection.name, systemImage: connection.type.systemImage)
+                }
+                if missing > 0 {
+                    Text("\(missing) deleted connections are left out.").foregroundStyle(.secondary)
+                }
+                Text("Broadcast is always off when the split opens.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
     }
 }

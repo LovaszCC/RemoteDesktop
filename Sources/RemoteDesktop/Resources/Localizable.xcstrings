@@ -3522,6 +3522,156 @@
           }
         }
       }
+    },
+    "Saved splits" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mentett splitek"
+          }
+        }
+      }
+    },
+    "no connections" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "nincs kapcsolat"
+          }
+        }
+      }
+    },
+    "Delete saved split" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mentett split törlése"
+          }
+        }
+      }
+    },
+    "Save as split…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mentés splitként…"
+          }
+        }
+      }
+    },
+    "Saved split · %lld terminals" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mentett split · %lld terminál"
+          }
+        }
+      }
+    },
+    "Terminals" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminálok"
+          }
+        }
+      }
+    },
+    "%lld deleted connections are left out." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld törölt kapcsolat kimarad."
+          }
+        }
+      }
+    },
+    "Broadcast is always off when the split opens." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Megnyitáskor a broadcast mindig ki van kapcsolva."
+          }
+        }
+      }
+    },
+    "Save split…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Split mentése…"
+          }
+        }
+      }
+    },
+    "Update saved split" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mentett split frissítése"
+          }
+        }
+      }
+    },
+    "Rename saved split" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mentett split átnevezése"
+          }
+        }
+      }
+    },
+    "Save split" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Split mentése"
+          }
+        }
+      }
+    },
+    "Saved split: %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Split mentve: %@"
+          }
+        }
+      }
+    },
+    "Saved split updated: %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mentett split frissítve: %@"
+          }
+        }
+      }
+    },
+    "None of this split's connections exist any more." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ennek a splitnek egyik kapcsolata sem létezik már."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

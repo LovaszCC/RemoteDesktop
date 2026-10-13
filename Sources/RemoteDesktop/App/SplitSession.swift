@@ -11,6 +11,8 @@ final class SplitSession: Identifiable {
     private(set) var group = BroadcastGroup()
     /// Pane that gets keyboard focus when the tab is shown.
     var focusedPaneId: String?
+    /// The saved split this tab was opened from or saved as.
+    var savedSplitId: String?
 
     var title: String {
         let names = panes.map(\.title)
