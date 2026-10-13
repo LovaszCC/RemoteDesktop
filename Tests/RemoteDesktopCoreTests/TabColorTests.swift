@@ -53,3 +53,35 @@ import Testing
         #expect(tabs.color(for: "b", automatic: .red) == .red)
     }
 }
+
+@Suite struct TabRenameTests {
+    @Test func customTitleWinsOverAutomatic() {
+        var tabs = SessionTabs()
+        tabs.open("a")
+        #expect(tabs.title(for: "a", automatic: "root@web: ~") == "root@web: ~")
+        tabs.rename("a", to: "  prod db  ")
+        #expect(tabs.title(for: "a", automatic: "root@web: /var/log") == "prod db")
+    }
+
+    @Test func emptyNameRestoresAutomatic() {
+        var tabs = SessionTabs()
+        tabs.open("a")
+        tabs.rename("a", to: "x")
+        tabs.rename("a", to: "   ")
+        #expect(tabs.customTitles.isEmpty)
+        #expect(tabs.title(for: "a", automatic: "auto") == "auto")
+    }
+
+    @Test func unknownCloseAndReplace() {
+        var tabs = SessionTabs()
+        tabs.rename("x", to: "nope")
+        #expect(tabs.customTitles.isEmpty)
+        ["a", "b"].forEach { tabs.open($0) }
+        tabs.rename("a", to: "first")
+        tabs.rename("b", to: "second")
+        tabs.replace("a", with: "s")
+        #expect(tabs.title(for: "s", automatic: "") == "first")
+        tabs.close("b")
+        #expect(tabs.customTitles == ["s": "first"])
+    }
+}

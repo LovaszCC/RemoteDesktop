@@ -87,6 +87,10 @@ struct SessionExitedBar: View {
 struct SessionTabBar: View {
     @Environment(AppState.self) private var state
     @Environment(ShortcutStore.self) private var shortcuts
+    /// Tab being renamed inline, and the name typed so far.
+    @State private var renaming: String?
+    @State private var draftTitle = ""
+    @FocusState private var renameFieldFocused: Bool
 
     var body: some View {
         HStack(spacing: 0) {
@@ -110,17 +114,21 @@ struct SessionTabBar: View {
                     state.selectTab(nil)
                 }
                 ForEach(state.sessions) { session in
+                    let title = state.tabTitle(for: session)
                     tab(
-                        title: session.title,
+                        title: title,
                         systemImage: session.systemImage,
                         isActive: state.tabs.active == session.id,
                         tint: session.tint,
                         color: state.tabColor(for: session)?.color,
+                        renameId: session.id,
                         close: { state.closeSession(session.id) }
                     ) {
                         state.selectTab(session.id)
                     }
+                    .help(title == session.title ? Text(verbatim: "") : Text(verbatim: session.title))
                     .contextMenu {
+                        Button("Rename…") { startRenaming(session.id, current: title) }
                         Menu("Color") {
                             Button("Entry color") { state.resetTabColor(for: session.id) }
                             LabelColorMenuItems(selection: state.tabColor(for: session)) {
@@ -141,12 +149,23 @@ struct SessionTabBar: View {
         isActive: Bool,
         tint: SwiftUI.Color,
         color: SwiftUI.Color? = nil,
+        renameId: String? = nil,
         close: (() -> Void)? = nil,
         action: @escaping () -> Void
     ) -> some View {
         HStack(spacing: 6) {
             Image(systemName: systemImage).foregroundStyle(tint)
-            Text(title).lineLimit(1).frame(maxWidth: 180, alignment: .leading)
+            if let renameId, renaming == renameId {
+                TextField("Tab name", text: $draftTitle)
+                    .textFieldStyle(.plain)
+                    .frame(width: 160)
+                    .focused($renameFieldFocused)
+                    .onSubmit { finishRenaming(save: true) }
+                    .onExitCommand { finishRenaming(save: false) }
+                    .onChange(of: renameFieldFocused) { if !renameFieldFocused { finishRenaming(save: true) } }
+            } else {
+                Text(title).lineLimit(1).frame(maxWidth: 180, alignment: .leading)
+            }
             if let close {
                 Button(action: close) {
                     Image(systemName: "xmark").font(.caption2.weight(.bold))
@@ -165,6 +184,22 @@ struct SessionTabBar: View {
         }
         .contentShape(Rectangle())
         .onTapGesture(perform: action)
+        .simultaneousGesture(TapGesture(count: 2).onEnded {
+            if let renameId { startRenaming(renameId, current: title) }
+        })
+    }
+
+    private func startRenaming(_ id: String, current: String) {
+        draftTitle = current
+        renaming = id
+        DispatchQueue.main.async { renameFieldFocused = true }
+    }
+
+    /// Enter or leaving the field saves (empty: back to the automatic name); Esc cancels.
+    private func finishRenaming(save: Bool) {
+        guard let id = renaming else { return }
+        renaming = nil
+        if save { state.renameTab(id, to: draftTitle) }
     }
 }
 

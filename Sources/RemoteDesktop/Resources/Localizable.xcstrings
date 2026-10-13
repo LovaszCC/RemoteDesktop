@@ -2922,6 +2922,16 @@
           }
         }
       }
+    },
+    "Tab name" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fül neve"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
