@@ -122,6 +122,8 @@ public struct Connection: Codable, Hashable, Identifiable, Sendable {
     public var sshTerminal: SSHTerminal
     /// RDP: embedded FreeRDP tab or Windows App.
     public var rdpClient: RDPClient
+    /// Tag color, also the default color of the connection's session tabs.
+    public var color: LabelColor?
     public var notes: String
     public var createdAt: Date
     public var updatedAt: Date
@@ -145,6 +147,7 @@ public struct Connection: Codable, Hashable, Identifiable, Sendable {
         mikrotikMode: MikrotikMode = .winbox,
         sshTerminal: SSHTerminal = .embedded,
         rdpClient: RDPClient = .embedded,
+        color: LabelColor? = nil,
         notes: String = "",
         createdAt: Date = .now,
         updatedAt: Date = .now
@@ -167,6 +170,7 @@ public struct Connection: Codable, Hashable, Identifiable, Sendable {
         self.mikrotikMode = mikrotikMode
         self.sshTerminal = sshTerminal
         self.rdpClient = rdpClient
+        self.color = color
         self.notes = notes
         self.createdAt = createdAt
         self.updatedAt = updatedAt

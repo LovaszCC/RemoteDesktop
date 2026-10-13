@@ -81,7 +81,8 @@ and then saved to `~/.ssh/known_hosts`. Tunnels stop when you quit the app.
   username (e.g. just an SSH key) can be used with a different username on each connection.
 - **Folders and favourites**: nested folders with drag & drop and an optional icon color, favourites on top.
 - **Instant search** across name, host, user, notes and folder.
-- **Tabs** for embedded sessions; quitting with open sessions asks first.
+- **Tabs** for embedded sessions; quitting with open sessions asks first. A connection's color (e.g. red
+  for production) colors its tabs and a stripe above the session; any tab can be recolored from its context menu.
 - **Split view** of up to 4 SSH terminals with iTerm2-style broadcast input.
 - **SSH port forwards** saved per connection, started and stopped with one click.
 - **English and Hungarian** interface, switchable in Settings.

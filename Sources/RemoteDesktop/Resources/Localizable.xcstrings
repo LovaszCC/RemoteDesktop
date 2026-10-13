@@ -2902,6 +2902,26 @@
           }
         }
       }
+    },
+    "Entry color" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az entry színe"
+          }
+        }
+      }
+    },
+    "Also the color of the connection's tabs" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A kapcsolat füleinek színe is"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

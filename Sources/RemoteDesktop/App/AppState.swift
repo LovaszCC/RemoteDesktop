@@ -27,6 +27,7 @@ struct ConnectionDraft: Identifiable, Equatable {
     var browserBundleId: String?
     var mikrotikMode: MikrotikMode = .winbox
     var sshTerminal: SSHTerminal = .embedded
+    var color: LabelColor?
 
     init(type: ConnectionType, folderId: String?) {
         id = UUID().uuidString
@@ -56,6 +57,7 @@ struct ConnectionDraft: Identifiable, Equatable {
         browserBundleId = connection.browserBundleId
         mikrotikMode = connection.mikrotikMode
         sshTerminal = connection.sshTerminal
+        color = connection.color
     }
 
     var isValid: Bool {
@@ -330,6 +332,7 @@ final class AppState {
                 mikrotikMode: draft.mikrotikMode,
                 sshTerminal: draft.sshTerminal,
                 rdpClient: draft.rdpClient,
+                color: draft.color,
                 notes: draft.notes,
                 createdAt: existing?.createdAt ?? .now
             ))
@@ -667,6 +670,29 @@ final class AppState {
         case .split(let split): !split.isFull
         default: false
         }
+    }
+
+    // MARK: Tab colors
+
+    func connectionColor(_ connectionId: String) -> LabelColor? {
+        library.connections.first { $0.id == connectionId }?.color
+    }
+
+    /// The tab's color: chosen on the tab, else the entry's (a split: the color all its panes share).
+    func tabColor(for session: AppSession) -> LabelColor? {
+        let automatic: LabelColor? = switch session {
+        case .split(let split): LabelColor.common(split.panes.map { connectionColor($0.connectionId) })
+        default: session.connectionIds.first.flatMap(connectionColor)
+        }
+        return tabs.color(for: session.id, automatic: automatic)
+    }
+
+    func setTabColor(_ color: LabelColor?, for sessionId: String) {
+        tabs.setColor(color, for: sessionId)
+    }
+
+    func resetTabColor(for sessionId: String) {
+        tabs.resetColor(for: sessionId)
     }
 
     func toggleBroadcastInActiveSplit() {
