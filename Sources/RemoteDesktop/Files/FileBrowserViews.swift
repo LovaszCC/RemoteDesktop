@@ -61,14 +61,19 @@ private struct FileBrowserView: View {
                 }
             case .ready, .closed:
                 VSplitView {
-                    HSplitView {
+                    // Equal halves with the transfer buttons in the middle (a split view sized them unevenly).
+                    HStack(spacing: 0) {
                         RemotePane(session: session, showsHidden: local.showsHidden, selection: $remoteSelection) { urls in
                             upload(urls.map { $0.standardizedFileURL })
                         }
+                        .frame(maxWidth: .infinity)
+                        Divider()
                         transferButtons
+                        Divider()
                         LocalPane(local: local, sessionId: session.id, selection: $localSelection) { names in
                             queue.enqueue(names: names, direction: .download, from: session.remotePath, to: local.directory.path)
                         }
+                        .frame(maxWidth: .infinity)
                     }
                     .frame(minHeight: 240)
                     if !queue.items.isEmpty {
@@ -194,7 +199,8 @@ private struct RemotePane: View {
             } go: { path in
                 Task { await session.list(path) }
             }
-            Table(rows, selection: $selection, sortOrder: $sortOrder) {
+            // Dragging is set on the rows: on a cell it swallows the clicks that select and open rows.
+            Table(of: RemoteEntry.self, selection: $selection, sortOrder: $sortOrder) {
                 TableColumn("Name", value: \.name, comparator: .localizedStandard) { entry in
                     Label {
                         Text(entry.name)
@@ -202,7 +208,6 @@ private struct RemotePane: View {
                         Image(systemName: entry.isDirectory ? "folder.fill" : entry.kind == .symlink ? "link" : "doc")
                             .foregroundStyle(entry.isDirectory ? Color.accentColor : .secondary)
                     }
-                    .draggable(RemoteDrag.payload(sessionId: session.id, name: entry.name))
                 }
                 TableColumn("Size", value: \.size) { entry in
                     Text(entry.isDirectory ? "—" : formatBytes(entry.size))
@@ -218,6 +223,11 @@ private struct RemotePane: View {
                     Text(entry.permissions).font(.caption.monospaced()).foregroundStyle(.secondary)
                 }
                 .width(min: 80, ideal: 90)
+            } rows: {
+                ForEach(rows) { entry in
+                    TableRow(entry)
+                        .draggable(RemoteDrag.payload(sessionId: session.id, name: entry.name))
+                }
             }
             .contextMenu(forSelectionType: RemoteEntry.ID.self) { _ in
             } primaryAction: { ids in
@@ -231,7 +241,7 @@ private struct RemotePane: View {
                 return !files.isEmpty
             }
             .overlay {
-                if session.isListing { ProgressView().controlSize(.small) }
+                if session.isListing { ProgressView().controlSize(.small).allowsHitTesting(false) }
             }
             if let error = session.listError {
                 Text(error).font(.caption).foregroundStyle(.red).padding(6)
@@ -261,7 +271,7 @@ private struct LocalPane: View {
             } go: { path in
                 local.go(to: URL(filePath: (path as NSString).expandingTildeInPath))
             }
-            Table(rows, selection: $selection, sortOrder: $sortOrder) {
+            Table(of: LocalBrowser.Entry.self, selection: $selection, sortOrder: $sortOrder) {
                 TableColumn("Name", value: \.name, comparator: .localizedStandard) { entry in
                     Label {
                         Text(entry.name)
@@ -270,7 +280,6 @@ private struct LocalPane: View {
                             .resizable()
                             .frame(width: 16, height: 16)
                     }
-                    .draggable(entry.url)
                 }
                 TableColumn("Size", value: \.size) { entry in
                     Text(entry.isDirectory ? "—" : formatBytes(entry.size))
@@ -286,6 +295,10 @@ private struct LocalPane: View {
                     Text(entry.permissions).font(.caption.monospaced()).foregroundStyle(.secondary)
                 }
                 .width(min: 80, ideal: 90)
+            } rows: {
+                ForEach(rows) { entry in
+                    TableRow(entry).draggable(entry.url)
+                }
             }
             .contextMenu(forSelectionType: LocalBrowser.Entry.ID.self) { ids in
                 Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting(Array(ids)) }
