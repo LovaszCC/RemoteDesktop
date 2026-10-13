@@ -12,16 +12,17 @@ public struct RDPSessionSettings: Equatable, Sendable {
         host = connection.host.trimmingCharacters(in: .whitespaces)
         port = connection.effectivePort
         adminSession = connection.rdpAdminSession
-        let user = connection.username.trimmingCharacters(in: .whitespaces)
-        let domain = connection.domain.trimmingCharacters(in: .whitespaces)
-        // "DOMAIN\user" and "user@domain" typed into the user field win over the domain field.
+        (username, domain) = Self.splitUser(connection.username, domain: connection.domain)
+    }
+
+    /// "DOMAIN\user" and "user@domain" typed into the user field win over the domain field.
+    public static func splitUser(_ user: String, domain: String) -> (username: String, domain: String) {
+        let user = user.trimmingCharacters(in: .whitespaces)
+        let domain = domain.trimmingCharacters(in: .whitespaces)
         if let backslash = user.firstIndex(of: "\\") {
-            self.domain = String(user[..<backslash])
-            username = String(user[user.index(after: backslash)...])
-        } else {
-            self.domain = user.contains("@") ? "" : domain
-            username = user
+            return (String(user[user.index(after: backslash)...]), String(user[..<backslash]))
         }
+        return (user, user.contains("@") ? "" : domain)
     }
 }
 
@@ -40,10 +41,15 @@ public enum RDPDisconnectReason: Equatable, Sendable {
         0x0000_000C, // logoff by user
     ]
 
-    /// Only an explicit logoff / disconnect reason from the server counts as clean; a session that
-    /// ends without any code (client-side channel failure, dropped transport) keeps its tab.
+    /// FREERDP_ERROR_CONNECT_CANCELLED: the user dismissed the credential prompt.
+    static let cancelledLastError: UInt32 = 0x0002_000B
+
+    /// Only an explicit logoff / disconnect reason from the server, or a cancelled credential prompt,
+    /// counts as clean; a session that ends without any code (client-side channel failure, dropped
+    /// transport) keeps its tab.
     public init(lastError: UInt32, errorInfo: UInt32) {
-        self = Self.cleanErrorInfo.contains(errorInfo) ? .clean : .failure
+        let clean = Self.cleanErrorInfo.contains(errorInfo) || lastError == Self.cancelledLastError
+        self = clean ? .clean : .failure
     }
 }
 

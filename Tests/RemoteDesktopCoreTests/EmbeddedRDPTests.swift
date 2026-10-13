@@ -56,6 +56,14 @@ import Testing
         #expect(RDPDisconnectReason(lastError: 0, errorInfo: 0x03) == .failure) // idle timeout
         #expect(RDPDisconnectReason(lastError: 0, errorInfo: 0x05) == .failure) // taken over
         #expect(RDPDisconnectReason(lastError: 0x0002_0009, errorInfo: 0) == .failure)
+        #expect(RDPDisconnectReason(lastError: 0x0002_000B, errorInfo: 0) == .clean) // prompt cancelled
+    }
+
+    @Test func splitUserHandlesQualifiedNames() {
+        #expect(RDPSessionSettings.splitUser(" bob ", domain: " CORP ") == ("bob", "CORP"))
+        #expect(RDPSessionSettings.splitUser("AD\\alice", domain: "OTHER") == ("alice", "AD"))
+        #expect(RDPSessionSettings.splitUser("alice@ad.local", domain: "OTHER") == ("alice@ad.local", ""))
+        #expect(RDPSessionSettings.splitUser("", domain: "") == ("", ""))
     }
 
     @Test func typingKeystrokes() {
