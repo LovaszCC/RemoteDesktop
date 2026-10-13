@@ -57,6 +57,15 @@ either embedded or in the external terminal chosen in *Settings → SSH* (Ghostt
 Ghostty by default when installed, otherwise Terminal). iTerm2 is driven via AppleScript, so macOS asks
 once for the *Automation* permission.
 
+**Split view with broadcast input** (embedded SSH / MikroTik SSH): select 2–4 connections in the sidebar
+(⌘-click) and choose *Open in split view* (or ⌘↩) to open them side by side in one tab — 2 next to each
+other, 3 as one left and two stacked right, 4 as a 2×2 grid, with draggable dividers. *Add terminal* adds a
+pane, also for a server that is already open (e.g. `tail -f` the syslog in one, type commands in the other).
+Each pane has a **broadcast** toggle: what you type or paste into a broadcasting pane also goes to every other
+broadcasting pane, iTerm2 style — configure several switches at once. ⌥⌘I switches broadcast on or off for
+all panes. Broadcast is off by default; broadcasting panes have an orange frame and a *BROADCAST* badge, and
+the tab turns orange.
+
 **Port forwards** (SSH connections): save forwards such as `localhost:13389 → 10.0.0.20:3389` on the
 connection's page and start or stop them with one click; a green dot shows a running tunnel, and the
 sidebar marks connections with one. Each runs `ssh -N -L` in the background with the connection's login,
@@ -70,6 +79,7 @@ and then saved to `~/.ssh/known_hosts`. Tunnels stop when you quit the app.
 - **Folders and favourites**: nested folders with drag & drop, favourites on top.
 - **Instant search** across name, host, user, notes and folder.
 - **Tabs** for embedded sessions; quitting with open sessions asks first.
+- **Split view** of up to 4 SSH terminals with iTerm2-style broadcast input.
 - **SSH port forwards** saved per connection, started and stopped with one click.
 - **English and Hungarian** interface, switchable in Settings.
 - **Update check** against GitHub releases, with a checksum-verified download.
@@ -81,7 +91,7 @@ and then saved to `~/.ssh/known_hosts`. Tunnels stop when you quit the app.
 
 | Action | Shortcut |
 |---|---|
-| Connect | Double-click / ⌘↩ |
+| Connect (several selected SSH connections: split view) | Double-click / ⌘↩ |
 | New RDP / SSH / web / MikroTik connection | ⌘N / ⇧⌘N / ⇧⌘B / ⇧⌘M |
 | New folder / credential | ⌥⌘N / ⌃⌘N |
 | Import | ⌘I |
@@ -89,6 +99,7 @@ and then saved to `~/.ssh/known_hosts`. Tunnels stop when you quit the app.
 | Close tab / reconnect | ⌘W / ⌘R |
 | Next / previous tab | ⌃Tab / ⌃⇧Tab |
 | Type clipboard into RDP session | ⇧⌘V |
+| Broadcast input to all panes of a split view | ⌥⌘I |
 
 ## Security
 
