@@ -24,6 +24,7 @@ struct SplitSessionView: View {
 /// Add-pane menu and the tab-wide broadcast toggle.
 private struct SplitToolbar: View {
     @Environment(AppState.self) private var state
+    @Environment(ShortcutStore.self) private var shortcuts
     let split: SplitSession
 
     var body: some View {
@@ -60,7 +61,7 @@ private struct SplitToolbar: View {
             }
             .toggleStyle(.button)
             .tint(.orange)
-            .help("Type into every pane at once (⌥⌘I)")
+            .help("Type into every pane at once (\(shortcuts.display(.broadcastAll)))")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)

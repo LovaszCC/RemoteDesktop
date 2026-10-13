@@ -230,6 +230,156 @@
           }
         }
       }
+    },
+    "New folder" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Új mappa"
+          }
+        }
+      }
+    },
+    "New credential" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Új credential"
+          }
+        }
+      }
+    },
+    "Import from RDM…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importálás RDM-ből…"
+          }
+        }
+      }
+    },
+    "Connect" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kapcsolódás"
+          }
+        }
+      }
+    },
+    "Type clipboard into RDP session" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vágólap begépelése az RDP sessionbe"
+          }
+        }
+      }
+    },
+    "Split terminal" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminál felosztása"
+          }
+        }
+      }
+    },
+    "Broadcast input to all panes" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Broadcast minden panelre"
+          }
+        }
+      }
+    },
+    "Close session" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session bezárása"
+          }
+        }
+      }
+    },
+    "Next tab" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Következő fül"
+          }
+        }
+      }
+    },
+    "Previous tab" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Előző fül"
+          }
+        }
+      }
+    },
+    "Reconnect" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Újrakapcsolódás"
+          }
+        }
+      }
+    },
+    "Lock" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zárolás"
+          }
+        }
+      }
+    },
+    "Use at least one of ⌘, ⌃ or ⌥." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Legalább egy kell ezek közül: ⌘, ⌃ vagy ⌥."
+          }
+        }
+      }
+    },
+    "This shortcut is reserved by macOS." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ezt a billentyűt a macOS használja."
+          }
+        }
+      }
+    },
+    "Already used by: %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Már foglalt: %@"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

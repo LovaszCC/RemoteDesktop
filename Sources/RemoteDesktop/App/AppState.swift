@@ -632,7 +632,7 @@ final class AppState {
         if split.panes.isEmpty { closeSession(split.id) }
     }
 
-    /// ⌘D: a terminal tab becomes a split (its running session stays) with a second pane on the same server;
+    /// Split terminal (⌘D by default): a terminal tab becomes a split (its running session stays) with a second pane on the same server;
     /// in a split, the focused pane's server is opened once more.
     func splitActiveTab() {
         switch activeSession {

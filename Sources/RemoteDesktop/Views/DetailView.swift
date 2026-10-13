@@ -3,6 +3,7 @@ import SwiftUI
 
 struct DetailView: View {
     @Environment(AppState.self) private var state
+    @Environment(ShortcutStore.self) private var shortcuts
 
     var body: some View {
         switch state.item(for: state.selection) {
@@ -16,7 +17,7 @@ struct DetailView: View {
             MultipleSelectionView()
         case nil:
             ContentUnavailableView("Select a connection", systemImage: "rectangle.connected.to.line.below",
-                                   description: Text("Double-click or ⌘↩ to connect"))
+                                   description: Text("Double-click or \(shortcuts.display(.connect)) to connect"))
         }
     }
 }
@@ -24,6 +25,7 @@ struct DetailView: View {
 /// Several sidebar rows selected: offer to open the SSH ones side by side.
 struct MultipleSelectionView: View {
     @Environment(AppState.self) private var state
+    @Environment(ShortcutStore.self) private var shortcuts
 
     var body: some View {
         let connections = state.selectedSSHConnections
@@ -37,7 +39,7 @@ struct MultipleSelectionView: View {
             }
         } actions: {
             Button("Open in split view", systemImage: "rectangle.split.2x2") { state.openSplit(connections) }
-                .help("⌘↩")
+                .help(Text(verbatim: shortcuts.display(.connect)))
                 .disabled(connections.count < 2)
         }
     }

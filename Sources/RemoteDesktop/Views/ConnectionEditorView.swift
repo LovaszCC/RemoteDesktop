@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ConnectionEditorView: View {
     @Environment(AppState.self) private var state
+    @Environment(ShortcutStore.self) private var shortcuts
     @Environment(\.dismiss) private var dismiss
     @State var draft: ConnectionDraft
 
@@ -46,7 +47,7 @@ struct ConnectionEditorView: View {
                         Picker("Default mode", selection: $draft.mikrotikMode) {
                             ForEach(MikrotikMode.allCases, id: \.self) { Text($0.displayName).tag($0) }
                         }
-                        .help("Double-click / ⌘↩ connects with this mode; the other one is in the details and the context menu. The port is the SSH port; WinBox uses 8291.")
+                        .help("Double-click / \(shortcuts.display(.connect)) connects with this mode; the other one is in the details and the context menu. The port is the SSH port; WinBox uses 8291.")
                     }
                     if draft.type.usesSSH {
                         Picker("SSH terminal", selection: $draft.sshTerminal) {

@@ -58,6 +58,7 @@ struct TerminalSessionView: View {
 /// "Connection closed" bar with Reconnect / Close, shown while a terminal has exited.
 struct SessionExitedBar: View {
     @Environment(AppState.self) private var state
+    @Environment(ShortcutStore.self) private var shortcuts
     let session: TerminalSession
     let close: () -> Void
 
@@ -72,7 +73,7 @@ struct SessionExitedBar: View {
                 }
                 Spacer()
                 Button("Reconnect", systemImage: "arrow.clockwise") { state.reconnect(session) }
-                    .keyboardShortcut("r")
+                    .keyboardShortcut(shortcuts.keyboardShortcut(for: .reconnect))
                 Button("Close", action: close)
             }
             .padding(.horizontal, 12)
@@ -85,6 +86,7 @@ struct SessionExitedBar: View {
 /// Tab strip above the detail area: "Details" followed by one tab per session.
 struct SessionTabBar: View {
     @Environment(AppState.self) private var state
+    @Environment(ShortcutStore.self) private var shortcuts
 
     var body: some View {
         HStack(spacing: 0) {
@@ -93,7 +95,7 @@ struct SessionTabBar: View {
                 Button("Split terminal", systemImage: "rectangle.split.2x1") { state.splitActiveTab() }
                     .labelStyle(.iconOnly)
                     .buttonStyle(.borderless)
-                    .help("Open the same server in a new pane next to it (⌘D)")
+                    .help("Open the same server in a new pane next to it (\(shortcuts.display(.splitTerminal)))")
                     .padding(.horizontal, 10)
             }
         }
@@ -140,7 +142,7 @@ struct SessionTabBar: View {
                     Image(systemName: "xmark").font(.caption2.weight(.bold))
                 }
                 .buttonStyle(.borderless)
-                .help("Close session (⌘W)")
+                .help("Close session (\(shortcuts.display(.closeTab)))")
             }
         }
         .padding(.horizontal, 10)

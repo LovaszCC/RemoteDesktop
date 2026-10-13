@@ -21,7 +21,17 @@ struct SettingsView: View {
     private let runningLanguage = Bundle.main.preferredLocalizations.first
 
     var body: some View {
-        @Bindable var state = state
+        TabView {
+            general
+                .tabItem { Label("General", systemImage: "gearshape") }
+            ShortcutsSettingsView()
+                .tabItem { Label("Keyboard Shortcuts", systemImage: "keyboard") }
+        }
+        // Fixed size: the grouped forms scroll instead of growing past small screens.
+        .frame(width: 520, height: 560)
+    }
+
+    private var general: some View {
         Form {
             Section("Language") {
                 Picker("Language", selection: $language) {
@@ -147,8 +157,6 @@ struct SettingsView: View {
         } message: {
             Text("Running sessions are closed when the app quits.")
         }
-        // Fixed size: the grouped form scrolls instead of growing past small screens.
-        .frame(width: 520, height: 560)
     }
 
     private func openExisting() {
