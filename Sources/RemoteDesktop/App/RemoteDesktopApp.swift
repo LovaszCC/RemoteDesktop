@@ -67,6 +67,9 @@ struct RemoteDesktopApp: App {
                 Button("Split terminal") { state.splitActiveTab() }
                     .keyboardShortcut(shortcuts.keyboardShortcut(for: .splitTerminal))
                     .disabled(!state.canSplitActiveTab)
+                Button("Files (SCP)…") { state.openFilesForActiveTab() }
+                    .keyboardShortcut(shortcuts.keyboardShortcut(for: .openFiles))
+                    .disabled(!state.canOpenFiles)
                 Button("Broadcast input to all panes") { state.toggleBroadcastInActiveSplit() }
                     .keyboardShortcut(shortcuts.keyboardShortcut(for: .broadcastAll))
                     .disabled(state.activeSplit == nil)
@@ -86,6 +89,13 @@ struct RemoteDesktopApp: App {
                     .disabled(state.phase != .unlocked)
             }
         }
+
+        WindowGroup("Files", id: "files", for: FileBrowserTarget.self) { $target in
+            FileBrowserWindow(target: target)
+                .environment(state)
+                .environment(shortcuts)
+        }
+        .defaultSize(width: 1100, height: 680)
 
         Window("Software Update", id: "update") {
             UpdateView()

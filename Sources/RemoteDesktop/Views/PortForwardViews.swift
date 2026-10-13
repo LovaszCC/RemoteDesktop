@@ -39,15 +39,6 @@ struct PortForwardSection: View {
         .sheet(item: $editing) { edited in
             PortForwardEditor(forward: edited.forward, isNew: edited.isNew)
         }
-        .alert("Unknown host key", isPresented: Binding(
-            get: { state.pendingHostKey != nil },
-            set: { if !$0 { state.pendingHostKey = nil } }
-        ), presenting: state.pendingHostKey) { _ in
-            Button("Accept and Start") { state.acceptPendingHostKey() }
-            Button("Reject", role: .cancel) { state.pendingHostKey = nil }
-        } message: { pending in
-            Text("\(pending.target.lookupName) isn't in known_hosts yet. Accept only if these fingerprints match the server's keys:\n\n\(pending.fingerprints.joined(separator: "\n"))")
-        }
     }
 }
 

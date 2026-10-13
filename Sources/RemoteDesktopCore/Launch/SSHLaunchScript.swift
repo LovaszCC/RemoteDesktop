@@ -14,6 +14,9 @@ public struct SSHLaunchScript: Sendable {
     public var unlockedKey: String?
     /// Set for a background tunnel (`ssh -N -L`) instead of an interactive session.
     public var forward: PortForward?
+    /// Set for a background connection master (file browser): later `ssh` / `scp` commands reuse it through
+    /// this control socket without authenticating again.
+    public var controlPath: String?
 
     public init(connection: Connection, password: String?, keyPassphrase: String?, unlockedKey: String? = nil,
                 forward: PortForward? = nil) {
@@ -44,6 +47,7 @@ public struct SSHLaunchScript: Sendable {
             args += ["-i", (key as NSString).expandingTildeInPath]
         }
         if let forward { args += Self.tunnelOptions(forward) }
+        if let controlPath { args += Self.masterOptions(controlPath) }
         let host = connection.host.trimmingCharacters(in: .whitespaces)
         let user = connection.username.trimmingCharacters(in: .whitespaces)
         args.append(user.isEmpty ? host : "\(user)@\(host)")
@@ -65,13 +69,27 @@ public struct SSHLaunchScript: Sendable {
         ]
     }
 
+    /// No shell, keep-alives, only already trusted host keys (no terminal to confirm one); the master ends with
+    /// this process (no ControlPersist).
+    static func masterOptions(_ controlPath: String) -> [String] {
+        [
+            "-M", "-N",
+            "-o", "ControlMaster=yes",
+            "-o", "ControlPath=\(controlPath)",
+            "-o", "ControlPersist=no",
+            "-o", "ServerAliveInterval=30",
+            "-o", "ServerAliveCountMax=3",
+            "-o", "StrictHostKeyChecking=yes",
+        ]
+    }
+
     var usesAskpass: Bool { password != nil || keyPassphrase != nil }
 
     // MARK: Scripts
 
     func launchScript(directory: URL) -> String {
         var lines = ["#!/bin/sh"]
-        if forward == nil { lines.append("printf '\\033]0;%s\\007' \(Self.quote(connection.name))") }
+        if forward == nil, controlPath == nil { lines.append("printf '\\033]0;%s\\007' \(Self.quote(connection.name))") }
         if usesAskpass {
             lines.append("export SSH_ASKPASS=\(Self.quote(directory.appending(path: "askpass.sh").path))")
             lines.append("export SSH_ASKPASS_REQUIRE=force")

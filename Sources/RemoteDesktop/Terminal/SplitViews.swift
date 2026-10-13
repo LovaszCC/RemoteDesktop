@@ -114,6 +114,13 @@ private struct PaneView: View {
                         .background(.orange, in: Capsule())
                 }
                 Spacer(minLength: 4)
+                Button {
+                    state.openFiles(for: pane)
+                } label: {
+                    Image(systemName: "folder")
+                }
+                .buttonStyle(.borderless)
+                .help("Files (SCP)…")
                 Toggle(isOn: Binding(get: { isBroadcasting }, set: { _ in split.toggleBroadcast(pane) })) {
                     Label("Broadcast", systemImage: "antenna.radiowaves.left.and.right")
                 }

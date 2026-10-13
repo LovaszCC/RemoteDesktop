@@ -68,6 +68,13 @@ broadcasting pane, iTerm2 style — configure several switches at once. ⌥⌘I 
 all panes. Broadcast is off by default; broadcasting panes have an orange frame and a *BROADCAST* badge, and
 the tab turns orange. The pane you type into has a green frame.
 
+**Files (SCP)**: right-click an SSH tab (or entry, or ⇧⌘F) for a file browser window — the server on the
+left, this Mac on the right. Drag between them (or from Finder onto the server side), or select rows and use
+the arrow buttons. Folders travel as a single tar stream instead of file by file, gzip-compressed by default
+(toolbar toggle), with byte progress, cancel and a replace / skip prompt for existing items. Opened from a tab,
+it starts in the shell's current directory. One SSH connection serves the whole window, with the entry's
+login. Servers without `tar` (e.g. RouterOS) copy single files with `scp`.
+
 **Root warning**: while an embedded SSH session is root, its tab (and split pane header) shows a yellow
 warning sign — when logging in as `root`, and after `sudo -i` / `su -`, read from the `user@host` title most
 shells set.
@@ -113,6 +120,7 @@ command or by macOS is refused).
 | Type clipboard into RDP session | ⇧⌘V |
 | Split terminal (same server in a new pane) | ⌘D |
 | Broadcast input to all panes of a split view | ⌥⌘I |
+| Files (SCP) for the active SSH tab or selected entry | ⇧⌘F |
 
 ## Security
 
@@ -140,6 +148,10 @@ xcodebuild -downloadComponent MetalToolchain   # once; SwiftTerm compiles a Meta
 scripts/build-app.sh --install                 # build, sign and copy to /Applications
 swift test                                     # unit tests
 ```
+
+File transfer integration tests run against real SSH servers when `RD_SSH_IT_KEY` (private key) and
+`RD_SSH_IT_KNOWN_HOSTS` are set; they expect root logins on `127.0.0.1:2222` (GNU userland) and `:2223`
+(busybox) with a `/data` tree — see `Tests/RemoteDesktopCoreTests/RemoteFilesIntegrationTests.swift`.
 
 The first build also compiles a static FreeRDP + OpenSSL (`scripts/build-freerdp.sh`, about 10 minutes);
 local FreeRDP fixes live in `patches/freerdp/`. Signing uses your first *Apple Development* identity, so

@@ -252,6 +252,7 @@ struct ItemContextMenu: View {
             if connection.type.usesSSH {
                 Button("New embedded SSH session") { state.connect(connection, mode: .ssh, terminal: .embedded) }
                 Button("Open in split view (2×)") { state.openSplit([connection, connection]) }
+                Button("Files (SCP)…") { state.openFiles(connection) }
                 Button("Open in \(SSHLauncher.currentTerminal.displayName)") {
                     state.connect(connection, mode: .ssh, terminal: .external)
                 }
