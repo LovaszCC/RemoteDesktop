@@ -10,6 +10,8 @@ import Testing
     final class Recorder: NSObject, RDPSessionBridgeDelegate {
         var connected = false
         var ended: (lastError: UInt32, errorInfo: UInt32, message: String)?
+        var certificateDecision = RDPCertificateDecision.reject
+        var credentialRequests: [RDPCredentials] = []
 
         func rdpSessionDidConnect(_ session: RDPSessionBridge) { connected = true }
 
@@ -18,7 +20,12 @@ import Testing
         }
 
         func rdpSession(_ session: RDPSessionBridge, verifyCertificate certificate: RDPCertificateInfo) -> RDPCertificateDecision {
-            .reject
+            certificateDecision
+        }
+
+        func rdpSession(_ session: RDPSessionBridge, requestCredentials current: RDPCredentials) -> RDPCredentials? {
+            credentialRequests.append(current)
+            return nil
         }
     }
 
@@ -101,6 +108,41 @@ import Testing
 
         #expect(handler(SIGTERM) == before.0)
         #expect(handler(SIGINT) == before.1)
+        bridge.stop()
+        try await Task.sleep(for: .milliseconds(500))
+    }
+
+    /// An NLA-only server and no credentials: the delegate is asked, and declining cancels cleanly
+    /// (FREERDP_ERROR_CONNECT_CANCELLED) instead of failing in the transport layer.
+    @Test func missingNLACredentialsAreRequested() async throws {
+        let server = try FakeNLAServer()
+        defer { server.stop() }
+        let configuration = RDPConnectionConfiguration()
+        configuration.host = "127.0.0.1"
+        configuration.port = server.port
+        configuration.username = "alice"
+        configuration.domain = "CORP"
+        configuration.width = 800
+        configuration.height = 600
+
+        let recorder = Recorder()
+        recorder.certificateDecision = .acceptOnce
+        let bridge = RDPSessionBridge(configuration: configuration)
+        bridge.delegate = recorder
+        #expect(bridge.start())
+
+        let deadline = Date().addingTimeInterval(20)
+        while recorder.ended == nil, Date() < deadline {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        let ended = try #require(recorder.ended)
+        let request = try #require(recorder.credentialRequests.first)
+        #expect(recorder.credentialRequests.count == 1)
+        #expect(request.username == "alice")
+        #expect(request.domain == "CORP")
+        #expect(request.password == "")
+        #expect(ended.lastError == 0x0002_000B)
+
         bridge.stop()
         try await Task.sleep(for: .milliseconds(500))
     }

@@ -24,6 +24,9 @@ final class RDPSession: NSObject, Identifiable {
     /// Builds a fresh configuration (re-resolving the connection, decrypting the password).
     @ObservationIgnored private let makeConfiguration: () throws -> RDPConnectionConfiguration
     @ObservationIgnored var onEnd: ((RDPSession, RDPDisconnectReason) -> Void)?
+    /// Offer "save to this connection" in the credential prompt (not for linked credentials).
+    @ObservationIgnored var canSaveCredentials = false
+    @ObservationIgnored var onSaveCredentials: ((RDPCredentials) -> Void)?
 
     init(connection: Connection, makeConfiguration: @escaping () throws -> RDPConnectionConfiguration) {
         connectionId = connection.id
@@ -99,6 +102,12 @@ extension RDPSession: @preconcurrency RDPSessionBridgeDelegate {
     func rdpSession(_ session: RDPSessionBridge, verifyCertificate certificate: RDPCertificateInfo) -> RDPCertificateDecision {
         CertificatePrompt.ask(certificate, for: title)
     }
+
+    func rdpSession(_ session: RDPSessionBridge, requestCredentials current: RDPCredentials) -> RDPCredentials? {
+        guard let answer = CredentialPrompt.ask(current, for: title, canSave: canSaveCredentials) else { return nil }
+        if answer.save { onSaveCredentials?(answer.credentials) }
+        return answer.credentials
+    }
 }
 
 /// Modal certificate confirmation; FreeRDP stores permanently accepted certificates itself.
@@ -128,5 +137,46 @@ enum CertificatePrompt {
         case .alertSecondButtonReturn: return .acceptOnce
         default: return .reject
         }
+    }
+}
+
+/// Modal sign-in for NLA servers when the connection has no username or password.
+@MainActor
+enum CredentialPrompt {
+    static func ask(_ current: RDPCredentials, for name: String, canSave: Bool) -> (credentials: RDPCredentials, save: Bool)? {
+        let username = NSTextField(string: current.username)
+        let domain = NSTextField(string: current.domain)
+        let password = NSSecureTextField(string: current.password)
+        let save = NSButton(checkboxWithTitle: String(localized: "Save to this connection"), target: nil, action: nil)
+        for field in [username, domain, password] {
+            field.translatesAutoresizingMaskIntoConstraints = false
+            field.widthAnchor.constraint(equalToConstant: 240).isActive = true
+        }
+        let grid = NSGridView(views: [
+            [NSTextField(labelWithString: String(localized: "Username")), username],
+            [NSTextField(labelWithString: String(localized: "Domain")), domain],
+            [NSTextField(labelWithString: String(localized: "Password")), password],
+        ])
+        grid.column(at: 0).xPlacement = .trailing
+        grid.rowAlignment = .firstBaseline
+        if canSave { grid.addRow(with: [NSGridCell.emptyContentView, save]) }
+        grid.layoutSubtreeIfNeeded()
+        grid.frame.size = grid.fittingSize
+
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Sign in to \(name)")
+        alert.informativeText = String(localized: "The server requires Network Level Authentication.")
+        alert.accessoryView = grid
+        alert.addButton(withTitle: String(localized: "Connect"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.window.initialFirstResponder = current.username.isEmpty ? username : password
+        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+
+        let (user, userDomain) = RDPSessionSettings.splitUser(username.stringValue, domain: domain.stringValue)
+        let credentials = RDPCredentials()
+        credentials.username = user
+        credentials.domain = userDomain
+        credentials.password = password.stringValue
+        return (credentials, canSave && save.state == .on)
     }
 }
