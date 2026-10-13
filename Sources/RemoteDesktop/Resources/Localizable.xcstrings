@@ -383,16 +383,6 @@
         }
       }
     },
-    "Close session (⌘W)" : {
-      "localizations" : {
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Session bezárása (⌘W)"
-          }
-        }
-      }
-    },
     "Connect" : {
       "localizations" : {
         "hu" : {
@@ -719,26 +709,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Domain"
-          }
-        }
-      }
-    },
-    "Double-click / ⌘↩ connects with this mode; the other one is in the details and the context menu. The port is the SSH port; WinBox uses 8291." : {
-      "localizations" : {
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dupla kattintás / ⌘↩ ezzel kapcsolódik; a másik mód a részleteknél és a helyi menüben érhető el. A port az SSH port, a WinBox a 8291-et használja."
-          }
-        }
-      }
-    },
-    "Double-click or ⌘↩ to connect" : {
-      "localizations" : {
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dupla kattintás vagy ⌘↩ a kapcsolódáshoz"
           }
         }
       }
@@ -2673,16 +2643,6 @@
         }
       }
     },
-    "Type into every pane at once (⌥⌘I)" : {
-      "localizations" : {
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gépelés egyszerre minden panelbe (⌥⌘I)"
-          }
-        }
-      }
-    },
     "BROADCAST" : {
       "localizations" : {
         "hu" : {
@@ -2793,22 +2753,62 @@
         }
       }
     },
-    "Open the same server in a new pane next to it (⌘D)" : {
-      "localizations" : {
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ugyanaz a szerver új panelben mellette (⌘D)"
-          }
-        }
-      }
-    },
     "The credential has no username – this connection uses its own." : {
       "localizations" : {
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "A credentialben nincs felhasználónév – ez a kapcsolat a sajátját használja."
+          }
+        }
+      }
+    },
+    "Double-click or %@ to connect" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dupla kattintás vagy %@ a kapcsolódáshoz"
+          }
+        }
+      }
+    },
+    "Double-click / %@ connects with this mode; the other one is in the details and the context menu. The port is the SSH port; WinBox uses 8291." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dupla kattintás / %@ ezzel kapcsolódik; a másik mód a részleteknél és a helyi menüben érhető el. A port az SSH port, a WinBox a 8291-et használja."
+          }
+        }
+      }
+    },
+    "Type into every pane at once (%@)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gépelés egyszerre minden panelbe (%@)"
+          }
+        }
+      }
+    },
+    "Open the same server in a new pane next to it (%@)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ugyanaz a szerver új panelben mellette (%@)"
+          }
+        }
+      }
+    },
+    "Close session (%@)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session bezárása (%@)"
           }
         }
       }

@@ -7,6 +7,7 @@ struct RemoteDesktopApp: App {
     @NSApplicationDelegateAdaptor private var appDelegate: AppDelegate
     @State private var state = AppState()
     @State private var updates = UpdateModel()
+    @State private var shortcuts = ShortcutStore()
 
     init() {
         // Before any string is looked up, so a Hungarian system doesn't pick Hungarian on its own.
@@ -22,8 +23,9 @@ struct RemoteDesktopApp: App {
                 .modifier(UpdateWindowOpener())
                 .environment(state)
                 .environment(updates)
+                .environment(shortcuts)
                 .frame(minWidth: 760, minHeight: 460)
-                .onAppear { appDelegate.attach(state) }
+                .onAppear { appDelegate.attach(state, shortcuts: shortcuts) }
         }
         .defaultSize(width: 1000, height: 640)
         .commands {
@@ -32,20 +34,20 @@ struct RemoteDesktopApp: App {
             }
             CommandGroup(replacing: .newItem) {
                 Button(ConnectionType.rdp.newTitle) { state.newConnection(.rdp) }
-                    .keyboardShortcut("n")
+                    .keyboardShortcut(shortcuts.keyboardShortcut(for: .newRDP))
                 Button(ConnectionType.ssh.newTitle) { state.newConnection(.ssh) }
-                    .keyboardShortcut("n", modifiers: [.command, .shift])
+                    .keyboardShortcut(shortcuts.keyboardShortcut(for: .newSSH))
                 Button(ConnectionType.web.newTitle) { state.newConnection(.web) }
-                    .keyboardShortcut("b", modifiers: [.command, .shift])
+                    .keyboardShortcut(shortcuts.keyboardShortcut(for: .newWeb))
                 Button(ConnectionType.mikrotik.newTitle) { state.newConnection(.mikrotik) }
-                    .keyboardShortcut("m", modifiers: [.command, .shift])
+                    .keyboardShortcut(shortcuts.keyboardShortcut(for: .newMikrotik))
                 Button("New folder") { state.newFolder() }
-                    .keyboardShortcut("n", modifiers: [.command, .option])
+                    .keyboardShortcut(shortcuts.keyboardShortcut(for: .newFolder))
                 Button("New credential") { state.newCredential() }
-                    .keyboardShortcut("n", modifiers: [.command, .control])
+                    .keyboardShortcut(shortcuts.keyboardShortcut(for: .newCredential))
                 Divider()
                 Button("Import from RDM…") { state.isImporting = true }
-                    .keyboardShortcut("i")
+                    .keyboardShortcut(shortcuts.keyboardShortcut(for: .importRDM))
                     .disabled(state.phase != .unlocked)
             }
             CommandMenu("Connection") {
@@ -56,27 +58,31 @@ struct RemoteDesktopApp: App {
                         state.openSplit(state.selectedSSHConnections)
                     }
                 }
-                .keyboardShortcut(.return, modifiers: .command)
+                .keyboardShortcut(shortcuts.keyboardShortcut(for: .connect))
                 .disabled(state.phase != .unlocked)
                 Divider()
                 Button("Type clipboard into RDP session") { state.typeClipboardIntoActiveSession() }
-                    .keyboardShortcut("v", modifiers: [.command, .shift])
+                    .keyboardShortcut(shortcuts.keyboardShortcut(for: .typeClipboard))
                     .disabled(state.activeRDPSession?.status != .connected)
                 Button("Split terminal") { state.splitActiveTab() }
-                    .keyboardShortcut("d")
+                    .keyboardShortcut(shortcuts.keyboardShortcut(for: .splitTerminal))
                     .disabled(!state.canSplitActiveTab)
                 Button("Broadcast input to all panes") { state.toggleBroadcastInActiveSplit() }
-                    .keyboardShortcut("i", modifiers: [.command, .option])
+                    .keyboardShortcut(shortcuts.keyboardShortcut(for: .broadcastAll))
                     .disabled(state.activeSplit == nil)
+                // Also handled by AppDelegate's key monitor, so the terminal and the window's Close don't take them.
                 Button("Close session") { state.closeActiveSession() }
+                    .keyboardShortcut(shortcuts.keyboardShortcut(for: .closeTab))
                     .disabled(state.activeSession == nil)
                 Button("Next tab") { state.cycleTabs(forward: true) }
+                    .keyboardShortcut(shortcuts.keyboardShortcut(for: .nextTab))
                     .disabled(state.sessions.isEmpty)
                 Button("Previous tab") { state.cycleTabs(forward: false) }
+                    .keyboardShortcut(shortcuts.keyboardShortcut(for: .previousTab))
                     .disabled(state.sessions.isEmpty)
                 Divider()
                 Button("Lock") { state.lock() }
-                    .keyboardShortcut("l", modifiers: [.command, .control])
+                    .keyboardShortcut(shortcuts.keyboardShortcut(for: .lock))
                     .disabled(state.phase != .unlocked)
             }
         }
@@ -93,28 +99,26 @@ struct RemoteDesktopApp: App {
             SettingsView()
                 .environment(state)
                 .environment(updates)
+                .environment(shortcuts)
         }
     }
 }
 
-/// Quit confirmation for running sessions, and ⌘W / ⌃Tab handling while a session tab is active
-/// (the window's own Close item and the terminal view would otherwise take them).
+/// Quit confirmation for running sessions, and close / next / previous tab shortcuts while a session tab is
+/// active (the window's own Close item and the terminal view would otherwise take them).
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private weak var state: AppState?
+    private weak var shortcuts: ShortcutStore?
     private var keyMonitor: Any?
 
-    func attach(_ state: AppState) {
+    func attach(_ state: AppState, shortcuts: ShortcutStore) {
         self.state = state
+        self.shortcuts = shortcuts
         guard keyMonitor == nil else { return }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             // Local monitors run on the main thread; pass only Sendable values across.
-            let key = KeyPress(
-                windowTitle: event.window?.title,
-                flags: event.modifierFlags.intersection(.deviceIndependentFlagsMask),
-                characters: event.charactersIgnoringModifiers,
-                keyCode: event.keyCode
-            )
+            let key = KeyPress(windowTitle: event.window?.title, shortcut: ShortcutStore.keyShortcut(from: event))
             let handled = MainActor.assumeIsolated { self?.handle(key) == true }
             return handled ? nil : event
         }
@@ -122,23 +126,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private struct KeyPress: Sendable {
         let windowTitle: String?
-        let flags: NSEvent.ModifierFlags
-        let characters: String?
-        let keyCode: UInt16
+        let shortcut: KeyShortcut?
     }
 
     private func handle(_ key: KeyPress) -> Bool {
         // Only the main window; sheets and the Settings window keep their own shortcuts.
-        guard let state, !state.sessions.isEmpty, key.windowTitle == "RemoteDesktop" else { return false }
-        if key.flags == .command, key.characters == "w", state.activeSession != nil {
+        guard let state, let shortcuts, let pressed = key.shortcut,
+              !state.sessions.isEmpty, key.windowTitle == "RemoteDesktop" else { return false }
+        switch pressed {
+        case shortcuts.shortcut(for: .closeTab) where state.activeSession != nil:
             state.closeActiveSession()
-            return true
+        case shortcuts.shortcut(for: .nextTab):
+            state.cycleTabs(forward: true)
+        case shortcuts.shortcut(for: .previousTab):
+            state.cycleTabs(forward: false)
+        default:
+            return false
         }
-        if key.keyCode == 48, key.flags.contains(.control) { // Tab
-            state.cycleTabs(forward: !key.flags.contains(.shift))
-            return true
-        }
-        return false
+        return true
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

@@ -42,6 +42,7 @@ struct RDPHostView: NSViewRepresentable {
 /// Active RDP tab: the desktop plus a connecting overlay or an ended bar.
 struct RDPSessionView: View {
     @Environment(AppState.self) private var state
+    @Environment(ShortcutStore.self) private var shortcuts
     let session: RDPSession
 
     var body: some View {
@@ -86,7 +87,7 @@ struct RDPSessionView: View {
                     .lineLimit(2)
                     Spacer()
                     Button("Reconnect", systemImage: "arrow.clockwise") { state.reconnect(session) }
-                        .keyboardShortcut("r")
+                        .keyboardShortcut(shortcuts.keyboardShortcut(for: .reconnect))
                     Button("Close") { state.closeSession(session.id) }
                 }
                 .padding(.horizontal, 12)
