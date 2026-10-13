@@ -125,6 +125,8 @@ struct DetailArea: View {
             switch state.activeSession {
             case .terminal(let session):
                 TerminalSessionView(session: session)
+            case .split:
+                EmptyView()
             case .rdp(let session):
                 RDPSessionView(session: session)
             case nil:
