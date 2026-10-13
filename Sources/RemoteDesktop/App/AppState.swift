@@ -556,6 +556,7 @@ final class AppState {
     /// Embedded sessions and port forward tunnels that quitting would close.
     var runningSessionCount: Int {
         sessions.map(\.runningCount).reduce(0, +) + portForwardSessions.values.filter(\.isRunning).count
+            + fileBrowsers.values.map(\.transfers.activeCount).reduce(0, +)
     }
 
     private func openSession(for connection: Connection) throws {
@@ -804,17 +805,24 @@ final class AppState {
 
     func terminateAllSessions() {
         for session in sessions { session.close() }
+        for browser in fileBrowsers.values { browser.close() }
         stopAllPortForwards()
     }
 
     // MARK: Port forwards
 
     struct PendingHostKey: Identifiable {
-        let forward: PortForward
+        /// What to start once the key is trusted.
+        enum Continuation {
+            case portForward(PortForward)
+            case files(FileBrowserTarget)
+        }
+
+        let continuation: Continuation
         let target: SSHHostKeys.Target
         let keyLines: [String]
         let fingerprints: [String]
-        var id: String { forward.id }
+        let id = UUID()
     }
 
     func portForwardSession(_ forward: PortForward) -> PortForwardSession? {
@@ -843,6 +851,12 @@ final class AppState {
     /// Checks the gateway's host key first: an unknown one is shown for confirmation instead of starting.
     func startPortForward(_ forward: PortForward) {
         guard let connection = library.connections.first(where: { $0.id == forward.connectionId }) else { return }
+        checkHostKey(of: connection, then: .portForward(forward))
+    }
+
+    /// Background connections (tunnels, file browser) can't ask about an unknown host key on a terminal, so
+    /// it is confirmed here first; known keys continue right away.
+    private func checkHostKey(of connection: Connection, then continuation: PendingHostKey.Continuation) {
         let resolved = library.resolved(connection)
         Task {
             do {
@@ -851,13 +865,20 @@ final class AppState {
                     let target = try keys.target(for: resolved)
                     if try keys.isKnown(target) { return nil }
                     let lines = try keys.scan(target)
-                    return PendingHostKey(forward: forward, target: target, keyLines: lines,
+                    return PendingHostKey(continuation: continuation, target: target, keyLines: lines,
                                           fingerprints: try keys.fingerprints(of: lines))
                 }.value
-                if let pending { pendingHostKey = pending } else { launchPortForward(forward) }
+                if let pending { pendingHostKey = pending } else { proceed(continuation) }
             } catch {
                 errorMessage = error.localizedDescription
             }
+        }
+    }
+
+    private func proceed(_ continuation: PendingHostKey.Continuation) {
+        switch continuation {
+        case .portForward(let forward): launchPortForward(forward)
+        case .files(let target): filesWindowRequest = target
         }
     }
 
@@ -866,10 +887,58 @@ final class AppState {
         pendingHostKey = nil
         do {
             try SSHHostKeys().trust(pending.keyLines, for: pending.target)
-            launchPortForward(pending.forward)
+            proceed(pending.continuation)
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    // MARK: File browser
+
+    /// A file browser window to open; the main window's `openWindow` picks it up.
+    var filesWindowRequest: FileBrowserTarget?
+    /// Open file browser windows (their transfers count as running sessions on quit).
+    private(set) var fileBrowsers: [String: FileBrowserSession] = [:]
+
+    /// Opens the file browser for an SSH connection, in `startPath` (else the home folder).
+    func openFiles(_ connection: Connection, startPath: String? = nil) {
+        guard connection.type.usesSSH else { return }
+        checkHostKey(of: connection, then: .files(FileBrowserTarget(connectionId: connection.id, startPath: startPath)))
+    }
+
+    /// Files for the active tab's terminal (its focused pane in a split), starting in the shell's directory.
+    func openFilesForActiveTab() {
+        let terminal: TerminalSession? = switch activeSession {
+        case .terminal(let session): session
+        case .split(let split): split.panes.first { $0.id == split.focusedPaneId } ?? split.panes.first
+        default: nil
+        }
+        if let terminal { openFiles(for: terminal) } else if let connection = selectedSSHConnections.first, selectedTags.count == 1 {
+            openFiles(connection)
+        }
+    }
+
+    func openFiles(for terminal: TerminalSession) {
+        guard let connection = library.connections.first(where: { $0.id == terminal.connectionId }) else { return }
+        openFiles(connection, startPath: terminal.terminalTitle.flatMap(RemotePath.directory(fromTerminalTitle:)))
+    }
+
+    func makeFileBrowser(_ target: FileBrowserTarget) -> FileBrowserSession? {
+        guard let connection = library.connections.first(where: { $0.id == target.connectionId }) else { return nil }
+        let resolved = library.resolved(connection)
+        let session = FileBrowserSession(target: target, connection: resolved) { [weak self] controlPath in
+            guard let self else { throw VaultError.notInitialized }
+            var script = try self.sshScript(for: resolved)
+            script.controlPath = controlPath
+            return try script.write()
+        }
+        fileBrowsers[session.id] = session
+        return session
+    }
+
+    func closeFileBrowser(_ session: FileBrowserSession) {
+        session.close()
+        fileBrowsers.removeValue(forKey: session.id)
     }
 
     func stopPortForward(_ forward: PortForward) {
