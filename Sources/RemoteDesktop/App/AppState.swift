@@ -27,6 +27,7 @@ struct ConnectionDraft: Identifiable, Equatable {
     var browserBundleId: String?
     var mikrotikMode: MikrotikMode = .winbox
     var sshTerminal: SSHTerminal = .embedded
+    var color: LabelColor?
 
     init(type: ConnectionType, folderId: String?) {
         id = UUID().uuidString
@@ -56,6 +57,7 @@ struct ConnectionDraft: Identifiable, Equatable {
         browserBundleId = connection.browserBundleId
         mikrotikMode = connection.mikrotikMode
         sshTerminal = connection.sshTerminal
+        color = connection.color
     }
 
     var isValid: Bool {
@@ -330,6 +332,7 @@ final class AppState {
                 mikrotikMode: draft.mikrotikMode,
                 sshTerminal: draft.sshTerminal,
                 rdpClient: draft.rdpClient,
+                color: draft.color,
                 notes: draft.notes,
                 createdAt: existing?.createdAt ?? .now
             ))

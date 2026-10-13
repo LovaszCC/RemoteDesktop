@@ -160,6 +160,12 @@ public final class AppDatabase: Sendable {
             }
         }
 
+        migrator.registerMigration("v12-connection-color") { db in
+            try db.alter(table: "connection") { t in
+                t.add(column: "color", .text)
+            }
+        }
+
         return migrator
     }
 }

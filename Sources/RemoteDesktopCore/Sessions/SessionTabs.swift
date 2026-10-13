@@ -5,6 +5,8 @@ import Foundation
 public struct SessionTabs: Equatable, Sendable {
     public private(set) var ids: [String] = []
     public private(set) var active: String?
+    /// Colors chosen for open tabs, overriding their automatic color (`nil` value: explicitly no color).
+    public private(set) var colorOverrides: [String: LabelColor?] = [:]
 
     public init() {}
 
@@ -19,6 +21,7 @@ public struct SessionTabs: Equatable, Sendable {
     public mutating func close(_ id: String) {
         guard let index = ids.firstIndex(of: id) else { return }
         ids.remove(at: index)
+        colorOverrides.removeValue(forKey: id)
         guard active == id else { return }
         active = ids.isEmpty ? nil : ids[min(index, ids.count - 1)]
     }
@@ -28,6 +31,23 @@ public struct SessionTabs: Equatable, Sendable {
         guard let index = ids.firstIndex(of: old), !ids.contains(new) else { return }
         ids[index] = new
         if active == old { active = new }
+        if let color = colorOverrides.removeValue(forKey: old) { colorOverrides[new] = color }
+    }
+
+    /// Sets a tab's color (`nil`: no color); `reset` goes back to the automatic one. Unknown ids are ignored.
+    public mutating func setColor(_ color: LabelColor?, for id: String) {
+        guard ids.contains(id) else { return }
+        colorOverrides[id] = .some(color)
+    }
+
+    public mutating func resetColor(for id: String) {
+        colorOverrides.removeValue(forKey: id)
+    }
+
+    /// The tab's color: its override if set, else `automatic` (the entry's color).
+    public func color(for id: String, automatic: LabelColor?) -> LabelColor? {
+        if let override = colorOverrides[id] { return override }
+        return automatic
     }
 
     /// Selects a session tab, or the details tab with `nil`. Unknown ids are ignored.
