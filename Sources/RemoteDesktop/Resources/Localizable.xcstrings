@@ -3312,6 +3312,16 @@
           }
         }
       }
+    },
+    "Open the file browser (%@)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fájlböngésző megnyitása (%@)"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
