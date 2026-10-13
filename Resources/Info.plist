@@ -31,6 +31,8 @@
     <string>public.app-category.developer-tools</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>RemoteDesktop opens SSH connections in a new iTerm2 window.</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
 </dict>

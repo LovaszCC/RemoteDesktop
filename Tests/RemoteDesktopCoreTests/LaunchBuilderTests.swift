@@ -118,7 +118,7 @@ import Testing
 @Suite struct ExternalAppsTests {
     @Test func openArguments() {
         #expect(ExternalApps.windowsAppOpenArguments(rdpFile: URL(filePath: "/tmp/a.rdp")) == ["-b", "com.microsoft.rdc.macos", "/tmp/a.rdp"])
-        #expect(ExternalApps.ghosttyOpenArguments(launchScript: URL(filePath: "/tmp/l.sh")) == ["-n", "-b", "com.mitchellh.ghostty", "--args", "-e", "/tmp/l.sh"])
+        #expect(ExternalApps.terminalLaunch(.ghostty, launchScript: URL(filePath: "/tmp/l.sh")).arguments == ["-n", "-b", "com.mitchellh.ghostty", "--args", "-e", "/tmp/l.sh"])
     }
 }
 

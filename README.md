@@ -23,8 +23,8 @@ behind one master password.
    ```
 
 Requires an Apple Silicon Mac with macOS 15 or later. Optional apps it can hand off to:
-[Windows App](https://apps.apple.com/app/windows-app/id1295203466), [Ghostty](https://ghostty.org) and
-[WinBox](https://mikrotik.com/download).
+[Windows App](https://apps.apple.com/app/windows-app/id1295203466), [Ghostty](https://ghostty.org),
+[iTerm2](https://iterm2.com) and [WinBox](https://mikrotik.com/download).
 
 ### Updates
 
@@ -41,7 +41,7 @@ skip the first-launch *Open Anyway* step.
 | Type | Opens in | Highlights |
 |---|---|---|
 | **RDP** | Embedded tab (FreeRDP 3.32.1) or Windows App | Shared clipboard, resolution follows the tab, certificate prompts, reconnect, admin session (`/admin`) |
-| **SSH** | Embedded terminal tab (SwiftTerm) or Ghostty | System `ssh`, so `~/.ssh/config`, `known_hosts` and jump hosts work; password and key passphrase supplied automatically |
+| **SSH** | Embedded terminal tab (SwiftTerm) or an external terminal: Ghostty, iTerm2 or Terminal | System `ssh`, so `~/.ssh/config`, `known_hosts` and jump hosts work; password and key passphrase supplied automatically |
 | **Web** | Chosen browser or the default one | Password, then username copied to the clipboard for pasting into the login form |
 | **MikroTik** | SSH or WinBox | WinBox logs in directly; double-click uses the per-connection default mode |
 
@@ -52,7 +52,10 @@ reconnect button. With Windows App, the password is typed into its prompt automa
 clipboard for 30 seconds as a fallback.
 
 **SSH** uses `SSH_ASKPASS`, so no `sshpass` is needed; unknown host keys are still confirmed by you. A
-clean `exit` closes the tab, a dropped connection keeps it with a reconnect button.
+clean `exit` closes the tab, a dropped connection keeps it with a reconnect button. Each connection opens
+either embedded or in the external terminal chosen in *Settings → SSH* (Ghostty, iTerm2 or Terminal;
+Ghostty by default when installed, otherwise Terminal). iTerm2 is driven via AppleScript, so macOS asks
+once for the *Automation* permission.
 
 **Port forwards** (SSH connections): save forwards such as `localhost:13389 → 10.0.0.20:3389` on the
 connection's page and start or stop them with one click; a green dot shows a running tunnel, and the

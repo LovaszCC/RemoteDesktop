@@ -41,6 +41,16 @@
         }
       }
     },
+    "External terminal" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Külső terminál"
+          }
+        }
+      }
+    },
     "Embedded (FreeRDP)" : {
       "localizations" : {
         "hu" : {

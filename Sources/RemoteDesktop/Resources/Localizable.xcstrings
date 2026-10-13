@@ -833,16 +833,6 @@
         }
       }
     },
-    "Embedded: tab inside the window · Ghostty: separate terminal window" : {
-      "localizations" : {
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Beágyazott: fül az ablakon belül · Ghostty: külön terminálablak"
-          }
-        }
-      }
-    },
     "Error" : {
       "localizations" : {
         "hu" : {
@@ -1339,16 +1329,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Meglévő megnyitása…"
-          }
-        }
-      }
-    },
-    "Open in Ghostty" : {
-      "localizations" : {
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Megnyitás Ghostty-ban"
           }
         }
       }
@@ -2559,6 +2539,66 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Port forward aktív"
+          }
+        }
+      }
+    },
+    "SSH" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SSH"
+          }
+        }
+      }
+    },
+    "External terminal" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Külső terminál"
+          }
+        }
+      }
+    },
+    "%@ (not installed)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (nincs telepítve)"
+          }
+        }
+      }
+    },
+    "Connections set to External terminal open in a new window of this app." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A Külső terminálra állított kapcsolatok ennek az alkalmazásnak egy új ablakában nyílnak meg."
+          }
+        }
+      }
+    },
+    "Open in %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Megnyitás: %@"
+          }
+        }
+      }
+    },
+    "Embedded: tab inside the window · External: new window of the terminal chosen in Settings" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beágyazott: fül az ablakon belül · Külső: új ablak a Beállításokban választott terminálban"
           }
         }
       }

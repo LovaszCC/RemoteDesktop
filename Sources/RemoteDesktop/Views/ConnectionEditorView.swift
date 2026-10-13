@@ -52,7 +52,7 @@ struct ConnectionEditorView: View {
                         Picker("SSH terminal", selection: $draft.sshTerminal) {
                             ForEach(SSHTerminal.allCases, id: \.self) { Text($0.displayName).tag($0) }
                         }
-                        .help("Embedded: tab inside the window · Ghostty: separate terminal window")
+                        .help("Embedded: tab inside the window · External: new window of the terminal chosen in Settings")
                     }
                     if draft.type == .rdp {
                         Picker("RDP client", selection: $draft.rdpClient) {
