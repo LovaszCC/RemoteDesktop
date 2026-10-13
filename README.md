@@ -1,16 +1,63 @@
+<div align="center">
+
+<img src="docs/screenshots/icon.png" width="128" alt="RemoteDesktop icon">
+
 # RemoteDesktop
 
-[![Release](https://img.shields.io/github/v/release/LovaszCC/RemoteDesktop)](https://github.com/LovaszCC/RemoteDesktop/releases/latest)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-![Platform](https://img.shields.io/badge/macOS-15%2B%20·%20Apple%20Silicon-lightgrey)
+### ⚡ One native macOS app for **RDP · SSH · Web · MikroTik**
 
-A lightweight, native macOS connection manager for **RDP, SSH, web and MikroTik** connections: a fast
-alternative to Devolutions Remote Desktop Manager. Around 30 MB of memory, instant start, everything
-behind one master password.
+*A fast, lightweight alternative to Devolutions Remote Desktop Manager.*<br>
+*~30 MB of memory · instant start · everything behind one master password.*
 
-> Available in **English** and **Hungarian**. Switch in *Settings → Language*; it applies after a restart.
+[![Release](https://img.shields.io/github/v/release/LovaszCC/RemoteDesktop?style=for-the-badge&logo=github&color=2563eb)](https://github.com/LovaszCC/RemoteDesktop/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/LovaszCC/RemoteDesktop/total?style=for-the-badge&logo=apple&color=1e40af)](https://github.com/LovaszCC/RemoteDesktop/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)](LICENSE)
+<br>
+![macOS](https://img.shields.io/badge/macOS-15%2B-000000?style=for-the-badge&logo=apple&logoColor=white)
+![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-only-555555?style=for-the-badge&logo=apple&logoColor=white)
+![Swift](https://img.shields.io/badge/Swift-native-F05138?style=for-the-badge&logo=swift&logoColor=white)
 
-## Install
+**[⬇️ Download](https://github.com/LovaszCC/RemoteDesktop/releases/latest)** ·
+**[✨ Features](#-features)** ·
+**[🔐 Security](#-security)** ·
+**[🛠 Build](#-build-from-source)**
+
+🇬🇧 English · 🇭🇺 Magyar — switch in *Settings → Language* (applies after a restart)
+
+<br>
+
+<img src="docs/screenshots/split-broadcast.png" alt="Three SSH sessions in split view with broadcast input" width="100%">
+
+<sub><b>Split view with broadcast input</b> — type once, run on every server.</sub>
+
+</div>
+
+---
+
+## 📸 Screenshots
+
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/connection-details.png" alt="Connection details with a saved port forward"><br>
+      <sub><b>🔌 Connection details & port forwards</b><br>Connect, browse files or start a saved tunnel with one click.</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/scp-files.png" alt="SCP file browser: remote server on the left, this Mac on the right"><br>
+      <sub><b>📁 Files (SCP)</b><br>Dual-pane browser, drag & drop, tar-streamed folders.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center">
+      <img src="docs/screenshots/root-warning.png" alt="Red-colored production tab with a root warning sign" width="70%"><br>
+      <sub><b>🚨 Colored tabs & root warning</b><br>Production in red, a yellow sign while you are root.</sub>
+    </td>
+  </tr>
+</table>
+
+---
+
+## 🚀 Install
 
 1. Download `RemoteDesktop-<version>.dmg` from the
    [latest release](https://github.com/LovaszCC/RemoteDesktop/releases/latest).
@@ -22,30 +69,38 @@ behind one master password.
    xattr -dr com.apple.quarantine /Applications/RemoteDesktop.app
    ```
 
-Requires an Apple Silicon Mac with macOS 15 or later. Optional apps it can hand off to:
-[Windows App](https://apps.apple.com/app/windows-app/id1295203466), [Ghostty](https://ghostty.org),
-[iTerm2](https://iterm2.com) and [WinBox](https://mikrotik.com/download).
+> [!NOTE]
+> Requires an **Apple Silicon Mac with macOS 15** or later. Optional apps it can hand off to:
+> [Windows App](https://apps.apple.com/app/windows-app/id1295203466), [Ghostty](https://ghostty.org),
+> [iTerm2](https://iterm2.com) and [WinBox](https://mikrotik.com/download).
 
-### Updates
+### 🔄 Updates
 
 The app checks GitHub for a new release at launch (at most once a day; turn it off in *Settings → Updates*)
 and from **RemoteDesktop → Check for Updates…**. **Download** saves the verified disk image to *Downloads*
 and opens it: quit RemoteDesktop and drag the new version to **Applications**. Images downloaded this way
 skip the first-launch *Open Anyway* step.
 
+> [!IMPORTANT]
 > After every update, grant the Accessibility permission again (*System Settings → Privacy & Security →
 > Accessibility*). It is only needed for the Windows App password autofill.
 
-## Connection types
+---
 
-| Type | Opens in | Highlights |
-|---|---|---|
-| **RDP** | Embedded tab (FreeRDP 3.32.1) or Windows App | Shared clipboard, resolution follows the tab, certificate prompts, reconnect, admin session (`/admin`) |
-| **SSH** | Embedded terminal tab (SwiftTerm) or an external terminal: Ghostty, iTerm2 or Terminal | System `ssh`, so `~/.ssh/config`, `known_hosts` and jump hosts work; password and key passphrase supplied automatically |
-| **Web** | Chosen browser or the default one | Password, then username copied to the clipboard for pasting into the login form |
-| **MikroTik** | SSH or WinBox | WinBox logs in directly; double-click uses the per-connection default mode |
+## 🔗 Connection types
 
-**RDP** credentials go straight into FreeRDP, never on a command line. When a server requires NLA and
+| | Type | Opens in | Highlights |
+|:-:|---|---|---|
+| 🖥️ | **RDP** | Embedded tab (FreeRDP 3.32.1) or Windows App | Shared clipboard, resolution follows the tab, certificate prompts, reconnect, admin session (`/admin`) |
+| 💻 | **SSH** | Embedded terminal tab (SwiftTerm) or an external terminal: Ghostty, iTerm2 or Terminal | System `ssh`, so `~/.ssh/config`, `known_hosts` and jump hosts work; password and key passphrase supplied automatically |
+| 🌐 | **Web** | Chosen browser or the default one | Password, then username copied to the clipboard for pasting into the login form |
+| 📶 | **MikroTik** | SSH or WinBox | WinBox logs in directly; double-click uses the per-connection default mode |
+
+<details open>
+<summary><b>🖥️ RDP</b></summary>
+<br>
+
+Credentials go straight into FreeRDP, never on a command line. When a server requires NLA and
 the connection has no username or password, the embedded client asks for them; *Save to this connection*
 stores them (encrypted) for next time, *Cancel* closes the tab. The *Type clipboard* button
 (⇧⌘V) types the local clipboard into the session as keystrokes, which works where clipboard sharing does
@@ -53,111 +108,157 @@ not (logon screen, consoles). A logoff closes the tab; a dropped connection keep
 reconnect button. With Windows App, the password is typed into its prompt automatically, or copied to the
 clipboard for 30 seconds as a fallback.
 
-**SSH** uses `SSH_ASKPASS`, so no `sshpass` is needed; unknown host keys are still confirmed by you. A
+</details>
+
+<details open>
+<summary><b>💻 SSH</b></summary>
+<br>
+
+Uses `SSH_ASKPASS`, so no `sshpass` is needed; unknown host keys are still confirmed by you. A
 clean `exit` closes the tab, a dropped connection keeps it with a reconnect button. Each connection opens
 either embedded or in the external terminal chosen in *Settings → SSH* (Ghostty, iTerm2 or Terminal;
 Ghostty by default when installed, otherwise Terminal). iTerm2 is driven via AppleScript, so macOS asks
 once for the *Automation* permission.
 
-**Split view with broadcast input** (embedded SSH / MikroTik SSH): select 2–4 connections in the sidebar
-(⌘-click) and choose *Open in split view* (or ⌘↩) to open them side by side in one tab — 2 next to each
-other, 3 as one left and two stacked right, 4 as a 2×2 grid, with draggable dividers. *Add terminal* adds a
-pane, also for a server that is already open (e.g. `tail -f` the syslog in one, type commands in the other).
-For one server: *Open in split view (2×)* in its context menu, or ⌘D / the split button in an open SSH tab,
-which keeps the running session and opens the same server next to it.
+</details>
+
+<details open>
+<summary><b>📡 Split view with broadcast input</b> (embedded SSH / MikroTik SSH)</summary>
+<br>
+
+Select 2–4 connections in the sidebar (⌘-click) and choose *Open in split view* (or ⌘↩) to open them side
+by side in one tab — 2 next to each other, 3 as one left and two stacked right, 4 as a 2×2 grid, with
+draggable dividers. *Add terminal* adds a pane, also for a server that is already open (e.g. `tail -f` the
+syslog in one, type commands in the other). For one server: *Open in split view (2×)* in its context menu,
+or ⌘D / the split button in an open SSH tab, which keeps the running session and opens the same server next
+to it.
+
 Each pane has a **broadcast** toggle: what you type or paste into a broadcasting pane also goes to every other
 broadcasting pane, iTerm2 style — configure several switches at once. ⌥⌘I switches broadcast on or off for
 all panes. Broadcast is off by default; broadcasting panes have an orange frame and a *BROADCAST* badge, and
 the tab turns orange. The pane you type into has a green frame.
 
-**Saved splits**: save a split tab (its context menu → *Save split…*) or 2–4 selected SSH entries (*Save as
+**💾 Saved splits**: save a split tab (its context menu → *Save split…*) or 2–4 selected SSH entries (*Save as
 split…*) by name. They are listed under *Saved splits* below Favorites: double-click to open (broadcast always
 starts off), drag to reorder, rename or delete from the context menu. A tab opened from a saved split offers
 *Update saved split* after panes were added or closed.
 
-**Files (SCP)**: right-click an SSH tab (or entry, or ⇧⌘F) for a file browser window — the server on the
+</details>
+
+<details open>
+<summary><b>📁 Files (SCP)</b></summary>
+<br>
+
+Right-click an SSH tab (or entry, or ⇧⌘F) for a file browser window — the server on the
 left, this Mac on the right. Drag between them (or from Finder onto the server side), or select rows and use
 the arrow buttons. Folders travel as a single tar stream instead of file by file, gzip-compressed by default
 (toolbar toggle), with byte progress, cancel and a replace / skip prompt for existing items. Opened from a tab,
 it starts in the shell's current directory. One SSH connection serves the whole window, with the entry's
 login. Servers without `tar` (e.g. RouterOS) copy single files with `scp`.
 
-**Root warning**: while an embedded SSH session is root, its tab (and split pane header) shows a yellow
+</details>
+
+<details open>
+<summary><b>⚠️ Root warning</b></summary>
+<br>
+
+While an embedded SSH session is root, its tab (and split pane header) shows a yellow
 warning sign — when logging in as `root`, and after `sudo -i` / `su -`, read from the `user@host` title most
 shells set.
 
-**Port forwards** (SSH connections): save forwards such as `localhost:13389 → 10.0.0.20:3389` on the
+</details>
+
+<details open>
+<summary><b>🔀 Port forwards</b> (SSH connections)</summary>
+<br>
+
+Save forwards such as `localhost:13389 → 10.0.0.20:3389` on the
 connection's page and start or stop them with one click; a green dot shows a running tunnel, and the
 sidebar marks connections with one. Each runs `ssh -N -L` in the background with the connection's login,
 listening on `127.0.0.1` only. An unknown server key is shown with its fingerprint for confirmation first
 and then saved to `~/.ssh/known_hosts`. Tunnels stop when you quit the app.
 
-## Features
+</details>
 
-- **Linked credentials**: reusable user / domain / password / SSH key entries that many connections can
-  share. Passphrase-protected SSH keys are unlocked once on save and stored encrypted. A credential without a
-  username (e.g. just an SSH key) can be used with a different username on each connection.
-- **Folders and favourites**: nested folders with drag & drop (several selected items move together, or
-  use *Move* or *Delete* in their context menu) and an optional icon color, favourites on top.
-- **Instant search** across name, host, user, notes and folder.
-- **Tabs** for embedded sessions; quitting with open sessions asks first. A connection's color (e.g. red
-  for production) colors its tabs and a stripe above the session; any tab can be recolored from its context menu
-  and renamed (double-click or *Rename…*).
-- **Split view** of up to 4 SSH terminals with iTerm2-style broadcast input.
-- **SSH port forwards** saved per connection, started and stopped with one click.
-- **English and Hungarian** interface, switchable in Settings.
-- **Update check** against GitHub releases, with a checksum-verified download.
-- **Import** from a Devolutions RDM `.rdm` export (see below).
-- **Portable database**: a single SQLite file whose location you choose in Settings, so it can live in
-  iCloud Drive or Dropbox.
+---
 
-### Keyboard shortcuts
+## ✨ Features
+
+| | |
+|---|---|
+| 🔑 **Linked credentials** | Reusable user / domain / password / SSH key entries that many connections can share. Passphrase-protected SSH keys are unlocked once on save and stored encrypted. A credential without a username (e.g. just an SSH key) can be used with a different username on each connection. |
+| 🗂️ **Folders and favourites** | Nested folders with drag & drop (several selected items move together, or use *Move* or *Delete* in their context menu) and an optional icon color, favourites on top. |
+| 🔍 **Instant search** | Across name, host, user, notes and folder. |
+| 🗃️ **Tabs** | For embedded sessions; quitting with open sessions asks first. A connection's color (e.g. red for production) colors its tabs and a stripe above the session; any tab can be recolored from its context menu and renamed (double-click or *Rename…*). |
+| 📡 **Split view** | Up to 4 SSH terminals with iTerm2-style broadcast input. |
+| 🔀 **SSH port forwards** | Saved per connection, started and stopped with one click. |
+| 🌍 **English and Hungarian** | Interface language switchable in Settings. |
+| 🔄 **Update check** | Against GitHub releases, with a checksum-verified download. |
+| 📥 **Import** | From a Devolutions RDM `.rdm` export or a WinBox address book (see below). |
+| ☁️ **Portable database** | A single SQLite file whose location you choose in Settings, so it can live in iCloud Drive or Dropbox. |
+
+### ⌨️ Keyboard shortcuts
 
 Defaults below; every one can be changed in *Settings → Keyboard Shortcuts* (a key already used by another
 command or by macOS is refused).
 
 | Action | Shortcut |
-|---|---|
-| Connect (several selected SSH connections: split view) | Double-click / ⌘↩ |
-| New RDP / SSH / web / MikroTik connection | ⌘N / ⇧⌘N / ⇧⌘B / ⇧⌘M |
-| New folder / credential | ⌥⌘N / ⌃⌘N |
-| Import from RDM / WinBox | ⌘I / ⇧⌘I |
-| Lock | ⌃⌘L |
-| Close tab / reconnect | ⌘W / ⌘R |
-| Next / previous tab | ⌃Tab / ⌃⇧Tab |
-| Type clipboard into RDP session | ⇧⌘V |
-| Split terminal (same server in a new pane) | ⌘D |
-| Broadcast input to all panes of a split view | ⌥⌘I |
-| Files (SCP) for the active SSH tab or selected entry | ⇧⌘F |
+|---|:-:|
+| Connect (several selected SSH connections: split view) | Double-click / <kbd>⌘</kbd><kbd>↩</kbd> |
+| New RDP / SSH / web / MikroTik connection | <kbd>⌘N</kbd> / <kbd>⇧⌘N</kbd> / <kbd>⇧⌘B</kbd> / <kbd>⇧⌘M</kbd> |
+| New folder / credential | <kbd>⌥⌘N</kbd> / <kbd>⌃⌘N</kbd> |
+| Import from RDM / WinBox | <kbd>⌘I</kbd> / <kbd>⇧⌘I</kbd> |
+| Lock | <kbd>⌃⌘L</kbd> |
+| Close tab / reconnect | <kbd>⌘W</kbd> / <kbd>⌘R</kbd> |
+| Next / previous tab | <kbd>⌃Tab</kbd> / <kbd>⌃⇧Tab</kbd> |
+| Type clipboard into RDP session | <kbd>⇧⌘V</kbd> |
+| Split terminal (same server in a new pane) | <kbd>⌘D</kbd> |
+| Broadcast input to all panes of a split view | <kbd>⌥⌘I</kbd> |
+| Files (SCP) for the active SSH tab or selected entry | <kbd>⇧⌘F</kbd> |
 
-## Security
+---
 
-- Passwords and key passphrases are encrypted with **AES-256-GCM**. The key is derived from your master
-  password with PBKDF2-SHA256 (600,000 iterations). Salt and verifier are stored in the database, so the
-  file can move between Macs.
+## 🔐 Security
+
+> [!TIP]
+> Passwords and key passphrases are encrypted with **AES-256-GCM**. The key is derived from your master
+> password with **PBKDF2-SHA256 (600,000 iterations)**.
+
+- Salt and verifier are stored in the database, so the file can move between Macs.
 - *Remember on this Mac* keeps the derived key in the login Keychain (`WhenUnlockedThisDeviceOnly`).
 - Names, hosts and user names are stored unencrypted, for fast listing and search.
 - SSH secrets are handed over through `0600` files in a `0700` temporary folder and deleted on first use
   (at most 90 seconds).
 
-## Importing from Devolutions RDM
+---
+
+## 📥 Importing
+
+### From Devolutions RDM
 
 In RDM choose *File → Export → Export all entries…* and the **.rdm** format. To bring passwords along,
 tick *include credentials* and **do not** encrypt the export; otherwise passwords must be entered again by
 hand (the import summary tells you how many). Folders, RDP, SSH and credential entries and their links are
-imported. Delete the export file afterwards.
+imported.
 
-## Importing from WinBox
+> [!WARNING]
+> Delete the export file afterwards.
+
+### From WinBox
 
 *File → Import from WinBox…* (⇧⌘I) reads a WinBox address book (`.cdb`, e.g. an exported `addresses.cdb`).
 A preview lists the entries; pick a target folder — WinBox groups become subfolders in it — and the entries
 to import (ones already there are unchecked). They become MikroTik connections with their login; a custom
-WinBox port is noted in the entry's notes. WinBox keeps passwords in plain text, so delete the export
-afterwards.
+WinBox port is noted in the entry's notes.
 
-## Build from source
+> [!WARNING]
+> WinBox keeps passwords in plain text, so delete the export afterwards.
 
-Requires Xcode 26 or later and `brew install cmake ninja`.
+---
+
+## 🛠 Build from source
+
+Requires **Xcode 26** or later and `brew install cmake ninja`.
 
 ```sh
 xcodebuild -downloadComponent MetalToolchain   # once; SwiftTerm compiles a Metal shader
@@ -173,7 +274,18 @@ The first build also compiles a static FreeRDP + OpenSSL (`scripts/build-freerdp
 local FreeRDP fixes live in `patches/freerdp/`. Signing uses your first *Apple Development* identity, so
 the Accessibility permission survives rebuilds; set `SIGN_IDENTITY=-` for an ad-hoc signature.
 
-## License
+---
+
+## 📜 License
 
 MIT, see [LICENSE](LICENSE). Bundled third-party software (FreeRDP, OpenSSL, SwiftTerm, GRDB) and its
 licenses are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+<div align="center">
+<br>
+
+**Built with ❤️ for sysadmins who live in terminals.**
+
+<sub>FreeRDP · SwiftTerm · GRDB · OpenSSL</sub>
+
+</div>
