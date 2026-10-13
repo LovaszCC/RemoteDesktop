@@ -14,6 +14,7 @@ struct SidebarView: View {
                 Section("Results") {
                     ForEach(LibraryTree.search(library, query: state.searchText)) { connection in
                         ConnectionRow(connection: connection, subtitle: LibraryTree.folderPath(connection.folderId, in: library))
+                            .draggable(state.dragPayload(for: "c:\(connection.id)"))
                             .tag("c:\(connection.id)")
                     }
                 }
@@ -29,6 +30,7 @@ struct SidebarView: View {
                     Section("Favorites") {
                         ForEach(favorites) { connection in
                             ConnectionRow(connection: connection, subtitle: nil)
+                                .draggable(state.dragPayload(for: "fav:\(connection.id)"))
                                 .tag("fav:\(connection.id)")
                         }
                     }
@@ -39,8 +41,9 @@ struct SidebarView: View {
                     Text("Connections")
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
-                        .dropDestination(for: String.self) { tags, _ in
-                            move(tags, to: nil)
+                        .dropDestination(for: String.self) { payloads, _ in
+                            state.move(tags: SidebarDrag.tags(from: payloads), to: nil)
+                            return true
                         }
                 }
                 // Always present: inserting the section together with its first row confuses the List.
@@ -58,6 +61,8 @@ struct SidebarView: View {
                 let connections = state.sshConnections(forTags: tags)
                 Button("Open in split view (\(min(connections.count, SplitLayout.maxPanes)))") { state.openSplit(connections) }
                     .disabled(connections.count < 2)
+                // "" matches no folder, so no target is disabled for a mixed selection.
+                MoveMenu(currentFolderId: "", excluding: nil) { state.move(tags: Array(tags), to: $0) }
             } else if let tag = tags.first {
                 ItemContextMenu(tag: tag)
             } else {
@@ -103,16 +108,6 @@ struct SidebarView: View {
         expandedBinding.wrappedValue = set
     }
 
-    private func move(_ tags: [String], to folderId: String?) -> Bool {
-        for tag in tags {
-            switch state.item(for: tag) {
-            case .connection(let connection): state.move(connectionId: connection.id, to: folderId)
-            case .folder(let folder) where folder.id != folderId: state.move(folderId: folder.id, to: folderId)
-            default: break
-            }
-        }
-        return true
-    }
 }
 
 /// Recursive folder tree with persisted disclosure state.
@@ -139,15 +134,9 @@ private struct TreeRows: View {
                         Image(systemName: folder.color == nil ? "folder" : "folder.fill")
                             .foregroundStyle(folder.color?.color ?? .accentColor)
                     }
-                        .draggable(node.id)
-                        .dropDestination(for: String.self) { tags, _ in
-                            for tag in tags {
-                                switch state.item(for: tag) {
-                                case .connection(let connection): state.move(connectionId: connection.id, to: folder.id)
-                                case .folder(let moved) where moved.id != folder.id: state.move(folderId: moved.id, to: folder.id)
-                                default: break
-                                }
-                            }
+                        .draggable(state.dragPayload(for: node.id))
+                        .dropDestination(for: String.self) { payloads, _ in
+                            state.move(tags: SidebarDrag.tags(from: payloads), to: folder.id)
                             expanded.insert(folder.id)
                             return true
                         }
@@ -155,7 +144,7 @@ private struct TreeRows: View {
                 .tag(node.id)
             case .connection(let connection):
                 ConnectionRow(connection: connection, subtitle: nil)
-                    .draggable(node.id)
+                    .draggable(state.dragPayload(for: node.id))
                     .tag(node.id)
             }
         }
