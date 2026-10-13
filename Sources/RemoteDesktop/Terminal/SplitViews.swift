@@ -83,6 +83,11 @@ private struct PaneView: View {
 
     private var isBroadcasting: Bool { split.isBroadcasting(pane) }
 
+    private var border: SwiftUI.Color? {
+        if split.focusedPaneId == pane.id { return .green }
+        return isBroadcasting ? .orange : nil
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 6) {
@@ -125,8 +130,9 @@ private struct PaneView: View {
             SessionExitedBar(session: pane) { state.closePane(pane.id, in: split) }
         }
         .overlay {
-            if isBroadcasting {
-                Rectangle().strokeBorder(.orange, lineWidth: 2).allowsHitTesting(false)
+            // Green: the pane you type into; orange: other broadcasting panes.
+            if let border {
+                Rectangle().strokeBorder(border, lineWidth: 2).allowsHitTesting(false)
             }
         }
         .frame(minWidth: 220, minHeight: 140)
