@@ -130,6 +130,12 @@ struct SessionTabBar: View {
                     .help(title == session.title ? Text(verbatim: "") : Text(verbatim: session.title))
                     .contextMenu {
                         Button("Rename…") { startRenaming(session.id, current: title) }
+                        if case .split(let split) = session {
+                            Button("Save split…") { state.promptSaveSplit(split) }
+                            if state.canUpdateSavedSplit(split) {
+                                Button("Update saved split") { state.updateSavedSplit(from: split) }
+                            }
+                        }
                         if session.type.usesSSH {
                             Button("Files (SCP)…") {
                                 state.selectTab(session.id)

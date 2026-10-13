@@ -35,6 +35,14 @@ struct SidebarView: View {
                         }
                     }
                 }
+                if !library.savedSplits.isEmpty {
+                    Section("Saved splits") {
+                        ForEach(library.savedSplits) { saved in
+                            SavedSplitRow(saved: saved).tag("s:\(saved.id)")
+                        }
+                        .onMove { state.moveSavedSplits(from: $0, to: $1) }
+                    }
+                }
                 Section {
                     TreeRows(nodes: LibraryTree.build(library), expanded: expandedBinding)
                 } header: {
@@ -62,6 +70,8 @@ struct SidebarView: View {
                 Button("Open in split view (\(min(connections.count, SplitLayout.maxPanes)))") { state.openSplit(connections) }
                     .disabled(connections.count < 2)
                 // "" matches no folder, so no target is disabled for a mixed selection.
+                Button("Save as split…") { state.promptSaveSplit(connections: connections) }
+                    .disabled(!(2...SplitLayout.maxPanes).contains(connections.count))
                 MoveMenu(currentFolderId: "", excluding: nil) { state.move(tags: Array(tags), to: $0) }
                 Divider()
                 Button("Delete \(tags.count) items…", role: .destructive) { state.requestDelete(tags: tags) }
@@ -277,6 +287,11 @@ struct ItemContextMenu: View {
             Button("Edit…") { state.edit(credential) }
             Divider()
             Button("Delete credential", role: .destructive) { state.requestDelete(credential) }
+        case .savedSplit(let saved):
+            Button("Open") { state.openSavedSplit(saved) }
+            Button("Rename…") { state.promptRename(saved) }
+            Divider()
+            Button("Delete saved split", role: .destructive) { state.deleteSavedSplit(saved) }
         case nil:
             EmptyView()
         }
@@ -307,6 +322,28 @@ extension ConnectionType {
         case .ssh: .green
         case .web: .purple
         case .mikrotik: .orange
+        }
+    }
+}
+
+/// A saved split in the sidebar: name and the panes' connection names.
+struct SavedSplitRow: View {
+    @Environment(AppState.self) private var state
+    let saved: SavedSplit
+
+    var body: some View {
+        let connections = saved.connections(in: state.library)
+        HStack(spacing: 8) {
+            Image(systemName: "rectangle.split.2x2")
+                .foregroundStyle(connections.isEmpty ? .secondary : SwiftUI.Color.green)
+                .frame(width: 18)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(saved.name).lineLimit(1)
+                Text(connections.isEmpty ? String(localized: "no connections") : connections.map(\.name).joined(separator: " + "))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
         }
     }
 }

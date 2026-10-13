@@ -90,6 +90,9 @@ struct MainView: View {
             let count = state.library.connections(using: credential.id).count
             Text("\(count) connections use the credential “\(credential.name)”. After deleting it they use their own saved login.")
         }
+        .sheet(item: $state.savedSplitPrompt) { prompt in
+            SavedSplitNameSheet(name: prompt.name, isRename: { if case .rename = prompt.source { true } else { false } }())
+        }
         .sheet(item: $state.winboxImport) { draft in
             WinboxImportSheet(draft: draft)
         }
