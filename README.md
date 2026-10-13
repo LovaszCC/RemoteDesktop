@@ -68,6 +68,11 @@ broadcasting pane, iTerm2 style — configure several switches at once. ⌥⌘I 
 all panes. Broadcast is off by default; broadcasting panes have an orange frame and a *BROADCAST* badge, and
 the tab turns orange. The pane you type into has a green frame.
 
+**Saved splits**: save a split tab (its context menu → *Save split…*) or 2–4 selected SSH entries (*Save as
+split…*) by name. They are listed under *Saved splits* below Favorites: double-click to open (broadcast always
+starts off), drag to reorder, rename or delete from the context menu. A tab opened from a saved split offers
+*Update saved split* after panes were added or closed.
+
 **Files (SCP)**: right-click an SSH tab (or entry, or ⇧⌘F) for a file browser window — the server on the
 left, this Mac on the right. Drag between them (or from Finder onto the server side), or select rows and use
 the arrow buttons. Folders travel as a single tar stream instead of file by file, gzip-compressed by default
