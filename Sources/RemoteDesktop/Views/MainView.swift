@@ -30,8 +30,13 @@ struct MainView: View {
                 }
                 .help("New connection or folder")
 
-                Button("Import", systemImage: "square.and.arrow.down") { state.isImporting = true }
-                    .help("Import from a Devolutions RDM export (.rdm)")
+                Menu {
+                    Button("Import from RDM…") { state.isImporting = true }
+                    Button("Import from WinBox…") { state.isImportingWinbox = true }
+                } label: {
+                    Label("Import", systemImage: "square.and.arrow.down")
+                }
+                .help("Import from a Devolutions RDM export (.rdm) or a WinBox address book (.cdb)")
             }
         }
         // Shown here, not on the port forward list: tunnels and file browsers start from anywhere.
@@ -71,6 +76,21 @@ struct MainView: View {
         } message: { credential in
             let count = state.library.connections(using: credential.id).count
             Text("\(count) connections use the credential “\(credential.name)”. After deleting it they use their own saved login.")
+        }
+        .sheet(item: $state.winboxImport) { draft in
+            WinboxImportSheet(draft: draft)
+        }
+        // A second file importer must sit on another view: one view shows only its last one.
+        .background {
+            Color.clear.fileImporter(
+                isPresented: $state.isImportingWinbox,
+                allowedContentTypes: [UTType(filenameExtension: "cdb") ?? .data, .data]
+            ) { result in
+                switch result {
+                case .success(let url): state.loadWinbox(from: url)
+                case .failure(let error): state.errorMessage = error.localizedDescription
+                }
+            }
         }
         .fileImporter(
             isPresented: $state.isImporting,

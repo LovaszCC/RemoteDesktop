@@ -480,6 +480,16 @@
           }
         }
       }
+    },
+    "Import from WinBox…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importálás WinBoxból…"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

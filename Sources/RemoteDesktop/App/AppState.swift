@@ -102,6 +102,9 @@ final class AppState {
     var credentialEditor: CredentialDraft?
     var pendingCredentialDeletion: Credential?
     var isImporting = false
+    var isImportingWinbox = false
+    /// A parsed WinBox address book waiting for the user to pick entries and a target folder.
+    var winboxImport: WinboxImportDraft?
 
     // Embedded SSH / RDP sessions shown as tabs in the detail area.
     private(set) var sessions: [AppSession] = []
@@ -464,6 +467,51 @@ final class AppState {
                 message += "\n" + String(localized: "Skipped (\(summary.skipped.count)): \(skipped)")
             }
             errorMessage = message
+        }
+    }
+
+    // MARK: WinBox import
+
+    func loadWinbox(from url: URL) {
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let items = try WinboxImporter.parse(Data(contentsOf: url))
+            guard !items.isEmpty else {
+                errorMessage = String(localized: "The file has no WinBox addresses.")
+                return
+            }
+            var draft = WinboxImportDraft(rows: items.map { WinboxImportDraft.Row(item: $0) }, targetFolderId: selectedFolderId)
+            markDuplicates(&draft)
+            winboxImport = draft
+        } catch {
+            errorMessage = String(localized: "This isn't a WinBox address book (.cdb) or it is damaged.")
+        }
+    }
+
+    /// Unchecks entries already in their destination folder (target / WinBox group).
+    func markDuplicates(_ draft: inout WinboxImportDraft) {
+        for index in draft.rows.indices {
+            let item = draft.rows[index].item
+            var folderId = draft.targetFolderId
+            for name in item.groupPath {
+                folderId = library.folders.first { $0.parentId == folderId && $0.name == name }?.id
+                if folderId == nil { break }
+            }
+            let exists = (folderId != nil || item.groupPath.isEmpty)
+                && WinboxImporter.isDuplicate(item, among: library.connections, folderId: folderId)
+            draft.rows[index].exists = exists
+            draft.rows[index].include = !exists
+        }
+    }
+
+    func importWinbox(_ draft: WinboxImportDraft) {
+        guard let repo, let vault else { return }
+        winboxImport = nil
+        let items = draft.rows.filter(\.include).map(\.item)
+        perform {
+            let result = try ImportWriter.write(connections: items, under: draft.targetFolderId, into: repo, vault: vault)
+            showToast(String(localized: "Imported from WinBox — connections: \(result.imported), new folders: \(result.foldersCreated)"))
         }
     }
 
