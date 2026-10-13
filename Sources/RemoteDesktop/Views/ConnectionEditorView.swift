@@ -75,7 +75,17 @@ struct ConnectionEditorView: View {
                     }
 
                     if let credential = state.library.credential(id: draft.credentialId) {
-                        LabeledContent("User", value: credential.displayUser.isEmpty ? "—" : credential.displayUser)
+                        if credential.username.isEmpty {
+                            TextField("Username", text: $draft.username)
+                            if draft.type == .rdp {
+                                TextField("Domain", text: $draft.domain, prompt: Text("optional"))
+                            }
+                            Text("The credential has no username – this connection uses its own.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            LabeledContent("User", value: credential.displayUser)
+                        }
                         LabeledContent("Password", value: credential.passwordEnc == nil ? "—" : "••••••••")
                         if draft.type.usesSSH {
                             LabeledContent("SSH key", value: credential.sshKeyPath ?? "—")

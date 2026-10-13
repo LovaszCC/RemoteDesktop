@@ -35,6 +35,25 @@ import Testing
         #expect(try repo.library().credentials.isEmpty)
     }
 
+    @Test func credentialWithoutUsernameKeepsOwnUserAndDomain() {
+        let connection = Connection(type: .rdp, name: "s", host: "h", username: "own", domain: "OWN", passwordEnc: Data([1]))
+        let keyOnly = Credential(name: "key", username: "", domain: "", passwordEnc: Data([9]), sshKeyPath: "~/.ssh/id_rsa")
+
+        let resolved = connection.resolved(with: keyOnly)
+        #expect(resolved.username == "own")
+        #expect(resolved.domain == "OWN")
+        #expect(resolved.passwordEnc == Data([9]))
+        #expect(resolved.sshKeyPath == "~/.ssh/id_rsa")
+    }
+
+    @Test func credentialUsernameBringsItsDomainEvenWhenEmpty() {
+        let connection = Connection(type: .rdp, name: "s", host: "h", username: "own", domain: "OWN")
+        let local = Credential(name: "local", username: "admin", domain: "")
+        let resolved = connection.resolved(with: local)
+        #expect(resolved.username == "admin")
+        #expect(resolved.domain == "")
+    }
+
     @Test func resolvedReplacesAllAuthFields() {
         let connection = Connection(
             type: .ssh, name: "s", host: "h", username: "own", domain: "OWN",

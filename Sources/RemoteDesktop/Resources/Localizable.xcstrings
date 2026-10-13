@@ -2802,6 +2802,16 @@
           }
         }
       }
+    },
+    "The credential has no username – this connection uses its own." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A credentialben nincs felhasználónév – ez a kapcsolat a sajátját használja."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

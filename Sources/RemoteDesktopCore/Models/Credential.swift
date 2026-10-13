@@ -56,12 +56,16 @@ extension Credential: FetchableRecord, PersistableRecord {
 }
 
 extension Connection {
-    /// The connection as it should be launched: a linked credential replaces every auth field.
+    /// The connection as it should be launched: a linked credential replaces every auth field, except that a
+    /// credential without a username (e.g. just an SSH key used with different users) keeps the connection's
+    /// own username and domain.
     public func resolved(with credential: Credential?) -> Connection {
         guard let credential else { return self }
         var copy = self
-        copy.username = credential.username
-        copy.domain = credential.domain
+        if !credential.username.isEmpty {
+            copy.username = credential.username
+            copy.domain = credential.domain
+        }
         copy.passwordEnc = credential.passwordEnc
         copy.sshKeyPath = credential.sshKeyPath
         copy.sshKeyPassphraseEnc = credential.sshKeyPassphraseEnc
