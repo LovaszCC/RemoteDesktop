@@ -17,10 +17,20 @@ final class TerminalSession: Identifiable {
     private(set) var type: ConnectionType
     private(set) var status: Status = .running
 
-    @ObservationIgnored let view: LocalProcessTerminalView
+    @ObservationIgnored let view: BroadcastingTerminalView
     /// Writes a fresh launch script (decrypting secrets again) for each (re)start.
     @ObservationIgnored private let makeScript: () throws -> SSHLaunchScript.Files
     @ObservationIgnored var onExit: ((TerminalSession, Int32?) -> Void)?
+    /// What the user typed or pasted into this terminal (after it went to its own process); set by a split.
+    /// Called when the user clicks into this terminal (used by splits to remember the focused pane).
+    @ObservationIgnored var onFocus: (() -> Void)? {
+        didSet { view.onClick = onFocus }
+    }
+    @ObservationIgnored var onUserInput: ((TerminalSession, ArraySlice<UInt8>) -> Void)? {
+        didSet {
+            view.onUserInput = onUserInput.map { handler in { [weak self] data in if let self { handler(self, data) } } }
+        }
+    }
     @ObservationIgnored private var bridge: DelegateBridge?
 
     init(connection: Connection, makeScript: @escaping () throws -> SSHLaunchScript.Files) {
@@ -28,7 +38,7 @@ final class TerminalSession: Identifiable {
         title = connection.name
         type = connection.type
         self.makeScript = makeScript
-        view = LocalProcessTerminalView(frame: NSRect(x: 0, y: 0, width: 800, height: 500))
+        view = BroadcastingTerminalView(frame: NSRect(x: 0, y: 0, width: 800, height: 500))
         view.font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
         view.optionAsMetaKey = true
         let bridge = DelegateBridge(session: self)
@@ -58,6 +68,15 @@ final class TerminalSession: Identifiable {
     func reconnect() throws {
         view.feed(text: "\r\n\u{1b}[2m— " + String(localized: "Reconnecting") + " —\u{1b}[0m\r\n")
         try start()
+    }
+
+    /// Writes input mirrored from another pane straight to the process (not through the view, so it is
+    /// not reported as this pane's own input). Bracketed-paste markers are dropped unless this terminal
+    /// asked for them, so shells without the mode (e.g. RouterOS) don't see stray escape sequences.
+    func write(_ data: ArraySlice<UInt8>) {
+        guard isRunning else { return }
+        if BroadcastingTerminalView.isBracketedPasteMarker(data), !view.getTerminal().bracketedPasteMode { return }
+        view.process.send(data: data)
     }
 
     func terminate() {
@@ -93,5 +112,46 @@ final class TerminalSession: Identifiable {
         func processTerminated(source: TerminalView, exitCode: Int32?) {
             session?.processTerminated(exitCode: exitCode)
         }
+    }
+}
+
+/// Terminal view that reports keyboard and paste input, but not the replies the emulator itself sends to the
+/// program (cursor position reports, device attributes, mouse events).
+final class BroadcastingTerminalView: LocalProcessTerminalView {
+    var onUserInput: ((ArraySlice<UInt8>) -> Void)?
+    private var isEmulatorReply = false
+
+    /// Mouse-down inside the view. (`mouseDown` / `becomeFirstResponder` aren't open in SwiftTerm, so a local
+    /// event monitor watches clicks while a handler is set.)
+    var onClick: (() -> Void)? {
+        didSet {
+            if let clickMonitor { NSEvent.removeMonitor(clickMonitor) }
+            clickMonitor = onClick == nil ? nil : NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+                if let self, event.window === self.window,
+                   self.bounds.contains(self.convert(event.locationInWindow, from: nil)) {
+                    self.onClick?()
+                }
+                return event
+            }
+        }
+    }
+    private var clickMonitor: Any?
+
+    override func send(source: Terminal, data: ArraySlice<UInt8>) {
+        isEmulatorReply = true
+        defer { isEmulatorReply = false }
+        super.send(source: source, data: data)
+    }
+
+    override func send(source: TerminalView, data: ArraySlice<UInt8>) {
+        super.send(source: source, data: data)
+        if !isEmulatorReply { onUserInput?(data) }
+    }
+
+    /// `ESC [200~` / `ESC [201~`, sent separately around pasted text.
+    private static let bracketedPasteMarkers: [[UInt8]] = [Array("\u{1b}[200~".utf8), Array("\u{1b}[201~".utf8)]
+
+    static func isBracketedPasteMarker(_ data: ArraySlice<UInt8>) -> Bool {
+        bracketedPasteMarkers.contains { data.elementsEqual($0) }
     }
 }

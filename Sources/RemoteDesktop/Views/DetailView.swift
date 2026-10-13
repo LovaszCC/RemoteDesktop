@@ -12,9 +12,33 @@ struct DetailView: View {
             FolderDetailView(folder: folder)
         case .credential(let credential):
             CredentialDetailView(credential: credential)
+        case nil where state.selectedTags.count > 1:
+            MultipleSelectionView()
         case nil:
             ContentUnavailableView("Select a connection", systemImage: "rectangle.connected.to.line.below",
                                    description: Text("Double-click or ⌘↩ to connect"))
+        }
+    }
+}
+
+/// Several sidebar rows selected: offer to open the SSH ones side by side.
+struct MultipleSelectionView: View {
+    @Environment(AppState.self) private var state
+
+    var body: some View {
+        let connections = state.selectedSSHConnections
+        ContentUnavailableView {
+            Label("\(state.selectedTags.count) items selected", systemImage: "rectangle.split.2x2")
+        } description: {
+            if connections.count < 2 {
+                Text("Select 2–\(SplitLayout.maxPanes) SSH or MikroTik connections to open them side by side.")
+            } else {
+                Text(connections.map(\.name).joined(separator: ", "))
+            }
+        } actions: {
+            Button("Open in split view", systemImage: "rectangle.split.2x2") { state.openSplit(connections) }
+                .help("⌘↩")
+                .disabled(connections.count < 2)
         }
     }
 }

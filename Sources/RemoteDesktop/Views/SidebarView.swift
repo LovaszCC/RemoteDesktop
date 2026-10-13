@@ -9,7 +9,7 @@ struct SidebarView: View {
         @Bindable var state = state
         let library = state.library
 
-        List(selection: $state.selection) {
+        List(selection: $state.selectedTags) {
             if !state.searchText.isEmpty {
                 Section("Results") {
                     ForEach(LibraryTree.search(library, query: state.searchText)) { connection in
@@ -54,7 +54,11 @@ struct SidebarView: View {
         // a stale search row behind, so each mode gets its own List instance instead.
         .id(state.searchText.isEmpty)
         .contextMenu(forSelectionType: String.self) { tags in
-            if let tag = tags.first {
+            if tags.count > 1 {
+                let connections = state.sshConnections(forTags: tags)
+                Button("Open in split view (\(min(connections.count, SplitLayout.maxPanes)))") { state.openSplit(connections) }
+                    .disabled(connections.count < 2)
+            } else if let tag = tags.first {
                 ItemContextMenu(tag: tag)
             } else {
                 ForEach(ConnectionType.allCases, id: \.self) { type in
@@ -64,7 +68,7 @@ struct SidebarView: View {
                 Button("New credential") { state.newCredential() }
             }
         } primaryAction: { tags in
-            guard let tag = tags.first else { return }
+            guard tags.count == 1, let tag = tags.first else { return }
             if case .credential(let credential) = state.item(for: tag) {
                 state.edit(credential)
             } else if tag.hasPrefix("f:") {

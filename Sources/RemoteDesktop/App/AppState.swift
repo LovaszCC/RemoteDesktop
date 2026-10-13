@@ -85,7 +85,13 @@ final class AppState {
     var toast: String?
 
     // UI state shared with menu commands.
-    var selection: String?
+    /// Sidebar selection (several rows with ⌘/⇧-click).
+    var selectedTags: Set<String> = []
+    /// The selected item when exactly one row is selected; setting it replaces the selection.
+    var selection: String? {
+        get { selectedTags.count == 1 ? selectedTags.first : nil }
+        set { selectedTags = newValue.map { [$0] } ?? [] }
+    }
     /// Tag of a just-saved item to select once the observed library contains it.
     private var pendingSelection: String?
     var searchText = ""
@@ -528,30 +534,106 @@ final class AppState {
     }
 
     func isConnected(_ connectionId: String) -> Bool {
-        sessions.contains { $0.connectionId == connectionId && $0.isRunning }
+        sessions.contains { session in
+            switch session {
+            case .split(let split): split.panes.contains { $0.connectionId == connectionId && $0.isRunning }
+            default: session.connectionIds.contains(connectionId) && session.isRunning
+            }
+        }
     }
 
     var hasRunningSessions: Bool { runningSessionCount > 0 }
 
     /// Embedded sessions and port forward tunnels that quitting would close.
     var runningSessionCount: Int {
-        sessions.filter(\.isRunning).count + portForwardSessions.values.filter(\.isRunning).count
+        sessions.map(\.runningCount).reduce(0, +) + portForwardSessions.values.filter(\.isRunning).count
     }
 
     private func openSession(for connection: Connection) throws {
-        let snapshot = connection
-        let session = TerminalSession(connection: connection) { [weak self] in
-            guard let self else { throw VaultError.notInitialized }
-            // Re-resolve on every (re)connect so edits to the entry or credential apply.
-            let current = self.library.connections.first { $0.id == snapshot.id }.map(self.library.resolved) ?? snapshot
-            return try self.sshScript(for: current).write()
-        }
+        let session = makeTerminalSession(for: connection)
         session.onExit = { [weak self] session, code in
             if SessionTabs.closesTab(exitCode: code) { self?.closeSession(session.id) }
         }
         try session.start()
         sessions.append(.terminal(session))
         tabs.open(session.id)
+    }
+
+    /// Embedded SSH terminal for a resolved connection (not started).
+    private func makeTerminalSession(for connection: Connection) -> TerminalSession {
+        let snapshot = connection
+        return TerminalSession(connection: connection) { [weak self] in
+            guard let self else { throw VaultError.notInitialized }
+            // Re-resolve on every (re)connect so edits to the entry or credential apply.
+            let current = self.library.connections.first { $0.id == snapshot.id }.map(self.library.resolved) ?? snapshot
+            return try self.sshScript(for: current).write()
+        }
+    }
+
+    // MARK: Split view
+
+    /// SSH-capable connections among the selected sidebar rows, in library order.
+    var selectedSSHConnections: [Connection] { sshConnections(forTags: selectedTags) }
+
+    func sshConnections(forTags tags: Set<String>) -> [Connection] {
+        let ids = Set(tags.compactMap(Self.connectionId(fromTag:)))
+        return library.connections.filter { ids.contains($0.id) && $0.type.usesSSH }
+    }
+
+    /// `c:<id>` and `fav:<id>` rows are connections.
+    static func connectionId(fromTag tag: String) -> String? {
+        for prefix in ["c:", "fav:"] where tag.hasPrefix(prefix) { return String(tag.dropFirst(prefix.count)) }
+        return nil
+    }
+
+    var activeSplit: SplitSession? {
+        if case .split(let split) = activeSession { split } else { nil }
+    }
+
+    /// Opens 2–4 SSH connections as panes of one split tab (extra ones are left out with a toast).
+    func openSplit(_ connections: [Connection]) {
+        guard vault != nil, !connections.isEmpty else { return }
+        let split = SplitSession()
+        for connection in connections.prefix(SplitLayout.maxPanes) {
+            do {
+                try addPane(to: split, connection: connection)
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+        guard !split.panes.isEmpty else { return }
+        if connections.count > SplitLayout.maxPanes {
+            showToast(String(localized: "A split view holds at most \(SplitLayout.maxPanes) terminals."))
+        }
+        sessions.append(.split(split))
+        tabs.open(split.id)
+    }
+
+    /// Adds a pane to an open split (the same connection may appear in several panes).
+    func addPane(to split: SplitSession, connectionId: String) {
+        guard let connection = library.connections.first(where: { $0.id == connectionId }) else { return }
+        do { try addPane(to: split, connection: connection) } catch { errorMessage = error.localizedDescription }
+    }
+
+    private func addPane(to split: SplitSession, connection: Connection) throws {
+        guard !split.isFull else { return }
+        let pane = makeTerminalSession(for: library.resolved(connection))
+        pane.onExit = { [weak self, weak split] pane, code in
+            guard let split, SessionTabs.closesTab(exitCode: code) else { return }
+            self?.closePane(pane.id, in: split)
+        }
+        try pane.start()
+        split.add(pane)
+    }
+
+    /// Closes one pane; closing the last one closes the tab.
+    func closePane(_ paneId: String, in split: SplitSession) {
+        split.remove(paneId: paneId)
+        if split.panes.isEmpty { closeSession(split.id) }
+    }
+
+    func toggleBroadcastInActiveSplit() {
+        activeSplit?.toggleBroadcastAll()
     }
 
     private func openRDPSession(for connection: Connection) throws {

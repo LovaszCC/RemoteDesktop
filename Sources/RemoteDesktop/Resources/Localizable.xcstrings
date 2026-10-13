@@ -2602,6 +2602,176 @@
           }
         }
       }
+    },
+    "Split (%lld)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Split (%lld)"
+          }
+        }
+      }
+    },
+    "A split view holds at most %lld terminals." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Egy split nézetben legfeljebb %lld terminál lehet."
+          }
+        }
+      }
+    },
+    "Again" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Még egyszer"
+          }
+        }
+      }
+    },
+    "SSH connections" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SSH kapcsolatok"
+          }
+        }
+      }
+    },
+    "Add terminal" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminál hozzáadása"
+          }
+        }
+      }
+    },
+    "Add a terminal to the split view" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminál hozzáadása a split nézethez"
+          }
+        }
+      }
+    },
+    "Broadcast to all panes" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Broadcast minden panelre"
+          }
+        }
+      }
+    },
+    "Type into every pane at once (⌥⌘I)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gépelés egyszerre minden panelbe (⌥⌘I)"
+          }
+        }
+      }
+    },
+    "BROADCAST" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BROADCAST"
+          }
+        }
+      }
+    },
+    "Broadcast" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Broadcast"
+          }
+        }
+      }
+    },
+    "Broadcast input: typing here also goes to the other broadcasting panes" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Broadcast: az ide gépelt szöveg a többi broadcastos panelbe is bekerül"
+          }
+        }
+      }
+    },
+    "Close this terminal" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminál bezárása"
+          }
+        }
+      }
+    },
+    "Open in split view (%lld)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Megnyitás split nézetben (%lld)"
+          }
+        }
+      }
+    },
+    "%lld items selected" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld elem kijelölve"
+          }
+        }
+      }
+    },
+    "Select 2–%lld SSH or MikroTik connections to open them side by side." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jelölj ki 2–%lld SSH vagy MikroTik kapcsolatot, hogy egymás mellett nyisd meg őket."
+          }
+        }
+      }
+    },
+    "Open in split view" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Megnyitás split nézetben"
+          }
+        }
+      }
+    },
+    "Broadcast input to all panes" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Broadcast minden panelre"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

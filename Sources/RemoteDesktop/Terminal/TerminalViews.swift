@@ -6,6 +6,8 @@ import SwiftUI
 /// Hosts a session's long-lived terminal view inside a throwaway container.
 struct TerminalHostView: NSViewRepresentable {
     let session: TerminalSession
+    /// Whether the terminal takes keyboard focus when shown (only one pane of a split does).
+    var takesFocus = true
 
     func makeNSView(context: Context) -> NSView {
         let container = NSView()
@@ -23,7 +25,7 @@ struct TerminalHostView: NSViewRepresentable {
         terminal.frame = container.bounds
         terminal.autoresizingMask = [.width, .height]
         container.addSubview(terminal)
-        DispatchQueue.main.async { terminal.window?.makeFirstResponder(terminal) }
+        if takesFocus { DispatchQueue.main.async { terminal.window?.makeFirstResponder(terminal) } }
     }
 }
 
@@ -36,23 +38,34 @@ struct TerminalSessionView: View {
         VStack(spacing: 0) {
             TerminalHostView(session: session)
                 .id(session.id)
-            if case .exited(let code) = session.status {
-                HStack(spacing: 10) {
-                    Image(systemName: "bolt.horizontal.circle").foregroundStyle(.orange)
-                    if let code {
-                        Text("Connection closed (code: \(code))")
-                    } else {
-                        Text("Connection closed")
-                    }
-                    Spacer()
-                    Button("Reconnect", systemImage: "arrow.clockwise") { state.reconnect(session) }
-                        .keyboardShortcut("r")
-                    Button("Close") { state.closeSession(session.id) }
+            SessionExitedBar(session: session) { state.closeSession(session.id) }
+        }
+    }
+}
+
+/// "Connection closed" bar with Reconnect / Close, shown while a terminal has exited.
+struct SessionExitedBar: View {
+    @Environment(AppState.self) private var state
+    let session: TerminalSession
+    let close: () -> Void
+
+    var body: some View {
+        if case .exited(let code) = session.status {
+            HStack(spacing: 10) {
+                Image(systemName: "bolt.horizontal.circle").foregroundStyle(.orange)
+                if let code {
+                    Text("Connection closed (code: \(code))")
+                } else {
+                    Text("Connection closed")
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(.bar)
+                Spacer()
+                Button("Reconnect", systemImage: "arrow.clockwise") { state.reconnect(session) }
+                    .keyboardShortcut("r")
+                Button("Close", action: close)
             }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(.bar)
         }
     }
 }
@@ -70,9 +83,9 @@ struct SessionTabBar: View {
                 ForEach(state.sessions) { session in
                     tab(
                         title: session.title,
-                        systemImage: session.type.systemImage,
+                        systemImage: session.systemImage,
                         isActive: state.tabs.active == session.id,
-                        tint: session.isRunning ? session.type.tint : .secondary,
+                        tint: session.tint,
                         close: { state.closeSession(session.id) }
                     ) {
                         state.selectTab(session.id)
@@ -125,11 +138,25 @@ struct DetailArea: View {
             switch state.activeSession {
             case .terminal(let session):
                 TerminalSessionView(session: session)
+            case .split(let split):
+                SplitSessionView(split: split)
             case .rdp(let session):
                 RDPSessionView(session: session)
             case nil:
                 DetailView()
             }
         }
+    }
+}
+
+private extension AppSession {
+    var systemImage: String {
+        if case .split = self { "rectangle.split.2x2" } else { type.systemImage }
+    }
+
+    /// Orange while a split broadcasts input, so it is visible from any tab.
+    var tint: SwiftUI.Color {
+        if case .split(let split) = self, split.isBroadcasting { return .orange }
+        return isRunning ? type.tint : .secondary
     }
 }
