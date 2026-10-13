@@ -115,9 +115,18 @@ struct SessionTabBar: View {
                         systemImage: session.systemImage,
                         isActive: state.tabs.active == session.id,
                         tint: session.tint,
+                        color: state.tabColor(for: session)?.color,
                         close: { state.closeSession(session.id) }
                     ) {
                         state.selectTab(session.id)
+                    }
+                    .contextMenu {
+                        Menu("Color") {
+                            Button("Entry color") { state.resetTabColor(for: session.id) }
+                            LabelColorMenuItems(selection: state.tabColor(for: session)) {
+                                state.setTabColor($0, for: session.id)
+                            }
+                        }
                     }
                 }
             }
@@ -131,6 +140,7 @@ struct SessionTabBar: View {
         systemImage: String,
         isActive: Bool,
         tint: SwiftUI.Color,
+        color: SwiftUI.Color? = nil,
         close: (() -> Void)? = nil,
         action: @escaping () -> Void
     ) -> some View {
@@ -147,10 +157,20 @@ struct SessionTabBar: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(isActive ? SwiftUI.Color.accentColor.opacity(0.18) : .clear, in: RoundedRectangle(cornerRadius: 6))
+        .background(tabBackground(isActive: isActive, color: color), in: RoundedRectangle(cornerRadius: 6))
+        .overlay(alignment: .bottom) {
+            if let color {
+                Capsule().fill(color).frame(height: 2).padding(.horizontal, 6)
+            }
+        }
         .contentShape(Rectangle())
         .onTapGesture(perform: action)
     }
+}
+
+private func tabBackground(isActive: Bool, color: SwiftUI.Color?) -> SwiftUI.Color {
+    if let color { return color.opacity(isActive ? 0.32 : 0.14) }
+    return isActive ? SwiftUI.Color.accentColor.opacity(0.18) : .clear
 }
 
 /// Detail column: tab bar (only while sessions exist) above the details or the active session.
@@ -161,6 +181,10 @@ struct DetailArea: View {
         VStack(spacing: 0) {
             if !state.sessions.isEmpty {
                 SessionTabBar()
+            }
+            // The tab's color (e.g. red for production) stays visible above the session while typing.
+            if let session = state.activeSession, let color = state.tabColor(for: session) {
+                Rectangle().fill(color.color).frame(height: 3)
             }
             switch state.activeSession {
             case .terminal(let session):

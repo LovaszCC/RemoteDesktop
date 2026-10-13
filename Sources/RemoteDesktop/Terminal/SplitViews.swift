@@ -92,6 +92,9 @@ private struct PaneView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 6) {
+                if let color = state.connectionColor(pane.connectionId) {
+                    RoundedRectangle(cornerRadius: 1.5).fill(color.color).frame(width: 3, height: 14)
+                }
                 Image(systemName: pane.type.systemImage)
                     .foregroundStyle(pane.isRunning ? pane.type.tint : .secondary)
                 Text(pane.title)

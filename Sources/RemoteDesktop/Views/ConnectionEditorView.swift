@@ -28,6 +28,10 @@ struct ConnectionEditorView: View {
                     }
                     TextField("Name", text: $draft.name, prompt: Text("e.g. web01 – prod"))
                     FolderPicker(title: "Folder", library: state.library, selection: $draft.folderId)
+                    LabeledContent("Color") {
+                        LabelColorPicker(selection: $draft.color)
+                    }
+                    .help("Also the color of the connection's tabs")
                     Toggle("Favorite", isOn: $draft.isFavorite)
                 }
 

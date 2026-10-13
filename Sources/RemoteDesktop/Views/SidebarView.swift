@@ -171,7 +171,15 @@ struct ConnectionRow: View {
         HStack(spacing: 8) {
             ConnectionIcon(type: connection.type)
             VStack(alignment: .leading, spacing: 1) {
-                Text(connection.name).lineLimit(1)
+                HStack(spacing: 5) {
+                    Text(connection.name).lineLimit(1)
+                    if let color = connection.color {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(color.color)
+                            .frame(width: 8, height: 8)
+                            .help(Text(verbatim: color.title))
+                    }
+                }
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
