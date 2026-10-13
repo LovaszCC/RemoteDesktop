@@ -366,6 +366,24 @@ final class AppState {
         perform { try repo?.moveConnection(id: connectionId, to: folderId) }
     }
 
+    /// Moves several sidebar rows (connections and folders) at once; a folder never goes into itself.
+    func move(tags: [String], to folderId: String?) {
+        let items = SidebarDrag.movable(tags)
+        perform {
+            guard let repo else { return }
+            for id in items.connectionIds { try repo.moveConnection(id: id, to: folderId) }
+            for id in items.folderIds where id != folderId {
+                do { try repo.moveFolder(id: id, to: folderId) }
+                catch RepositoryError.folderCycle { showToast(String(localized: "A folder can't be moved into itself")) }
+            }
+        }
+    }
+
+    /// Drag payload of a sidebar row (the whole selection when the row is part of it).
+    func dragPayload(for tag: String) -> String {
+        SidebarDrag.payload(for: tag, selection: selectedTags)
+    }
+
     func move(folderId: String, to parentId: String?) {
         perform {
             do { try repo?.moveFolder(id: folderId, to: parentId) }
