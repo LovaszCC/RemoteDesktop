@@ -77,7 +77,8 @@ and then saved to `~/.ssh/known_hosts`. Tunnels stop when you quit the app.
 ## Features
 
 - **Linked credentials**: reusable user / domain / password / SSH key entries that many connections can
-  share. Passphrase-protected SSH keys are unlocked once on save and stored encrypted.
+  share. Passphrase-protected SSH keys are unlocked once on save and stored encrypted. A credential without a
+  username (e.g. just an SSH key) can be used with a different username on each connection.
 - **Folders and favourites**: nested folders with drag & drop, favourites on top.
 - **Instant search** across name, host, user, notes and folder.
 - **Tabs** for embedded sessions; quitting with open sessions asks first.
