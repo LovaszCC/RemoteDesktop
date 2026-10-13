@@ -2882,6 +2882,26 @@
           }
         }
       }
+    },
+    "Color" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Szín"
+          }
+        }
+      }
+    },
+    "No color" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nincs szín"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

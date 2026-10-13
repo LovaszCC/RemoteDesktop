@@ -154,6 +154,12 @@ public final class AppDatabase: Sendable {
             try db.execute(sql: "UPDATE connection SET sshTerminal = 'external' WHERE sshTerminal = 'ghostty'")
         }
 
+        migrator.registerMigration("v11-folder-color") { db in
+            try db.alter(table: "folder") { t in
+                t.add(column: "color", .text)
+            }
+        }
+
         return migrator
     }
 }

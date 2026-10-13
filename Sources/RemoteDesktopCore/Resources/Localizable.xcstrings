@@ -380,6 +380,86 @@
           }
         }
       }
+    },
+    "Red" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Piros"
+          }
+        }
+      }
+    },
+    "Orange" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Narancs"
+          }
+        }
+      }
+    },
+    "Yellow" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sárga"
+          }
+        }
+      }
+    },
+    "Green" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zöld"
+          }
+        }
+      }
+    },
+    "Blue" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kék"
+          }
+        }
+      }
+    },
+    "Purple" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lila"
+          }
+        }
+      }
+    },
+    "Pink" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rózsaszín"
+          }
+        }
+      }
+    },
+    "Gray" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Szürke"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
