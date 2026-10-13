@@ -22,6 +22,10 @@ final class TerminalSession: Identifiable {
     @ObservationIgnored private let makeScript: () throws -> SSHLaunchScript.Files
     @ObservationIgnored var onExit: ((TerminalSession, Int32?) -> Void)?
     /// What the user typed or pasted into this terminal (after it went to its own process); set by a split.
+    /// Called when the user clicks into this terminal (used by splits to remember the focused pane).
+    @ObservationIgnored var onFocus: (() -> Void)? {
+        didSet { view.onClick = onFocus }
+    }
     @ObservationIgnored var onUserInput: ((TerminalSession, ArraySlice<UInt8>) -> Void)? {
         didSet {
             view.onUserInput = onUserInput.map { handler in { [weak self] data in if let self { handler(self, data) } } }
@@ -116,6 +120,22 @@ final class TerminalSession: Identifiable {
 final class BroadcastingTerminalView: LocalProcessTerminalView {
     var onUserInput: ((ArraySlice<UInt8>) -> Void)?
     private var isEmulatorReply = false
+
+    /// Mouse-down inside the view. (`mouseDown` / `becomeFirstResponder` aren't open in SwiftTerm, so a local
+    /// event monitor watches clicks while a handler is set.)
+    var onClick: (() -> Void)? {
+        didSet {
+            if let clickMonitor { NSEvent.removeMonitor(clickMonitor) }
+            clickMonitor = onClick == nil ? nil : NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+                if let self, event.window === self.window,
+                   self.bounds.contains(self.convert(event.locationInWindow, from: nil)) {
+                    self.onClick?()
+                }
+                return event
+            }
+        }
+    }
+    private var clickMonitor: Any?
 
     override func send(source: Terminal, data: ArraySlice<UInt8>) {
         isEmulatorReply = true

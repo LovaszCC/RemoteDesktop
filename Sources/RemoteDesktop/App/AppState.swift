@@ -573,8 +573,10 @@ final class AppState {
     // MARK: Split view
 
     /// SSH-capable connections among the selected sidebar rows, in library order.
-    var selectedSSHConnections: [Connection] {
-        let ids = Set(selectedTags.compactMap(Self.connectionId(fromTag:)))
+    var selectedSSHConnections: [Connection] { sshConnections(forTags: selectedTags) }
+
+    func sshConnections(forTags tags: Set<String>) -> [Connection] {
+        let ids = Set(tags.compactMap(Self.connectionId(fromTag:)))
         return library.connections.filter { ids.contains($0.id) && $0.type.usesSSH }
     }
 

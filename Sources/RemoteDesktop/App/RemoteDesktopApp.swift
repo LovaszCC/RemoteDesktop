@@ -50,7 +50,11 @@ struct RemoteDesktopApp: App {
             }
             CommandMenu("Connection") {
                 Button("Connect") {
-                    if let tag = state.selection { state.activate(tag: tag) }
+                    if let tag = state.selection {
+                        state.activate(tag: tag)
+                    } else if state.selectedSSHConnections.count > 1 {
+                        state.openSplit(state.selectedSSHConnections)
+                    }
                 }
                 .keyboardShortcut(.return, modifiers: .command)
                 .disabled(state.phase != .unlocked)
@@ -58,6 +62,9 @@ struct RemoteDesktopApp: App {
                 Button("Type clipboard into RDP session") { state.typeClipboardIntoActiveSession() }
                     .keyboardShortcut("v", modifiers: [.command, .shift])
                     .disabled(state.activeRDPSession?.status != .connected)
+                Button("Broadcast input to all panes") { state.toggleBroadcastInActiveSplit() }
+                    .keyboardShortcut("i", modifiers: [.command, .option])
+                    .disabled(state.activeSplit == nil)
                 Button("Close session") { state.closeActiveSession() }
                     .disabled(state.activeSession == nil)
                 Button("Next tab") { state.cycleTabs(forward: true) }

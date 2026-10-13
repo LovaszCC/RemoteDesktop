@@ -30,6 +30,9 @@ final class SplitSession: Identifiable {
         guard group.add(pane.id) else { return false }
         panes.append(pane)
         pane.onUserInput = { [weak self] source, data in self?.mirror(data, from: source) }
+        pane.onFocus = { [weak self, weak pane] in
+            if let id = pane?.id, self?.focusedPaneId != id { self?.focusedPaneId = id }
+        }
         focusedPaneId = pane.id
         return true
     }
@@ -40,6 +43,7 @@ final class SplitSession: Identifiable {
         let pane = panes.remove(at: index)
         group.remove(paneId)
         pane.onUserInput = nil
+        pane.onFocus = nil
         pane.onExit = nil
         pane.terminate()
         if focusedPaneId == paneId { focusedPaneId = panes[safe: min(index, panes.count - 1)]?.id }
@@ -56,6 +60,7 @@ final class SplitSession: Identifiable {
     func closeAll() {
         for pane in panes {
             pane.onUserInput = nil
+            pane.onFocus = nil
             pane.onExit = nil
             pane.terminate()
         }
