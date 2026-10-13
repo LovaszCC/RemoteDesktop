@@ -62,6 +62,9 @@ struct RemoteDesktopApp: App {
                 Button("Type clipboard into RDP session") { state.typeClipboardIntoActiveSession() }
                     .keyboardShortcut("v", modifiers: [.command, .shift])
                     .disabled(state.activeRDPSession?.status != .connected)
+                Button("Split terminal") { state.splitActiveTab() }
+                    .keyboardShortcut("d")
+                    .disabled(!state.canSplitActiveTab)
                 Button("Broadcast input to all panes") { state.toggleBroadcastInActiveSplit() }
                     .keyboardShortcut("i", modifiers: [.command, .option])
                     .disabled(state.activeSplit == nil)

@@ -112,3 +112,30 @@ import Testing
         #expect(process.terminationStatus == 0)
     }
 }
+
+@Suite struct SessionTabsReplaceTests {
+    @Test func replaceKeepsPositionAndActiveTab() {
+        var tabs = SessionTabs()
+        ["a", "b", "c"].forEach { tabs.open($0) }
+        tabs.select("b")
+        tabs.replace("b", with: "s")
+        #expect(tabs.ids == ["a", "s", "c"])
+        #expect(tabs.active == "s")
+    }
+
+    @Test func replaceInactiveKeepsActive() {
+        var tabs = SessionTabs()
+        ["a", "b"].forEach { tabs.open($0) }
+        tabs.replace("a", with: "s")
+        #expect(tabs.ids == ["s", "b"])
+        #expect(tabs.active == "b")
+    }
+
+    @Test func replaceIgnoresUnknownOrExisting() {
+        var tabs = SessionTabs()
+        ["a", "b"].forEach { tabs.open($0) }
+        tabs.replace("x", with: "s")
+        tabs.replace("a", with: "b")
+        #expect(tabs.ids == ["a", "b"])
+    }
+}

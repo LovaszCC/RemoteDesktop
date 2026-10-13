@@ -632,6 +632,37 @@ final class AppState {
         if split.panes.isEmpty { closeSession(split.id) }
     }
 
+    /// ⌘D: a terminal tab becomes a split (its running session stays) with a second pane on the same server;
+    /// in a split, the focused pane's server is opened once more.
+    func splitActiveTab() {
+        switch activeSession {
+        case .terminal(let session):
+            guard let index = sessions.firstIndex(where: { $0.id == session.id }) else { return }
+            let split = SplitSession()
+            session.onExit = { [weak self, weak split] pane, code in
+                guard let split, SessionTabs.closesTab(exitCode: code) else { return }
+                self?.closePane(pane.id, in: split)
+            }
+            split.add(session)
+            sessions[index] = .split(split)
+            tabs.replace(session.id, with: split.id)
+            addPane(to: split, connectionId: session.connectionId)
+        case .split(let split):
+            let pane = split.panes.first { $0.id == split.focusedPaneId } ?? split.panes.last
+            if let pane { addPane(to: split, connectionId: pane.connectionId) }
+        default:
+            break
+        }
+    }
+
+    var canSplitActiveTab: Bool {
+        switch activeSession {
+        case .terminal: true
+        case .split(let split): !split.isFull
+        default: false
+        }
+    }
+
     func toggleBroadcastInActiveSplit() {
         activeSplit?.toggleBroadcastAll()
     }
