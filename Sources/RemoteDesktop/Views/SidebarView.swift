@@ -234,7 +234,7 @@ struct ItemContextMenu: View {
             }
             if connection.type.usesSSH {
                 Button("New embedded SSH session") { state.connect(connection, mode: .ssh, terminal: .embedded) }
-                Button("Open in Ghostty") { state.connect(connection, mode: .ssh, terminal: .ghostty) }
+                Button("Open in Ghostty") { state.connect(connection, mode: .ssh, terminal: .external) }
             }
             Divider()
             Button("Edit…") { state.edit(connection) }

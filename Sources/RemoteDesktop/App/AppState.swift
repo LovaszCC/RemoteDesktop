@@ -502,7 +502,7 @@ final class AppState {
     /// `connection` is already resolved against its credential.
     private func launchSSH(_ connection: Connection, terminal: SSHTerminal?) throws -> LaunchOutcome {
         switch terminal ?? connection.sshTerminal {
-        case .ghostty:
+        case .external:
             return try SSHLauncher.launch(try sshScript(for: connection))
         case .embedded:
             try openSession(for: connection)

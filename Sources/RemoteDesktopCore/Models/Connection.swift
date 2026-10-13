@@ -56,13 +56,13 @@ public enum ConnectionType: String, Codable, CaseIterable, Sendable {
 public enum SSHTerminal: String, Codable, CaseIterable, Sendable {
     /// Tab inside the main window.
     case embedded
-    /// Separate Ghostty window.
-    case ghostty
+    /// Separate window in the external terminal chosen in Settings (`ExternalTerminal`).
+    case external
 
     public var displayName: String {
         switch self {
         case .embedded: String(localized: "Embedded", bundle: .core)
-        case .ghostty: "Ghostty"
+        case .external: String(localized: "External terminal", bundle: .core)
         }
     }
 }
@@ -118,7 +118,7 @@ public struct Connection: Codable, Hashable, Identifiable, Sendable {
     public var browserBundleId: String?
     /// MikroTik only: mode used by double-click / ⌘↩.
     public var mikrotikMode: MikrotikMode
-    /// SSH / MikroTik SSH: embedded tab or Ghostty window.
+    /// SSH / MikroTik SSH: embedded tab or external terminal window.
     public var sshTerminal: SSHTerminal
     /// RDP: embedded FreeRDP tab or Windows App.
     public var rdpClient: RDPClient

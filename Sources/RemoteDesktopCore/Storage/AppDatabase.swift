@@ -149,6 +149,11 @@ public final class AppDatabase: Sendable {
             try db.create(index: "portForward_on_connectionId", on: "portForward", columns: ["connectionId"])
         }
 
+        migrator.registerMigration("v10-external-terminal") { db in
+            // Which external terminal is now a global setting; Ghostty connections keep opening externally.
+            try db.execute(sql: "UPDATE connection SET sshTerminal = 'external' WHERE sshTerminal = 'ghostty'")
+        }
+
         return migrator
     }
 }

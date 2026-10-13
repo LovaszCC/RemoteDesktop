@@ -93,8 +93,8 @@ import Testing
         let repo = ConnectionRepository(database: try AppDatabase(queue))
         #expect(try repo.connection(id: "old")?.sshTerminal == .embedded)
 
-        let saved = try repo.save(Connection(type: .ssh, name: "g", host: "h", sshTerminal: .ghostty))
-        #expect(try repo.connection(id: saved.id)?.sshTerminal == .ghostty)
+        let saved = try repo.save(Connection(type: .ssh, name: "g", host: "h", sshTerminal: .external))
+        #expect(try repo.connection(id: saved.id)?.sshTerminal == .external)
     }
 
     @Test func launchScriptRunsViaShWithoutExecBit() throws {
