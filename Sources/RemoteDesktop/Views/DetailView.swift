@@ -47,6 +47,7 @@ struct MultipleSelectionView: View {
 
 struct ConnectionDetailView: View {
     @Environment(AppState.self) private var state
+    @Environment(ShortcutStore.self) private var shortcuts
     /// Observed so the subtitle follows the external terminal chosen in Settings.
     @AppStorage(ExternalTerminal.defaultsKey) private var externalTerminalChoice: String?
     let connection: Connection
@@ -97,6 +98,12 @@ struct ConnectionDetailView: View {
                         Button("Connect", systemImage: "play.fill") { state.connect(connection) }
                             .buttonStyle(.borderedProminent)
                             .controlSize(.large)
+                    }
+                    if connection.type.usesSSH {
+                        // Copy files without opening a shell.
+                        Button("Files (SCP)…", systemImage: "folder") { state.openFiles(connection) }
+                            .controlSize(.large)
+                            .help("Open the file browser (\(shortcuts.display(.openFiles)))")
                     }
                     Button("Edit", systemImage: "pencil") { state.edit(connection) }
                         .controlSize(.large)
