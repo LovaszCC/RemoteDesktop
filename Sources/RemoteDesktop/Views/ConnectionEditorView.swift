@@ -206,6 +206,9 @@ struct FolderEditorView: View {
             if isNew {
                 FolderPicker(title: "Parent", library: state.library, selection: $folder.parentId)
             }
+            LabeledContent("Color") {
+                LabelColorPicker(selection: $folder.color)
+            }
             HStack {
                 Spacer()
                 Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)

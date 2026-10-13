@@ -133,7 +133,12 @@ private struct TreeRows: View {
                 )) {
                     TreeRows(nodes: node.children ?? [], expanded: $expanded)
                 } label: {
-                    Label(folder.name, systemImage: "folder")
+                    Label {
+                        Text(folder.name)
+                    } icon: {
+                        Image(systemName: folder.color == nil ? "folder" : "folder.fill")
+                            .foregroundStyle(folder.color?.color ?? .accentColor)
+                    }
                         .draggable(node.id)
                         .dropDestination(for: String.self) { tags, _ in
                             for tag in tags {
@@ -262,6 +267,9 @@ struct ItemContextMenu: View {
             Button("New subfolder") { state.selection = tag; state.newFolder() }
             Divider()
             Button("Rename…") { state.folderEditor = folder }
+            Menu("Color") {
+                LabelColorMenuItems(selection: folder.color) { state.setColor($0, folderId: folder.id) }
+            }
             MoveMenu(currentFolderId: folder.parentId, excluding: folder.id) { state.move(folderId: folder.id, to: $0) }
             Divider()
             Button("Delete folder", role: .destructive) { state.deleteFolder(folder) }

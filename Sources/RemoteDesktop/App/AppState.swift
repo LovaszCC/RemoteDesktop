@@ -371,6 +371,12 @@ final class AppState {
         perform { try repo?.save(folder) }
     }
 
+    func setColor(_ color: LabelColor?, folderId: String) {
+        guard var folder = library.folders.first(where: { $0.id == folderId }) else { return }
+        folder.color = color
+        saveFolder(folder)
+    }
+
     func deleteFolder(_ folder: Folder) {
         perform { try repo?.deleteFolder(id: folder.id) }
     }
