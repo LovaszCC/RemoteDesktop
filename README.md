@@ -61,6 +61,8 @@ once for the *Automation* permission.
 (⌘-click) and choose *Open in split view* (or ⌘↩) to open them side by side in one tab — 2 next to each
 other, 3 as one left and two stacked right, 4 as a 2×2 grid, with draggable dividers. *Add terminal* adds a
 pane, also for a server that is already open (e.g. `tail -f` the syslog in one, type commands in the other).
+For one server: *Open in split view (2×)* in its context menu, or ⌘D / the split button in an open SSH tab,
+which keeps the running session and opens the same server next to it.
 Each pane has a **broadcast** toggle: what you type or paste into a broadcasting pane also goes to every other
 broadcasting pane, iTerm2 style — configure several switches at once. ⌥⌘I switches broadcast on or off for
 all panes. Broadcast is off by default; broadcasting panes have an orange frame and a *BROADCAST* badge, and
@@ -99,6 +101,7 @@ and then saved to `~/.ssh/known_hosts`. Tunnels stop when you quit the app.
 | Close tab / reconnect | ⌘W / ⌘R |
 | Next / previous tab | ⌃Tab / ⌃⇧Tab |
 | Type clipboard into RDP session | ⇧⌘V |
+| Split terminal (same server in a new pane) | ⌘D |
 | Broadcast input to all panes of a split view | ⌥⌘I |
 
 ## Security

@@ -87,6 +87,21 @@ struct SessionTabBar: View {
     @Environment(AppState.self) private var state
 
     var body: some View {
+        HStack(spacing: 0) {
+            tabs
+            if state.canSplitActiveTab {
+                Button("Split terminal", systemImage: "rectangle.split.2x1") { state.splitActiveTab() }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                    .help("Open the same server in a new pane next to it (⌘D)")
+                    .padding(.horizontal, 10)
+            }
+        }
+        .background(.bar)
+        .overlay(alignment: .bottom) { Divider() }
+    }
+
+    private var tabs: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 4) {
                 tab(title: String(localized: "Details"), systemImage: "info.circle", isActive: state.tabs.active == nil, tint: .secondary) {
@@ -107,8 +122,6 @@ struct SessionTabBar: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
         }
-        .background(.bar)
-        .overlay(alignment: .bottom) { Divider() }
     }
 
     private func tab(

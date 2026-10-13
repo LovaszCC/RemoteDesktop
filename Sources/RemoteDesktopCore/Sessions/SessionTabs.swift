@@ -23,6 +23,13 @@ public struct SessionTabs: Equatable, Sendable {
         active = ids.isEmpty ? nil : ids[min(index, ids.count - 1)]
     }
 
+    /// Puts `new` in place of `old` (same position; stays active if `old` was). Unknown ids are ignored.
+    public mutating func replace(_ old: String, with new: String) {
+        guard let index = ids.firstIndex(of: old), !ids.contains(new) else { return }
+        ids[index] = new
+        if active == old { active = new }
+    }
+
     /// Selects a session tab, or the details tab with `nil`. Unknown ids are ignored.
     public mutating func select(_ id: String?) {
         guard id == nil || ids.contains(id!) else { return }
