@@ -1,3 +1,4 @@
+import AppKit
 import RemoteDesktopCore
 import SwiftUI
 
@@ -14,6 +15,19 @@ extension LabelColor {
         case .gray: .gray
         }
     }
+
+    /// Menus draw SF Symbols as monochrome templates (a gray circle), so menu items get a pre-colored
+    /// bitmap swatch instead. Drawn on demand, so it follows light / dark mode.
+    var menuSwatch: Image {
+        let swatchColor = NSColor(color)
+        let image = NSImage(size: NSSize(width: 12, height: 12), flipped: false) { rect in
+            swatchColor.setFill()
+            NSBezierPath(ovalIn: rect.insetBy(dx: 0.5, dy: 0.5)).fill()
+            return true
+        }
+        image.isTemplate = false
+        return Image(nsImage: image)
+    }
 }
 
 /// Menu items for a color submenu: the palette plus "None" (or a custom title for the empty choice).
@@ -23,21 +37,17 @@ struct LabelColorMenuItems: View {
     let choose: (LabelColor?) -> Void
 
     var body: some View {
-        Button {
-            choose(nil)
-        } label: {
-            if selection == nil { Label(noneTitle, systemImage: "checkmark") } else { Text(noneTitle) }
+        // Toggles: the menu shows its own checkmark next to the current choice.
+        Toggle(isOn: Binding(get: { selection == nil }, set: { _ in choose(nil) })) {
+            Text(noneTitle)
         }
         Divider()
         ForEach(LabelColor.allCases, id: \.self) { color in
-            Button {
-                choose(color)
-            } label: {
+            Toggle(isOn: Binding(get: { selection == color }, set: { _ in choose(color) })) {
                 Label {
                     Text(verbatim: color.title)
                 } icon: {
-                    Image(systemName: selection == color ? "checkmark.circle.fill" : "circle.fill")
-                        .foregroundStyle(color.color)
+                    color.menuSwatch
                 }
             }
         }
