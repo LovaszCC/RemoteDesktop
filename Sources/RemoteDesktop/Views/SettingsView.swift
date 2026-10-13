@@ -147,8 +147,8 @@ struct SettingsView: View {
         } message: {
             Text("Running sessions are closed when the app quits.")
         }
-        .frame(width: 520)
-        .fixedSize(horizontal: false, vertical: true)
+        // Fixed size: the grouped form scrolls instead of growing past small screens.
+        .frame(width: 520, height: 560)
     }
 
     private func openExisting() {
