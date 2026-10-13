@@ -92,6 +92,9 @@ and then saved to `~/.ssh/known_hosts`. Tunnels stop when you quit the app.
 
 ### Keyboard shortcuts
 
+Defaults below; every one can be changed in *Settings → Keyboard Shortcuts* (a key already used by another
+command or by macOS is refused).
+
 | Action | Shortcut |
 |---|---|
 | Connect (several selected SSH connections: split view) | Double-click / ⌘↩ |
