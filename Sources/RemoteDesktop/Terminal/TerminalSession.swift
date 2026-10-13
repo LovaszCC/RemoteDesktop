@@ -20,6 +20,8 @@ final class TerminalSession: Identifiable {
     @ObservationIgnored let view: BroadcastingTerminalView
     /// Writes a fresh launch script (decrypting secrets again) for each (re)start.
     @ObservationIgnored private let makeScript: () throws -> SSHLaunchScript.Files
+    /// Container currently showing `view` (see `TerminalHostView`).
+    @ObservationIgnored weak var host: NSView?
     @ObservationIgnored var onExit: ((TerminalSession, Int32?) -> Void)?
     /// What the user typed or pasted into this terminal (after it went to its own process); set by a split.
     /// Called when the user clicks into this terminal (used by splits to remember the focused pane).

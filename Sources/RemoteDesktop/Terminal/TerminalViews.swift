@@ -9,23 +9,35 @@ struct TerminalHostView: NSViewRepresentable {
     /// Whether the terminal takes keyboard focus when shown (only one pane of a split does).
     var takesFocus = true
 
-    func makeNSView(context: Context) -> NSView {
-        let container = NSView()
+    func makeNSView(context: Context) -> HostContainer {
+        let container = HostContainer()
         attach(to: container)
         return container
     }
 
-    func updateNSView(_ container: NSView, context: Context) {
-        if session.view.superview !== container { attach(to: container) }
+    func updateNSView(_ container: HostContainer, context: Context) {
+        // Only the newest host may (re)attach the terminal. When a split pane moves to another column, SwiftUI
+        // creates a new host and may still update the outgoing one, which would pull the terminal back into a
+        // container that is about to leave the window.
+        if session.host === container, session.view.superview !== container { attach(to: container) }
     }
 
-    private func attach(to container: NSView) {
+    private func attach(to container: HostContainer) {
         let terminal = session.view
+        session.host = container
         terminal.removeFromSuperview()
         terminal.frame = container.bounds
         terminal.autoresizingMask = [.width, .height]
         container.addSubview(terminal)
         if takesFocus { DispatchQueue.main.async { terminal.window?.makeFirstResponder(terminal) } }
+    }
+
+    /// Keeps the terminal at the container's size, also when it was attached while the container was still 0×0.
+    final class HostContainer: NSView {
+        override func layout() {
+            super.layout()
+            for subview in subviews where subview.frame != bounds { subview.frame = bounds }
+        }
     }
 }
 
