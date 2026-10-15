@@ -33,6 +33,8 @@ public struct OutputRecorder: Sendable {
     }
 
     private var escape = Escape.none
+    /// Parameter bytes of the CSI sequence being parsed (e.g. `2` in `ESC [ 2 K`).
+    private var csiParameters: [UInt8] = []
     private var pendingCarriageReturn = false
     /// The rest of the echoed command line, up to the first newline after Enter.
     private var skippingEcho = false
@@ -118,7 +120,9 @@ public struct OutputRecorder: Sendable {
         switch escape {
         case .esc:
             switch byte {
-            case UInt8(ascii: "["): escape = .csi
+            case UInt8(ascii: "["):
+                escape = .csi
+                csiParameters.removeAll()
             case UInt8(ascii: "]"): escape = .osc
             case 0x20...0x2F: escape = .escIntermediate
             default: escape = .none
@@ -128,7 +132,12 @@ public struct OutputRecorder: Sendable {
             if (0x30...0x7E).contains(byte) { escape = .none }
             return
         case .csi:
-            if (0x40...0x7E).contains(byte) { escape = .none }
+            if (0x40...0x7E).contains(byte) {
+                escape = .none
+                if Self.startsNewLine(final: byte, parameters: csiParameters) { current.removeAll() }
+            } else {
+                csiParameters.append(byte)
+            }
             return
         case .osc:
             if byte == 0x07 { escape = .none } else if byte == 0x1B { escape = .oscEsc }
@@ -165,6 +174,19 @@ public struct OutputRecorder: Sendable {
             current.append(byte)
         default:
             break
+        }
+    }
+
+    /// Cursor jumps and erases that leave nothing of the current line before the cursor: cursor position
+    /// (`H`, `f`; bash's Ctrl+L repaints the prompt after `ESC[H ESC[2J` without CR or LF), erase display
+    /// (`J`), erase to start / whole line (`1K`, `2K`) and column 1 (`G`). Erase to end of line (`K`) keeps it.
+    private static func startsNewLine(final: UInt8, parameters: [UInt8]) -> Bool {
+        let parameters = String(decoding: parameters, as: UTF8.self)
+        switch final {
+        case UInt8(ascii: "H"), UInt8(ascii: "f"), UInt8(ascii: "J"): return true
+        case UInt8(ascii: "K"): return parameters == "1" || parameters == "2"
+        case UInt8(ascii: "G"): return parameters.isEmpty || parameters == "1"
+        default: return false
         }
     }
 

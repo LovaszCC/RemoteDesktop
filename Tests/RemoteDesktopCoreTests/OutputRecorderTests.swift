@@ -125,6 +125,28 @@ import Testing
         #expect({ recorder.finish() }() == "red: text")
     }
 
+    /// Ctrl+L / ⌘K: bash repaints the prompt after cursor home + erase display, without CR or LF.
+    @Test func clearScreenStartsANewLine() {
+        var recorder = OutputRecorder()
+        _ = recorder.output(bytes(Self.prompt))
+        _ = recorder.output(bytes("\u{1b}[H\u{1b}[2J" + Self.prompt))
+        recorder.arm()
+        #expect(recorder.prompt == Self.prompt)
+    }
+
+    @Test(arguments: ["\u{1b}[H", "\u{1b}[5;1H", "\u{1b}[1;1f", "\u{1b}[2J", "\u{1b}[2K", "\u{1b}[1K", "\u{1b}[G", "\u{1b}[1G"])
+    func cursorJumpOrLineEraseStartsANewLine(sequence: String) {
+        var recorder = capturing()
+        _ = recorder.output(bytes("\r\nkeep\r\nold" + sequence + "new\r\n" + Self.prompt))
+        #expect({ recorder.finish() }() == "keep\nnew")
+    }
+
+    @Test func eraseToEndOfLineKeepsTheLine() {
+        var recorder = capturing()
+        _ = recorder.output(bytes("\r\ntext\u{1b}[K\u{1b}[0K more\r\n" + Self.prompt))
+        #expect({ recorder.finish() }() == "text more")
+    }
+
     @Test func charsetSelectionIsStripped() {
         var recorder = capturing()
         _ = recorder.output(bytes("\r\n\u{1b}(Bplain\r\n" + Self.prompt))
