@@ -26,7 +26,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)attach:(CliprdrClientContext *)cliprdr;
 /// Channel thread: the channel is going away.
 - (void)detach;
-/// Main thread, from the view's pasteboard poll: announces local clipboard changes to the server.
+/// Main thread (polled every 0.5 s once the server is ready): announces local clipboard changes.
 - (void)pasteboardChanged;
 /// Main thread: session over — cancels downloads, withdraws our pasteboard promises, deletes the folder.
 - (void)stop;

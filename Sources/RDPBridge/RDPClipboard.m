@@ -135,6 +135,7 @@ static BOOL is_windows_safe_name(NSString *name)
 	NSArray<RDPRemoteFile *> *_remoteFiles;
 
 	/* Main thread only. */
+	NSTimer *_pollTimer;
 	NSInteger _seenChangeCount;
 	NSInteger _promiseChangeCount;
 	DownloadState _downloadState;
@@ -192,6 +193,7 @@ static BOOL is_windows_safe_name(NSString *name)
 		cliprdr->ServerFormatDataResponse = on_server_format_data_response;
 		cliprdr->ServerFileContentsResponse = on_server_file_contents_response;
 		_cliprdr = cliprdr;
+		WLog_DBG(TAG, "took over the clipboard channel");
 	}
 
 	__weak RDPClipboard *weakSelf = self;
@@ -229,6 +231,7 @@ static BOOL is_windows_safe_name(NSString *name)
 		[_pendingRequests removeAllObjects];
 	}
 	dispatch_async(dispatch_get_main_queue(), ^{
+		[self stopPolling];
 		[self withdrawPromises:NO];
 	});
 }
@@ -254,10 +257,12 @@ static BOOL is_windows_safe_name(NSString *name)
 			return CHANNEL_RC_OK;
 		[self sendClientCapabilities];
 		_ready = YES;
+		WLog_DBG(TAG, "monitor ready");
 	}
 	dispatch_async(dispatch_get_main_queue(), ^{
 		self->_seenChangeCount = -1; /* announce whatever is on the pasteboard now */
 		[self pasteboardChanged];
+		[self startPolling];
 	});
 	return CHANNEL_RC_OK;
 }
@@ -274,6 +279,7 @@ static BOOL is_windows_safe_name(NSString *name)
 			    set->capabilitySetLength >= CB_CAPSTYPE_GENERAL_LEN)
 			{
 				const CLIPRDR_GENERAL_CAPABILITY_SET *general = (const CLIPRDR_GENERAL_CAPABILITY_SET *)set;
+				WLog_DBG(TAG, "server capabilities: flags 0x%08" PRIx32, general->generalFlags);
 				if (_file)
 					(void)cliprdr_file_context_remote_set_flags(_file, general->generalFlags);
 				break;
@@ -300,6 +306,7 @@ static BOOL is_windows_safe_name(NSString *name)
 		_remoteFiles = nil;
 		[_downloader cancel];
 
+		WLog_DBG(TAG, "server format list: %" PRIu32 " formats", formatList->numFormats);
 		UINT32 fileGroupId = 0;
 		BOOL hasText = NO;
 		for (UINT32 i = 0; i < formatList->numFormats; i++)
@@ -342,6 +349,8 @@ static BOOL is_windows_safe_name(NSString *name)
 {
 	@synchronized(self)
 	{
+		WLog_DBG(TAG, "server requests format 0x%08" PRIx32 " (text %s, files %s)", request->requestedFormatId,
+		         _localText ? "yes" : "no", _localUriList ? "yes" : "no");
 		if (!_cliprdr)
 			return CHANNEL_RC_OK;
 		if (request->requestedFormatId == CF_UNICODETEXT && _localText)
@@ -487,6 +496,29 @@ static BOOL is_windows_safe_name(NSString *name)
 
 #pragma mark Main thread: Mac → server
 
+/// NSPasteboard has no change notification. FreeRDP's own poll timer never starts (MRDPView's `resume` runs
+/// before the view counts as connected), so the clipboard keeps its own, also during menu tracking.
+- (void)startPolling
+{
+	if (_pollTimer)
+		return;
+	__weak RDPClipboard *weakSelf = self;
+	_pollTimer = [NSTimer timerWithTimeInterval:0.5
+	                                    repeats:YES
+	                                      block:^(NSTimer *timer) {
+		                                      (void)timer;
+		                                      [weakSelf pasteboardChanged];
+	                                      }];
+	_pollTimer.tolerance = 0.1;
+	[NSRunLoop.mainRunLoop addTimer:_pollTimer forMode:NSRunLoopCommonModes];
+}
+
+- (void)stopPolling
+{
+	[_pollTimer invalidate];
+	_pollTimer = nil;
+}
+
 - (void)pasteboardChanged
 {
 	NSPasteboard *pasteboard = NSPasteboard.generalPasteboard;
@@ -508,6 +540,8 @@ static BOOL is_windows_safe_name(NSString *name)
 
 	@synchronized(self)
 	{
+		WLog_DBG(TAG, "pasteboard changed (ready %d): text %lu chars, files %s", _ready,
+		         (unsigned long)text.length, uriList ? "yes" : "no");
 		if (!_ready || !_cliprdr)
 			return;
 		if (_localUriList && _file)
@@ -530,7 +564,8 @@ static BOOL is_windows_safe_name(NSString *name)
 			formats[0].formatId = CF_UNICODETEXT;
 			list.numFormats = 1;
 		}
-		(void)_cliprdr->ClientFormatList(_cliprdr, &list);
+		const UINT rc = _cliprdr->ClientFormatList(_cliprdr, &list);
+		WLog_DBG(TAG, "announced %" PRIu32 " formats: 0x%08" PRIX32, list.numFormats, rc);
 		if (_file)
 			(void)cliprdr_file_context_notify_new_client_format_list(_file);
 	}
@@ -775,6 +810,7 @@ static BOOL is_windows_safe_name(NSString *name)
 
 - (void)stop
 {
+	[self stopPolling];
 	_waitCancelled = YES;
 	[_downloader cancel];
 	@synchronized(self)

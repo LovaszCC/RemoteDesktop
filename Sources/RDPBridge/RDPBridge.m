@@ -305,10 +305,6 @@ static BOOL bridge_client_new(freerdp *instance, rdpContext *context)
 			if (bridge && [delegate respondsToSelector:@selector(rdpSession:clipboardFileTransferEndedWithError:)])
 				[delegate rdpSession:bridge clipboardFileTransferEndedWithError:error];
 		};
-		RDPClipboard *clipboard = _clipboard;
-		_view.pasteboardPoll = ^{
-			[clipboard pasteboardChanged];
-		};
 	}
 	return self;
 }
