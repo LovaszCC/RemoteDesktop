@@ -61,6 +61,19 @@ public enum LibraryTree {
         .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
+    /// Connections that can be linked to the credential (not linked to it yet), sorted by name; a non-empty
+    /// query must match name, host, user or folder path term by term.
+    public static func linkCandidates(_ library: Library, for credentialId: String, query: String) -> [Connection] {
+        let terms = query.lowercased().split(whereSeparator: \.isWhitespace).map(String.init)
+        return library.connections.filter { connection in
+            guard connection.credentialId != credentialId else { return false }
+            let haystack = [connection.name, connection.host, connection.username, folderPath(connection.folderId, in: library)]
+                .joined(separator: " ").lowercased()
+            return terms.allSatisfy(haystack.contains)
+        }
+        .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
     /// Credentials whose name or user matches every term.
     public static func searchCredentials(_ library: Library, query: String) -> [Credential] {
         let terms = query.lowercased().split(whereSeparator: \.isWhitespace).map(String.init)

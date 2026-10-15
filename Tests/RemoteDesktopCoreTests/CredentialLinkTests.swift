@@ -55,4 +55,19 @@ import Testing
         #expect(ids.count == 3)
         #expect(library.connectionIds(forTags: ["k:x"]).isEmpty)
     }
+
+    @Test func linkCandidatesSkipLinkedAndMatchQuery() throws {
+        let credential = try repo.save(Credential(name: "admin"))
+        let other = try repo.save(Credential(name: "other"))
+        let folder = try repo.save(Folder(name: "Budapest"))
+        _ = try repo.save(Connection(credentialId: credential.id, type: .ssh, name: "linked", host: "h"))
+        let router = try repo.save(Connection(folderId: folder.id, credentialId: other.id, type: .mikrotik, name: "router", host: "10.0.0.1"))
+        let server = try repo.save(Connection(type: .rdp, name: "Server", host: "srv"))
+        let library = try repo.library()
+
+        #expect(LibraryTree.linkCandidates(library, for: credential.id, query: "").map(\.id) == [router.id, server.id])
+        #expect(LibraryTree.linkCandidates(library, for: credential.id, query: "budapest 10.0").map(\.id) == [router.id])
+        #expect(LibraryTree.linkCandidates(library, for: credential.id, query: "SRV").map(\.id) == [server.id])
+        #expect(LibraryTree.linkCandidates(library, for: credential.id, query: "linked").isEmpty)
+    }
 }
