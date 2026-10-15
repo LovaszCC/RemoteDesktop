@@ -3782,6 +3782,76 @@
           }
         }
       }
+    },
+    "Link connections to “%@”" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kapcsolatok csatolása ehhez: „%@”"
+          }
+        }
+      }
+    },
+    "Name, host, user or folder" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Név, host, felhasználó vagy mappa"
+          }
+        }
+      }
+    },
+    "currently: %@ — will move" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "jelenleg: %@ — átkerül"
+          }
+        }
+      }
+    },
+    "Add %lld" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hozzáadás (%lld)"
+          }
+        }
+      }
+    },
+    "Add connections…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kapcsolatok hozzáadása…"
+          }
+        }
+      }
+    },
+    "Unlink" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leválasztás"
+          }
+        }
+      }
+    },
+    "Unlink — the connection uses its own login" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leválasztás — a kapcsolat a saját loginját használja"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

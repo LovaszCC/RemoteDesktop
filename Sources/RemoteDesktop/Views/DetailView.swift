@@ -237,6 +237,7 @@ struct FolderDetailView: View {
 struct CredentialDetailView: View {
     @Environment(AppState.self) private var state
     let credential: Credential
+    @State private var isLinking = false
 
     var body: some View {
         let users = state.library.connections(using: credential.id)
@@ -277,27 +278,44 @@ struct CredentialDetailView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Used by (\(users.count))").font(.headline)
+                    HStack {
+                        Text("Used by (\(users.count))").font(.headline)
+                        Spacer()
+                        Button("Add connections…", systemImage: "plus") { isLinking = true }
+                    }
                     if users.isEmpty {
                         Text("No connections").foregroundStyle(.secondary)
                     }
                     ForEach(users) { connection in
-                        Button {
-                            state.selection = "c:\(connection.id)"
-                        } label: {
-                            HStack {
-                                ConnectionIcon(type: connection.type)
-                                Text(connection.name)
-                                Text(LibraryTree.folderPath(connection.folderId, in: state.library))
-                                    .foregroundStyle(.secondary)
+                        HStack {
+                            Button {
+                                state.selection = "c:\(connection.id)"
+                            } label: {
+                                HStack {
+                                    ConnectionIcon(type: connection.type)
+                                    Text(connection.name)
+                                    Text(LibraryTree.folderPath(connection.folderId, in: state.library))
+                                        .foregroundStyle(.secondary)
+                                }
                             }
+                            .buttonStyle(.plain)
+                            Spacer()
+                            Button("Unlink", systemImage: "xmark.circle.fill") {
+                                state.setCredential(nil, connectionIds: [connection.id])
+                            }
+                            .labelStyle(.iconOnly)
+                            .buttonStyle(.borderless)
+                            .foregroundStyle(.secondary)
+                            .help("Unlink — the connection uses its own login")
                         }
-                        .buttonStyle(.plain)
                     }
                 }
             }
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .sheet(isPresented: $isLinking) {
+            LinkConnectionsSheet(credential: credential)
         }
     }
 
