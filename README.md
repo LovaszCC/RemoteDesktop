@@ -190,7 +190,7 @@ and then saved to `~/.ssh/known_hosts`. Tunnels stop when you quit the app.
 
 | | |
 |---|---|
-| 🔑 **Linked credentials** | Reusable user / domain / password / SSH key entries that many connections can share. Passphrase-protected SSH keys are unlocked once on save and stored encrypted. A credential without a username (e.g. just an SSH key) can be used with a different username on each connection. Select several connections or folders to link them to a credential in one go. A credential's *Used by* list can add or unlink connections directly. |
+| 🔑 **Linked credentials** | Reusable user / domain / password / SSH key entries that many connections can share. Passphrase-protected SSH keys are unlocked once on save and stored encrypted. A credential without a username (e.g. just an SSH key) can be used with a different username on each connection. Select several connections or folders to link them to a credential in one go. A credential's *Used by* list is searchable and can add connections or unlink the checked ones. |
 | 🗂️ **Folders and favourites** | Nested folders with drag & drop (several selected items move together, or use *Move* or *Delete* in their context menu) and an optional icon color, favourites on top. |
 | 🔍 **Instant search** | Across name, host, user, notes and folder. |
 | 🗃️ **Tabs** | For embedded sessions; quitting with open sessions asks first. A connection's color (e.g. red for production) colors its tabs and a stripe above the session; any tab can be recolored from its context menu and renamed (double-click or *Rename…*). |
