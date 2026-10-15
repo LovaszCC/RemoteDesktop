@@ -1,4 +1,5 @@
 import AppKit
+import RDPBridge
 import RemoteDesktopCore
 import SwiftUI
 
@@ -12,6 +13,7 @@ struct RemoteDesktopApp: App {
     init() {
         // Before any string is looked up, so a Hungarian system doesn't pick Hungarian on its own.
         AppLanguage.applyDefaultIfUnset()
+        RDPSessionBridge.purgeStaleClipboardFiles()
         // Needed when launched as a bare executable (`swift run`) instead of from the .app bundle.
         NSApplication.shared.setActivationPolicy(.regular)
     }

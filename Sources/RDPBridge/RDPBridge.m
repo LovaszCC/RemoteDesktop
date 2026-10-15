@@ -1,7 +1,10 @@
 #import "RDPBridge.h"
+#import "RDPClipboard.h"
 #import "RDPInputView.h"
 
+#include <freerdp/channels/cliprdr.h>
 #include <freerdp/freerdp.h>
+#include <freerdp/gdi/gdi.h>
 #include <freerdp/client.h>
 #include <freerdp/client/disp.h>
 #include <freerdp/channels/disp.h>
@@ -26,6 +29,18 @@ typedef struct
 @end
 
 @implementation RDPConnectionConfiguration
+
+- (instancetype)init
+{
+	self = [super init];
+	if (self)
+	{
+		_fileTransferTitle = @"Copying files from the remote computer…";
+		_cancelTitle = @"Cancel";
+	}
+	return self;
+}
+
 @end
 
 @implementation RDPCredentials
@@ -38,6 +53,8 @@ typedef struct
 - (void)desktopResized;
 - (DWORD)verifyCertificate:(RDPCertificateInfo *)info;
 - (nullable RDPCredentials *)requestCredentials:(RDPCredentials *)current;
+- (void)clipboardChannelConnected:(CliprdrClientContext *)cliprdr;
+- (void)clipboardChannelDisconnected;
 @end
 
 static pRdpClientNew macClientNew;
@@ -140,10 +157,99 @@ static BOOL bridge_authenticate(freerdp *instance, char **username, char **passw
 	       replace_string(password, answer.password);
 }
 
+/// Root of the per-session clipboard download folders (`<pid>-<uuid>`).
+static NSURL *clipboard_root(void)
+{
+	return [NSURL fileURLWithPath:[NSTemporaryDirectory()
+	                                  stringByAppendingPathComponent:@"hu.softworks.RemoteDesktop.rdp-clipboard"]
+	                  isDirectory:YES];
+}
+
+static void bridge_cliprdr_connected(void *context, const ChannelConnectedEventArgs *e)
+{
+	if (strcmp(e->name, CLIPRDR_SVC_CHANNEL_NAME) == 0)
+		[bridge_of(context) clipboardChannelConnected:(CliprdrClientContext *)e->pInterface];
+}
+
+static void bridge_cliprdr_disconnected(void *context, const ChannelDisconnectedEventArgs *e)
+{
+	if (strcmp(e->name, CLIPRDR_SVC_CHANNEL_NAME) == 0)
+		[bridge_of(context) clipboardChannelDisconnected];
+}
+
+/// Upstream `mac_end_paint` without its `dispatch_sync` to the main queue: the connection thread must never
+/// wait for main, which may itself be waiting for clipboard file data that only that thread can receive.
+static BOOL bridge_end_paint(rdpContext *context)
+{
+	if (!context || !context->gdi)
+		return FALSE;
+	mfContext *mfc = (mfContext *)context;
+	rdpGdi *gdi = context->gdi;
+	HGDI_DC hdc = gdi->primary->hdc;
+	if (!hdc || !hdc->hwnd)
+		return TRUE;
+	HGDI_WND hwnd = hdc->hwnd;
+	if (hwnd->invalid->null)
+		return TRUE;
+
+	const int ww = mfc->client_width;
+	const int wh = mfc->client_height;
+	const int dw = (int)freerdp_settings_get_uint32(context->settings, FreeRDP_DesktopWidth);
+	const int dh = (int)freerdp_settings_get_uint32(context->settings, FreeRDP_DesktopHeight);
+	NSRect rect = NSMakeRect(hwnd->invalid->x, hwnd->invalid->y, hwnd->invalid->w, hwnd->invalid->h);
+	if (freerdp_settings_get_bool(context->settings, FreeRDP_SmartSizing) && (ww != dw || wh != dh) && dw > 0 &&
+	    dh > 0)
+	{
+		rect.origin.y = rect.origin.y * wh / dh - 1;
+		rect.size.height = rect.size.height * wh / dh + 1;
+		rect.origin.x = rect.origin.x * ww / dw - 1;
+		rect.size.width = rect.size.width * ww / dw + 1;
+	}
+	else
+	{
+		rect.origin.y -= 1;
+		rect.size.height += 1;
+		rect.origin.x -= 1;
+		rect.size.width += 1;
+	}
+	hwnd->ninvalid = 0;
+
+	NSView *view = (__bridge NSView *)mfc->view;
+	dispatch_async(dispatch_get_main_queue(), ^{
+		NSRect flipped = rect;
+		flipped.origin.y = view.frame.size.height - (rect.origin.y + rect.size.height);
+		[view setNeedsDisplayInRect:flipped];
+	});
+	return TRUE;
+}
+
+/// The Mac client subscribes its own channel handler (text-only clipboard) here; ours, subscribed after it,
+/// runs after it and takes the clipboard channel over.
+static BOOL bridge_pre_connect(freerdp *instance)
+{
+	if (!mac_pre_connect(instance))
+		return FALSE;
+	instance->context->update->EndPaint = bridge_end_paint;
+	PubSub_SubscribeChannelConnected(instance->context->pubSub, bridge_cliprdr_connected);
+	PubSub_SubscribeChannelDisconnected(instance->context->pubSub, bridge_cliprdr_disconnected);
+	return TRUE;
+}
+
+static void bridge_post_disconnect(freerdp *instance)
+{
+	mac_post_disconnect(instance);
+	if (!instance || !instance->context)
+		return;
+	PubSub_UnsubscribeChannelConnected(instance->context->pubSub, bridge_cliprdr_connected);
+	PubSub_UnsubscribeChannelDisconnected(instance->context->pubSub, bridge_cliprdr_disconnected);
+}
+
 static BOOL bridge_client_new(freerdp *instance, rdpContext *context)
 {
 	if (!macClientNew(instance, context))
 		return FALSE;
+	instance->PreConnect = bridge_pre_connect;
+	instance->PostDisconnect = bridge_post_disconnect;
 	instance->VerifyCertificateEx = bridge_verify_certificate;
 	instance->VerifyChangedCertificateEx = bridge_verify_changed_certificate;
 	instance->AuthenticateEx = bridge_authenticate;
@@ -161,11 +267,17 @@ static BOOL bridge_client_new(freerdp *instance, rdpContext *context)
 	BOOL _reportedEnd;
 	NSSize _requestedSize;
 	dispatch_queue_t _typingQueue;
+	RDPClipboard *_clipboard;
 }
 
 + (NSString *)freeRDPVersion
 {
 	return string_or_empty(freerdp_get_version_string());
+}
+
++ (void)purgeStaleClipboardFiles
+{
+	[RDPClipboard purgeStaleFoldersIn:clipboard_root()];
 }
 
 - (instancetype)initWithConfiguration:(RDPConnectionConfiguration *)configuration
@@ -178,6 +290,25 @@ static BOOL bridge_client_new(freerdp *instance, rdpContext *context)
 		    initWithFrame:NSMakeRect(0, 0, configuration.width, configuration.height)];
 		_view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
 		_typingQueue = dispatch_queue_create("RDPSessionBridge.typing", DISPATCH_QUEUE_SERIAL);
+
+		RDPClipboardTexts *texts = [RDPClipboardTexts new];
+		texts.progressTitle = configuration.fileTransferTitle;
+		texts.cancel = configuration.cancelTitle;
+		NSString *name = [NSString stringWithFormat:@"%d-%@", getpid(), NSUUID.UUID.UUIDString];
+		_clipboard = [[RDPClipboard alloc]
+		    initWithFolder:[clipboard_root() URLByAppendingPathComponent:name isDirectory:YES]
+		             texts:texts];
+		__weak RDPSessionBridge *weakSelf = self;
+		_clipboard.onFileTransferEnded = ^(NSString *error) {
+			RDPSessionBridge *bridge = weakSelf;
+			id<RDPSessionBridgeDelegate> delegate = bridge.delegate;
+			if (bridge && [delegate respondsToSelector:@selector(rdpSession:clipboardFileTransferEndedWithError:)])
+				[delegate rdpSession:bridge clipboardFileTransferEndedWithError:error];
+		};
+		RDPClipboard *clipboard = _clipboard;
+		_view.pasteboardPoll = ^{
+			[clipboard pasteboardChanged];
+		};
 	}
 	return self;
 }
@@ -271,6 +402,7 @@ static BOOL bridge_client_new(freerdp *instance, rdpContext *context)
 	rdpContext *context = _context;
 	MRDPView *view = _view;
 	[view removeFromSuperview];
+	[_clipboard stop];
 	// The connection thread dispatch_syncs onto main while painting, so it must not be joined here.
 	dispatch_queue_t typingQueue = _typingQueue;
 	dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
@@ -363,6 +495,16 @@ static BOOL bridge_client_new(freerdp *instance, rdpContext *context)
 }
 
 #pragma mark FreeRDP callbacks (connection thread)
+
+- (void)clipboardChannelConnected:(CliprdrClientContext *)cliprdr
+{
+	[_clipboard attach:cliprdr];
+}
+
+- (void)clipboardChannelDisconnected
+{
+	[_clipboard detach];
+}
 
 - (void)channelConnected:(const ChannelConnectedEventArgs *)event
 {

@@ -79,6 +79,13 @@ static DWORD fixed_key_code(DWORD keyCode, enum APPLE_KEYBOARD_TYPE type)
 	[self send:[_translator keyUp:event.keyCode scancode:[self scancodeForEvent:event]]];
 }
 
+- (void)onPasteboardTimerFired:(NSTimer *)timer
+{
+	(void)timer;
+	if (self.pasteboardPoll)
+		self.pasteboardPoll();
+}
+
 - (void)pause
 {
 	if (self.is_connected)

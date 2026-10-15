@@ -940,11 +940,14 @@ final class AppState {
             configuration.width = size.width
             configuration.height = size.height
             configuration.dynamicResolution = true
+            configuration.fileTransferTitle = String(localized: "Copying files from the remote computer…")
+            configuration.cancelTitle = String(localized: "Cancel")
             return configuration
         }
         session.onEnd = { [weak self] session, reason in
             if reason == .clean { self?.closeSession(session.id) }
         }
+        session.onMessage = { [weak self] message in self?.showToast(message) }
         session.canSaveCredentials = connection.credentialId == nil
         session.onSaveCredentials = { [weak self] credentials in
             self?.saveRDPCredentials(credentials, connectionId: snapshot.id)

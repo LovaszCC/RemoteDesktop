@@ -513,6 +513,26 @@
         }
       }
     },
+    "Copying files failed: %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A fájlok másolása nem sikerült: %@"
+          }
+        }
+      }
+    },
+    "Copying files from the remote computer…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fájlok másolása a távoli gépről…"
+          }
+        }
+      }
+    },
     "Couldn't create the FreeRDP session." : {
       "localizations" : {
         "hu" : {
@@ -2779,6 +2799,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Terminál felosztása"
+          }
+        }
+      }
+    },
+    "The copied files are ready, paste again." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A másolt fájlok elkészültek, illeszd be újra."
           }
         }
       }

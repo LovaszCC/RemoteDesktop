@@ -27,6 +27,8 @@ final class RDPSession: NSObject, Identifiable {
     /// Offer "save to this connection" in the credential prompt (not for linked credentials).
     @ObservationIgnored var canSaveCredentials = false
     @ObservationIgnored var onSaveCredentials: ((RDPCredentials) -> Void)?
+    /// Short notices for the user (clipboard file copies).
+    @ObservationIgnored var onMessage: ((String) -> Void)?
 
     init(connection: Connection, makeConfiguration: @escaping () throws -> RDPConnectionConfiguration) {
         connectionId = connection.id
@@ -107,6 +109,11 @@ extension RDPSession: @preconcurrency RDPSessionBridgeDelegate {
         guard let answer = CredentialPrompt.ask(current, for: title, canSave: canSaveCredentials) else { return nil }
         if answer.save { onSaveCredentials?(answer.credentials) }
         return answer.credentials
+    }
+
+    func rdpSession(_ session: RDPSessionBridge, clipboardFileTransferEndedWithError error: String?) {
+        onMessage?(error.map { String(localized: "Copying files failed: \($0)") }
+            ?? String(localized: "The copied files are ready, paste again."))
     }
 }
 
