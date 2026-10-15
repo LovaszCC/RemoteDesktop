@@ -1,5 +1,7 @@
 #import <AppKit/AppKit.h>
 
+#import "RDPClipboardDownloader.h"
+#import "RDPClipboardFileList.h"
 #import "RDPKeyboardTranslator.h"
 
 NS_ASSUME_NONNULL_BEGIN
@@ -43,6 +45,9 @@ typedef NS_ENUM(NSInteger, RDPCertificateDecision) {
 @property(nonatomic) uint32_t width;
 @property(nonatomic) uint32_t height;
 @property(nonatomic) BOOL dynamicResolution;
+/// Shown while files copied on the remote machine download for a paste in Finder.
+@property(nonatomic, copy) NSString *fileTransferTitle;
+@property(nonatomic, copy) NSString *cancelTitle;
 @end
 
 @class RDPSessionBridge;
@@ -65,6 +70,9 @@ typedef NS_ENUM(NSInteger, RDPCertificateDecision) {
 - (nullable RDPCredentials *)rdpSession:(RDPSessionBridge *)session
                      requestCredentials:(RDPCredentials *)current
     NS_SWIFT_NAME(rdpSession(_:requestCredentials:));
+/// A clipboard file copy failed (`error`), or finished after Finder stopped waiting (`nil`: paste again).
+- (void)rdpSession:(RDPSessionBridge *)session clipboardFileTransferEndedWithError:(nullable NSString *)error
+    NS_SWIFT_NAME(rdpSession(_:clipboardFileTransferEndedWithError:));
 @end
 
 /// One embedded FreeRDP session rendering into `view`.
@@ -91,6 +99,8 @@ typedef NS_ENUM(NSInteger, RDPCertificateDecision) {
             completion:(nullable void (^)(BOOL finished))completion;
 
 + (NSString *)freeRDPVersion;
+/// Deletes clipboard download folders of app instances that are no longer running (call at launch).
++ (void)purgeStaleClipboardFiles;
 @end
 
 NS_ASSUME_NONNULL_END
