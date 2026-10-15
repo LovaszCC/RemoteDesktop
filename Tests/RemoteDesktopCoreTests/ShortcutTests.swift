@@ -44,6 +44,7 @@ import Testing
         #expect(ShortcutCommand.splitTerminal.defaultShortcut.displayString == "⌘D")
         #expect(ShortcutCommand.broadcastAll.defaultShortcut.displayString == "⌥⌘I")
         #expect(ShortcutCommand.clearTerminal.defaultShortcut.displayString == "⌘K")
+        #expect(ShortcutCommand.recordOutput.defaultShortcut.displayString == "⌥⌘C")
         #expect(ShortcutCommand.closeTab.defaultShortcut.displayString == "⌘W")
         #expect(ShortcutCommand.nextTab.defaultShortcut.displayString == "⌃⇥")
         #expect(ShortcutCommand.previousTab.defaultShortcut.displayString == "⌃⇧⇥")
