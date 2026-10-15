@@ -104,7 +104,11 @@ Credentials go straight into FreeRDP, never on a command line. When a server req
 the connection has no username or password, the embedded client asks for them; *Save to this connection*
 stores them (encrypted) for next time, *Cancel* closes the tab. The *Type clipboard* button
 (⇧⌘V) types the local clipboard into the session as keystrokes, which works where clipboard sharing does
-not (logon screen, consoles). A logoff closes the tab; a dropped connection keeps it with the reason and a
+not (logon screen, consoles). The clipboard carries text and **files both ways**: copy in Finder and paste
+in Explorer, or copy in Explorer and paste in Finder — the files download when you paste (a progress window
+with Cancel shows for larger ones; if Finder stops waiting, the download finishes and you paste again). File
+names from the server are checked so nothing can land outside the download folder, and downloaded files are
+quarantined like browser downloads. A logoff closes the tab; a dropped connection keeps it with the reason and a
 reconnect button. With Windows App, the password is typed into its prompt automatically, or copied to the
 clipboard for 30 seconds as a fallback.
 
