@@ -124,6 +124,15 @@ either embedded or in the external terminal chosen in *Settings → SSH* (Ghostt
 Ghostty by default when installed, otherwise Terminal). iTerm2 is driven via AppleScript, so macOS asks
 once for the *Automation* permission.
 
+**Copy next output** (embedded terminals, <kbd>⌥⌘C</kbd>): press it, type a command (e.g.
+`cat /etc/raddb/radiusd.conf`) and press Enter. Its output goes to the clipboard as plain text, without colors,
+the echoed command or the prompt, and a toast shows how many lines were copied. It runs in the terminal itself,
+so it works after `sudo -i` / `su`, on a host you reached with a nested `ssh`, and on RouterOS (`/export`). The
+recording ends by itself when the prompt comes back; if the command changes the prompt (e.g. `cd`), use
+*Stop & copy*. *Cancel* or Esc stops without copying. Interactive programs and pagers (`less`, `vim`,
+`systemctl status`) stop the recording: use `cat` or `--no-pager`. Output over 10 MB is refused. In a split
+view each pane has its own button.
+
 </details>
 
 <details open>
@@ -195,6 +204,7 @@ and then saved to `~/.ssh/known_hosts`. Tunnels stop when you quit the app.
 | 🔍 **Instant search** | Across name, host, user, notes and folder. |
 | 🗃️ **Tabs** | For embedded sessions; quitting with open sessions asks first. A connection's color (e.g. red for production) colors its tabs and a stripe above the session; any tab can be recolored from its context menu and renamed (double-click or *Rename…*). |
 | 📡 **Split view** | Up to 4 SSH terminals with iTerm2-style broadcast input. |
+| 📋 **Copy next output** | Copies the next command's output in an SSH terminal to the clipboard, even as root after `sudo -i`. |
 | 🔀 **SSH port forwards** | Saved per connection, started and stopped with one click. |
 | 🌍 **English and Hungarian** | Interface language switchable in Settings. |
 | 🔄 **Update check** | Against GitHub releases, with a checksum-verified download. |
@@ -219,6 +229,7 @@ command or by macOS is refused).
 | Split terminal (same server in a new pane) | <kbd>⌘D</kbd> |
 | Broadcast input to all panes of a split view | <kbd>⌥⌘I</kbd> |
 | Clear the active terminal (screen + scrollback, prompt redrawn) | <kbd>⌘K</kbd> |
+| Copy the next command's output in the active terminal (again: stop & copy) | <kbd>⌥⌘C</kbd> |
 | Files (SCP) for the active SSH tab or selected entry | <kbd>⇧⌘F</kbd> |
 
 **Inside sessions** the Mac keyboard behaves like on the Mac:

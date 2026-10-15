@@ -81,6 +81,9 @@ struct RemoteDesktopApp: App {
                 Button("Clear terminal") { state.clearActiveTerminal() }
                     .keyboardShortcut(shortcuts.keyboardShortcut(for: .clearTerminal))
                     .disabled(state.activeTerminal == nil)
+                Button("Copy next command output") { state.toggleRecordingInActiveTerminal() }
+                    .keyboardShortcut(shortcuts.keyboardShortcut(for: .recordOutput))
+                    .disabled(!state.canRecordOutput)
                 // Also handled by AppDelegate's key monitor, so the terminal and the window's Close don't take them.
                 Button("Close session") { state.closeActiveSession() }
                     .keyboardShortcut(shortcuts.keyboardShortcut(for: .closeTab))
@@ -160,6 +163,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             state.cycleTabs(forward: false)
         case shortcuts.shortcut(for: .clearTerminal) where state.activeTerminal != nil:
             state.clearActiveTerminal()
+        case shortcuts.shortcut(for: .recordOutput) where state.canRecordOutput:
+            state.toggleRecordingInActiveTerminal()
         default:
             return false
         }

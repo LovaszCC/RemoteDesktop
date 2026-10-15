@@ -48,9 +48,59 @@ struct TerminalSessionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                RecordOutputButton(session: session)
+                RecordingStatus(session: session)
+                Spacer()
+            }
+            .controlSize(.small)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(.bar)
+            .overlay(alignment: .bottom) { Divider() }
             TerminalHostView(session: session)
                 .id(session.id)
             SessionExitedBar(session: session) { state.closeSession(session.id) }
+        }
+    }
+}
+
+/// "Copy next command output": arms the recorder, or stops and copies while it waits or records.
+struct RecordOutputButton: View {
+    @Environment(ShortcutStore.self) private var shortcuts
+    let session: TerminalSession
+    var iconOnly = false
+
+    var body: some View {
+        let isIdle = session.recording == .idle
+        Button {
+            session.toggleRecording()
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: isIdle ? "record.circle" : "stop.circle.fill")
+                    .foregroundStyle(isIdle ? AnyShapeStyle(.primary) : AnyShapeStyle(.red))
+                if !iconOnly { Text(isIdle ? "Copy next output" : "Stop & copy") }
+            }
+        }
+        .disabled(!session.isRunning)
+        .help("Copies the output of the next command you enter to the clipboard (\(shortcuts.display(.recordOutput)))")
+    }
+}
+
+/// Red "waiting / recording" hint with a Cancel button while a recording is on.
+struct RecordingStatus: View {
+    let session: TerminalSession
+
+    var body: some View {
+        switch session.recording {
+        case .idle:
+            EmptyView()
+        case .armed:
+            Text("● Waiting for a command… (Esc: cancel)").foregroundStyle(.red)
+            Button("Cancel") { session.cancelRecording() }
+        case .capturing:
+            Text("● Recording…").foregroundStyle(.red)
+            Button("Cancel") { session.cancelRecording() }
         }
     }
 }
