@@ -28,9 +28,12 @@ struct DetailView: View {
 struct MultipleSelectionView: View {
     @Environment(AppState.self) private var state
     @Environment(ShortcutStore.self) private var shortcuts
+    @State private var credentialId: String?
 
     var body: some View {
         let connections = state.selectedSSHConnections
+        let tags = Array(state.selectedTags)
+        let linkable = state.library.connectionIds(forTags: tags)
         ContentUnavailableView {
             Label("\(state.selectedTags.count) items selected", systemImage: "rectangle.split.2x2")
         } description: {
@@ -43,6 +46,17 @@ struct MultipleSelectionView: View {
             Button("Open in split view", systemImage: "rectangle.split.2x2") { state.openSplit(connections) }
                 .help(Text(verbatim: shortcuts.display(.connect)))
                 .disabled(connections.count < 2)
+            HStack {
+                Picker("Linked credential", selection: $credentialId) {
+                    Text("Own login").tag(String?.none)
+                    ForEach(state.library.credentials) { credential in
+                        Text(credential.name).tag(Optional(credential.id))
+                    }
+                }
+                .fixedSize()
+                Button("Apply to \(linkable.count) connections") { state.setCredential(credentialId, connectionIds: linkable) }
+            }
+            .disabled(linkable.isEmpty)
         }
     }
 }

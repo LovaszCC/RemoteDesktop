@@ -387,6 +387,21 @@ final class AppState {
         }
     }
 
+    /// Links (or with `nil` unlinks) a credential to connections; selected folders count with their whole subtree.
+    func setCredential(_ credentialId: String?, forTags tags: [String]) {
+        setCredential(credentialId, connectionIds: library.connectionIds(forTags: tags))
+    }
+
+    func setCredential(_ credentialId: String?, connectionIds: [String]) {
+        perform {
+            guard let repo else { return }
+            let changed = try repo.setCredential(credentialId, connectionIds: connectionIds)
+            showToast(credentialId == nil
+                ? String(localized: "Linked credential removed — \(changed) connections")
+                : String(localized: "Linked credential set — \(changed) connections"))
+        }
+    }
+
     /// Several sidebar items waiting for the delete confirmation.
     var pendingBulkDeletion: BulkDeletion?
 
