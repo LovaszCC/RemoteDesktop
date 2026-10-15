@@ -3,6 +3,7 @@ import GRDB
 import Observation
 import RDPBridge
 import RemoteDesktopCore
+import UniformTypeIdentifiers
 
 /// Editable, decrypted copy of a connection used by the editor sheet.
 struct ConnectionDraft: Identifiable, Equatable {
@@ -102,7 +103,6 @@ final class AppState {
     var credentialEditor: CredentialDraft?
     var pendingCredentialDeletion: Credential?
     var isImporting = false
-    var isImportingWinbox = false
     /// A parsed WinBox address book waiting for the user to pick entries and a target folder.
     var winboxImport: WinboxImportDraft?
 
@@ -529,6 +529,18 @@ final class AppState {
     }
 
     // MARK: WinBox import
+
+    /// Picks a WinBox address book with an AppKit open panel; a second SwiftUI `fileImporter`
+    /// next to the RDM one did not present reliably on every macOS version.
+    func chooseWinboxFile() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: "cdb") ?? .data, .data]
+        panel.canChooseDirectories = false
+        panel.prompt = String(localized: "Open")
+        if panel.runModal() == .OK, let url = panel.url {
+            loadWinbox(from: url)
+        }
+    }
 
     func loadWinbox(from url: URL) {
         let accessing = url.startAccessingSecurityScopedResource()
