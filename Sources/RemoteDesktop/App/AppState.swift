@@ -1171,8 +1171,7 @@ final class AppState {
 
     /// Arms the active terminal's recorder; while armed or recording it stops and copies instead.
     func toggleRecordingInActiveTerminal() {
-        guard let terminal = activeTerminal else { return }
-        if terminal.recording == .idle { terminal.startRecording() } else { terminal.stopRecording() }
+        activeTerminal?.toggleRecording()
     }
 
     private func recordingEnded(_ result: TerminalSession.RecordingResult) {

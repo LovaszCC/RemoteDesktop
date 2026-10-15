@@ -3902,6 +3902,76 @@
           }
         }
       }
+    },
+    "Copy next command output" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Következő parancs kimenetének másolása"
+          }
+        }
+      }
+    },
+    "Copy next output" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Következő kimenet másolása"
+          }
+        }
+      }
+    },
+    "Stop & copy" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leállítás és másolás"
+          }
+        }
+      }
+    },
+    "Copies the output of the next command you enter to the clipboard (%@)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A következő beírt parancs kimenetét a vágólapra másolja (%@)"
+          }
+        }
+      }
+    },
+    "● Waiting for a command… (Esc: cancel)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "● Parancsra várok… (Esc: mégse)"
+          }
+        }
+      }
+    },
+    "● Recording…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "● Felvétel…"
+          }
+        }
+      }
+    },
+    "● Waiting…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "● Várakozás…"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

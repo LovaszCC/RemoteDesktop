@@ -134,6 +134,11 @@ final class TerminalSession: Identifiable {
         view.window?.makeFirstResponder(view)
     }
 
+    /// The record button: arms when idle, otherwise stops (and copies when already capturing).
+    func toggleRecording() {
+        if recording == .idle { startRecording() } else { stopRecording() }
+    }
+
     /// Manual stop: copies what was captured so far (nothing yet when still waiting for Enter).
     func stopRecording() {
         switch recording {

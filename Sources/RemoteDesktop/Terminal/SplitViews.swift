@@ -113,7 +113,14 @@ private struct PaneView: View {
                         .padding(.vertical, 1)
                         .background(.orange, in: Capsule())
                 }
+                if pane.recording != .idle {
+                    Text(pane.recording == .armed ? "● Waiting…" : "● Recording…")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
                 Spacer(minLength: 4)
+                RecordOutputButton(session: pane, iconOnly: true)
+                    .buttonStyle(.borderless)
                 Button {
                     state.openFiles(for: pane)
                 } label: {
