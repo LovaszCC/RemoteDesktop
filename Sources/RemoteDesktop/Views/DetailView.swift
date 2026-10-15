@@ -13,6 +13,7 @@ struct DetailView: View {
             FolderDetailView(folder: folder)
         case .credential(let credential):
             CredentialDetailView(credential: credential)
+                .id(credential.id)
         case .savedSplit(let saved):
             SavedSplitDetailView(saved: saved)
         case nil where state.selectedTags.count > 1:
@@ -237,9 +238,14 @@ struct FolderDetailView: View {
 struct CredentialDetailView: View {
     @Environment(AppState.self) private var state
     let credential: Credential
+    @State private var isLinking = false
+    @State private var usersQuery = ""
+    @State private var picked: Set<String> = []
 
     var body: some View {
         let users = state.library.connections(using: credential.id)
+        let shown = LibraryTree.matching(users, query: usersQuery, in: state.library)
+        let toUnlink = picked.intersection(users.map(\.id))
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 HStack(spacing: 14) {
@@ -277,27 +283,75 @@ struct CredentialDetailView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Used by (\(users.count))").font(.headline)
+                    HStack {
+                        Text("Used by (\(users.count))").font(.headline)
+                        Spacer()
+                        Button("Unlink \(toUnlink.count)", systemImage: "minus.circle") {
+                            state.setCredential(nil, connectionIds: Array(toUnlink))
+                            picked.subtract(toUnlink)
+                        }
+                        .disabled(toUnlink.isEmpty)
+                        .help("Unlink — the connection uses its own login")
+                        Button("Add connections…", systemImage: "plus") { isLinking = true }
+                    }
                     if users.isEmpty {
                         Text("No connections").foregroundStyle(.secondary)
-                    }
-                    ForEach(users) { connection in
-                        Button {
-                            state.selection = "c:\(connection.id)"
-                        } label: {
-                            HStack {
-                                ConnectionIcon(type: connection.type)
-                                Text(connection.name)
-                                Text(LibraryTree.folderPath(connection.folderId, in: state.library))
-                                    .foregroundStyle(.secondary)
-                            }
+                    } else {
+                        HStack {
+                            TextField("Search", text: $usersQuery, prompt: Text("Name, host, user or folder"))
+                                .textFieldStyle(.roundedBorder)
+                                .frame(maxWidth: 320)
+                            Toggle("Select all", isOn: allPicked(shown))
+                                .toggleStyle(.checkbox)
+                                .disabled(shown.isEmpty)
                         }
-                        .buttonStyle(.plain)
+                    }
+                    ForEach(shown) { connection in
+                        HStack {
+                            Toggle("", isOn: pickBinding(connection.id))
+                                .toggleStyle(.checkbox)
+                                .labelsHidden()
+                            Button {
+                                state.selection = "c:\(connection.id)"
+                            } label: {
+                                HStack {
+                                    ConnectionIcon(type: connection.type)
+                                    Text(connection.name)
+                                    Text(LibraryTree.folderPath(connection.folderId, in: state.library))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    if !users.isEmpty && shown.isEmpty {
+                        Text("No matches").foregroundStyle(.secondary)
                     }
                 }
             }
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .sheet(isPresented: $isLinking) {
+            LinkConnectionsSheet(credential: credential)
+        }
+    }
+
+    private func pickBinding(_ id: String) -> Binding<Bool> {
+        Binding {
+            picked.contains(id)
+        } set: { isOn in
+            if isOn { picked.insert(id) } else { picked.remove(id) }
+        }
+    }
+
+    /// Checks or clears every row currently shown by the search.
+    private func allPicked(_ shown: [Connection]) -> Binding<Bool> {
+        Binding {
+            !shown.isEmpty && shown.allSatisfy { picked.contains($0.id) }
+        } set: { isOn in
+            let ids = shown.map(\.id)
+            if isOn { picked.formUnion(ids) } else { picked.subtract(ids) }
         }
     }
 
