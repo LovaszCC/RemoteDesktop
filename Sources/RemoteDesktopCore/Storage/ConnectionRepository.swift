@@ -32,6 +32,22 @@ public struct Library: Equatable, Sendable {
         connections.filter { $0.credentialId == credentialId }
     }
 
+    /// Connection ids behind sidebar tags: selected connections plus everything inside selected folders
+    /// (subfolders included), de-duplicated in selection order. Credential rows are ignored.
+    public func connectionIds(forTags tags: [String]) -> [String] {
+        let items = SidebarDrag.items(tags)
+        var folderIds = Set(items.folderIds)
+        var pending = items.folderIds
+        while let parent = pending.popLast() {
+            for child in folders where child.parentId == parent && folderIds.insert(child.id).inserted {
+                pending.append(child.id)
+            }
+        }
+        var seen = Set<String>()
+        let inFolders = connections.filter { $0.folderId.map(folderIds.contains) ?? false }.map(\.id)
+        return (items.connectionIds + inFolders).filter { seen.insert($0).inserted }
+    }
+
     public func portForwards(for connectionId: String) -> [PortForward] {
         portForwards.filter { $0.connectionId == connectionId }
     }
@@ -124,6 +140,24 @@ public struct ConnectionRepository: Sendable {
             guard var connection = try Connection.fetchOne(db, key: id) else { throw RepositoryError.notFound }
             connection.isFavorite = isFavorite
             try connection.update(db)
+        }
+    }
+
+    /// Links the connections to a credential, or unlinks them with `nil` (their own login is kept).
+    /// Unknown ids are skipped; returns how many connections changed.
+    @discardableResult
+    public func setCredential(_ credentialId: String?, connectionIds: [String]) throws -> Int {
+        try database.writer.write { db in
+            var changed = 0
+            for id in connectionIds {
+                guard var connection = try Connection.fetchOne(db, key: id),
+                      connection.credentialId != credentialId else { continue }
+                connection.credentialId = credentialId
+                connection.updatedAt = .now
+                try connection.update(db)
+                changed += 1
+            }
+            return changed
         }
     }
 

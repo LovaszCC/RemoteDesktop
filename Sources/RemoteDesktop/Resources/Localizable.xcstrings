@@ -3742,6 +3742,46 @@
           }
         }
       }
+    },
+    "Linked credential" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Csatolt credential"
+          }
+        }
+      }
+    },
+    "Linked credential removed — %lld connections" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Csatolt credential eltávolítva — %lld kapcsolat"
+          }
+        }
+      }
+    },
+    "Linked credential set — %lld connections" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Csatolt credential beállítva — %lld kapcsolat"
+          }
+        }
+      }
+    },
+    "Apply to %lld connections" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alkalmazás %lld kapcsolatra"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

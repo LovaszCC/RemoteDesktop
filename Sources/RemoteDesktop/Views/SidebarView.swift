@@ -30,6 +30,7 @@ struct SidebarView: View {
                 Button("Save as split…") { state.promptSaveSplit(connections: connections) }
                     .disabled(!(2...SplitLayout.maxPanes).contains(connections.count))
                 MoveMenu(currentFolderId: "", excluding: nil) { state.move(tags: Array(tags), to: $0) }
+                LinkCredentialMenu(tags: Array(tags))
                 Divider()
                 Button("Delete \(tags.count) items…", role: .destructive) { state.requestDelete(tags: tags) }
             } else if let tag = tags.first {
@@ -356,5 +357,22 @@ struct SavedSplitRow: View {
                     .lineLimit(1)
             }
         }
+    }
+}
+
+/// Sets one linked credential (or the own login) on every connection of a multi-selection.
+struct LinkCredentialMenu: View {
+    @Environment(AppState.self) private var state
+    let tags: [String]
+
+    var body: some View {
+        Menu("Linked credential") {
+            Button("Own login") { state.setCredential(nil, forTags: tags) }
+            if !state.library.credentials.isEmpty { Divider() }
+            ForEach(state.library.credentials) { credential in
+                Button(credential.name) { state.setCredential(credential.id, forTags: tags) }
+            }
+        }
+        .disabled(state.library.connectionIds(forTags: tags).isEmpty)
     }
 }
