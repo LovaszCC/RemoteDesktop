@@ -45,7 +45,8 @@ final class TerminalSession: Identifiable {
         self.makeScript = makeScript
         view = BroadcastingTerminalView(frame: NSRect(x: 0, y: 0, width: 800, height: 500))
         view.font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
-        view.optionAsMetaKey = true
+        // Option types the Mac layout's characters (@, |, [ …), like Ghostty; see `TerminalOptionKeys`.
+        view.optionAsMetaKey = false
         let bridge = DelegateBridge(session: self)
         self.bridge = bridge
         view.processDelegate = bridge
@@ -145,6 +146,24 @@ final class BroadcastingTerminalView: LocalProcessTerminalView {
         }
     }
     private var clickMonitor: Any?
+    private var optionKeyMonitor: Any?
+
+    /// Option+← / → word jumps (`TerminalOptionKeys`); SwiftTerm's `keyDown` isn't open, so a local monitor
+    /// catches them while this view has the focus. Sent like typing, so a broadcasting split mirrors them.
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if let optionKeyMonitor { NSEvent.removeMonitor(optionKeyMonitor) }
+        optionKeyMonitor = nil
+        guard window != nil else { return }
+        optionKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, event.window === self.window, self.window?.firstResponder === self else { return event }
+            let flags = event.modifierFlags.intersection([.option, .command, .control, .shift])
+            guard let text = TerminalOptionKeys.sequence(keyCode: event.keyCode, option: flags.contains(.option),
+                                                         otherModifiers: flags != .option) else { return event }
+            self.send(txt: text)
+            return nil
+        }
+    }
 
     override func send(source: Terminal, data: ArraySlice<UInt8>) {
         isEmulatorReply = true
