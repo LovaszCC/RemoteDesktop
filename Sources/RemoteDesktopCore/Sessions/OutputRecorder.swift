@@ -2,6 +2,8 @@ import Foundation
 
 /// "Copy next command output": once armed, captures what the remote side prints after the user's next Enter,
 /// as plain text (escape sequences stripped, `\r\n` → `\n`), until the prompt seen at arming time comes back.
+/// The output is followed all the time (only its last line is kept while idle), so the prompt is the line the
+/// stream ended with when the recorder was armed, parsed the same way as the closing one.
 /// Fed with the raw pty stream, so it works in whatever state the shell is in (`sudo -i`, `su`, nested `ssh`,
 /// RouterOS), and neither line wrapping nor the scrollback limit affect the result.
 public struct OutputRecorder: Sendable {
@@ -41,10 +43,12 @@ public struct OutputRecorder: Sendable {
         self.maxBytes = maxBytes
     }
 
-    /// `prompt` is the text left of the cursor on its line (an empty prompt never ends the capture by itself).
-    public mutating func arm(prompt: String) {
-        reset()
-        self.prompt = prompt
+    /// Takes the line the output currently ends with as the prompt (an empty one never ends the capture by
+    /// itself, only a manual stop does).
+    public mutating func arm() {
+        prompt = String(decoding: current, as: UTF8.self)
+        finished.removeAll()
+        skippingEcho = false
         phase = .armed
     }
 
@@ -57,7 +61,10 @@ public struct OutputRecorder: Sendable {
     }
 
     public mutating func output(_ data: ArraySlice<UInt8>) -> Event {
-        guard phase == .capturing else { return .none }
+        guard phase == .capturing else {
+            track(data)
+            return .none
+        }
         for byte in data { consume(byte) }
         if finished.count + current.count > maxBytes {
             reset()
@@ -81,6 +88,18 @@ public struct OutputRecorder: Sendable {
     }
 
     // MARK: Parsing
+
+    /// Outside a capture only the last line matters (it becomes the prompt): skip to the last newline.
+    private mutating func track(_ data: ArraySlice<UInt8>) {
+        var rest = data
+        if let newline = data.lastIndex(of: 0x0A) {
+            current.removeAll()
+            escape = .none
+            pendingCarriageReturn = false
+            rest = data[(newline + 1)...]
+        }
+        for byte in rest { consume(byte) }
+    }
 
     private var isAtPrompt: Bool {
         !skippingEcho && !pendingCarriageReturn && textBeforePrompt != nil
@@ -135,7 +154,7 @@ public struct OutputRecorder: Sendable {
         case 0x0A:
             if skippingEcho {
                 skippingEcho = false
-            } else {
+            } else if phase == .capturing {
                 finished += current
                 finished.append(0x0A)
             }
@@ -154,13 +173,13 @@ public struct OutputRecorder: Sendable {
         if !current.isEmpty { current.removeLast() }
     }
 
+    /// Back to idle. The current line stays: it is the prompt the next `arm()` takes.
     private mutating func reset() {
         phase = .idle
         escape = .none
         pendingCarriageReturn = false
         skippingEcho = false
         finished.removeAll()
-        current.removeAll()
     }
 
     private static func trimmedRight(_ text: String) -> String {

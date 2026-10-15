@@ -705,12 +705,14 @@ final class AppState {
     /// Embedded SSH terminal for a resolved connection (not started).
     private func makeTerminalSession(for connection: Connection) -> TerminalSession {
         let snapshot = connection
-        return TerminalSession(connection: connection) { [weak self] in
+        let session = TerminalSession(connection: connection) { [weak self] in
             guard let self else { throw VaultError.notInitialized }
             // Re-resolve on every (re)connect so edits to the entry or credential apply.
             let current = self.library.connections.first { $0.id == snapshot.id }.map(self.library.resolved) ?? snapshot
             return try self.sshScript(for: current).write()
         }
+        session.onRecordingResult = { [weak self] result in self?.recordingEnded(result) }
+        return session
     }
 
     // MARK: Split view
@@ -1161,6 +1163,32 @@ final class AppState {
 
     func clearActiveTerminal() {
         activeTerminal?.clear()
+    }
+
+    // MARK: Copy next command output
+
+    var canRecordOutput: Bool { activeTerminal?.isRunning == true }
+
+    /// Arms the active terminal's recorder; while armed or recording it stops and copies instead.
+    func toggleRecordingInActiveTerminal() {
+        guard let terminal = activeTerminal else { return }
+        if terminal.recording == .idle { terminal.startRecording() } else { terminal.stopRecording() }
+    }
+
+    private func recordingEnded(_ result: TerminalSession.RecordingResult) {
+        switch result {
+        case .copied(let text):
+            Clipboard.copy(text, clearAfter: nil, concealed: false)
+            let lines = text.split(separator: "\n", omittingEmptySubsequences: false).count
+            let size = ByteCountFormatter.string(fromByteCount: Int64(text.utf8.count), countStyle: .file)
+            showToast(String(localized: "Copied \(lines) lines (\(size))"))
+        case .empty:
+            showToast(String(localized: "The command printed nothing"))
+        case .alternateScreen:
+            showToast(String(localized: "Interactive program – recording stopped. Try cat or --no-pager."))
+        case .tooLarge:
+            showToast(String(localized: "Output larger than 10 MB – recording stopped"))
+        }
     }
 
     /// Files for the active tab's terminal (its focused pane in a split), starting in the shell's directory.

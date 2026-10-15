@@ -3862,6 +3862,46 @@
           }
         }
       }
+    },
+    "Copied %lld lines (%@)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vágólapra másolva: %lld sor (%@)"
+          }
+        }
+      }
+    },
+    "The command printed nothing" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A parancs nem írt ki semmit"
+          }
+        }
+      }
+    },
+    "Interactive program – recording stopped. Try cat or --no-pager." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interaktív program – a felvétel leállt. Próbáld cat-tel vagy --no-pager kapcsolóval."
+          }
+        }
+      }
+    },
+    "Output larger than 10 MB – recording stopped" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A kimenet nagyobb 10 MB-nál – a felvétel leállt"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

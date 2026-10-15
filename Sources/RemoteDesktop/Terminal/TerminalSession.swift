@@ -11,6 +11,14 @@ final class TerminalSession: Identifiable {
         case exited(Int32?)
     }
 
+    /// How a "copy next command output" recording ended.
+    enum RecordingResult: Equatable {
+        case copied(String)
+        case empty
+        case alternateScreen
+        case tooLarge
+    }
+
     let id = UUID().uuidString
     let connectionId: String
     private(set) var title: String
@@ -19,6 +27,8 @@ final class TerminalSession: Identifiable {
     /// Last `user@host…` title the remote shell set, e.g. `root@web: ~`. Program titles (`htop`) don't replace
     /// it, so a root shell stays recognized while a program runs in it.
     private(set) var terminalTitle: String?
+    /// "Copy next command output" state (see `OutputRecorder`).
+    private(set) var recording: OutputRecorder.Phase = .idle
 
     @ObservationIgnored let view: BroadcastingTerminalView
     /// Writes a fresh launch script (decrypting secrets again) for each (re)start.
@@ -31,12 +41,16 @@ final class TerminalSession: Identifiable {
     @ObservationIgnored var onFocus: (() -> Void)? {
         didSet { view.onClick = onFocus }
     }
-    @ObservationIgnored var onUserInput: ((TerminalSession, ArraySlice<UInt8>) -> Void)? {
-        didSet {
-            view.onUserInput = onUserInput.map { handler in { [weak self] data in if let self { handler(self, data) } } }
-        }
-    }
+    @ObservationIgnored var onUserInput: ((TerminalSession, ArraySlice<UInt8>) -> Void)?
+    /// Called when a recording ends with a result (not when it is cancelled).
+    @ObservationIgnored var onRecordingResult: ((RecordingResult) -> Void)?
     @ObservationIgnored private var bridge: DelegateBridge?
+    @ObservationIgnored private var recorder = OutputRecorder()
+    /// Pending "the prompt is back" check; replaced by every new output chunk.
+    @ObservationIgnored private var promptCheck: Task<Void, Never>?
+
+    /// Quiet time after the prompt reappears before the capture counts as finished.
+    static let promptSettleTime: Duration = .milliseconds(150)
 
     init(connection: Connection, makeScript: @escaping () throws -> SSHLaunchScript.Files) {
         connectionId = connection.id
@@ -50,6 +64,17 @@ final class TerminalSession: Identifiable {
         let bridge = DelegateBridge(session: self)
         self.bridge = bridge
         view.processDelegate = bridge
+        view.onUserInput = { [weak self] data in
+            guard let self else { return }
+            self.recordInput(data)
+            self.onUserInput?(self, data)
+        }
+        view.onOutput = { [weak self] data in self?.recordOutput(data) }
+        view.onEscape = { [weak self] in
+            guard let self, self.recording != .idle else { return false }
+            self.cancelRecording()
+            return true
+        }
     }
 
     var isRunning: Bool { status == .running }
@@ -99,7 +124,68 @@ final class TerminalSession: Identifiable {
         if isRunning { view.terminate() }
     }
 
+    // MARK: Copy next command output
+
+    /// Arms the recorder: the output of the next command the user enters is copied when its prompt comes back.
+    func startRecording() {
+        guard isRunning, recording == .idle else { return }
+        recorder.arm()
+        recording = recorder.phase
+        view.window?.makeFirstResponder(view)
+    }
+
+    /// Manual stop: copies what was captured so far (nothing yet when still waiting for Enter).
+    func stopRecording() {
+        switch recording {
+        case .idle: return
+        case .armed: cancelRecording()
+        case .capturing: finishRecording()
+        }
+    }
+
+    func cancelRecording() {
+        promptCheck?.cancel()
+        recorder.cancel()
+        recording = recorder.phase
+    }
+
+    private func recordInput(_ data: ArraySlice<UInt8>) {
+        if recorder.userInput(data) { recording = recorder.phase }
+    }
+
+    private func recordOutput(_ data: ArraySlice<UInt8>) {
+        let event = recorder.output(data)
+        guard recording == .capturing else { return }
+        promptCheck?.cancel()
+        if view.getTerminal().isCurrentBufferAlternate {
+            cancelRecording()
+            onRecordingResult?(.alternateScreen)
+            return
+        }
+        switch event {
+        case .none:
+            break
+        case .tooLarge:
+            cancelRecording()
+            onRecordingResult?(.tooLarge)
+        case .atPrompt:
+            promptCheck = Task { [weak self] in
+                try? await Task.sleep(for: Self.promptSettleTime)
+                guard !Task.isCancelled else { return }
+                self?.finishRecording()
+            }
+        }
+    }
+
+    private func finishRecording() {
+        promptCheck?.cancel()
+        let text = recorder.finish()
+        recording = recorder.phase
+        onRecordingResult?(text.isEmpty ? .empty : .copied(text))
+    }
+
     fileprivate func processTerminated(exitCode reported: Int32?) {
+        cancelRecording()
         let exitCode = SessionTabs.exitCode(fromReported: reported)
         status = .exited(exitCode)
         onExit?(self, exitCode)
@@ -138,6 +224,10 @@ final class TerminalSession: Identifiable {
 /// program (cursor position reports, device attributes, mouse events).
 final class BroadcastingTerminalView: LocalProcessTerminalView {
     var onUserInput: ((ArraySlice<UInt8>) -> Void)?
+    /// Everything the process printed, after the terminal has shown it.
+    var onOutput: ((ArraySlice<UInt8>) -> Void)?
+    /// Esc pressed while this view has the focus; returning true swallows the key.
+    var onEscape: (() -> Bool)?
     private var isEmulatorReply = false
 
     /// Mouse-down inside the view. (`mouseDown` / `becomeFirstResponder` aren't open in SwiftTerm, so a local
@@ -159,6 +249,7 @@ final class BroadcastingTerminalView: LocalProcessTerminalView {
 
     /// Option+← / → word jumps (`TerminalOptionKeys`); SwiftTerm's `keyDown` isn't open, so a local monitor
     /// catches them while this view has the focus. Sent like typing, so a broadcasting split mirrors them.
+    /// Esc goes to `onEscape` first (cancels a recording).
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         if let optionKeyMonitor { NSEvent.removeMonitor(optionKeyMonitor) }
@@ -167,11 +258,17 @@ final class BroadcastingTerminalView: LocalProcessTerminalView {
         optionKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, event.window === self.window, self.window?.firstResponder === self else { return event }
             let flags = event.modifierFlags.intersection([.option, .command, .control, .shift])
+            if event.keyCode == 53, flags.isEmpty, self.onEscape?() == true { return nil }
             guard let text = TerminalOptionKeys.sequence(keyCode: event.keyCode, option: flags.contains(.option),
                                                          otherModifiers: flags != .option) else { return event }
             self.send(txt: text)
             return nil
         }
+    }
+
+    override func dataReceived(slice: ArraySlice<UInt8>) {
+        super.dataReceived(slice: slice)
+        onOutput?(slice)
     }
 
     override func send(source: Terminal, data: ArraySlice<UInt8>) {
