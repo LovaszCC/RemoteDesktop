@@ -70,4 +70,16 @@ import Testing
         #expect(LibraryTree.linkCandidates(library, for: credential.id, query: "SRV").map(\.id) == [server.id])
         #expect(LibraryTree.linkCandidates(library, for: credential.id, query: "linked").isEmpty)
     }
+
+    @Test func matchingFiltersAndSortsByName() throws {
+        let folder = try repo.save(Folder(name: "Szeged"))
+        let b = try repo.save(Connection(folderId: folder.id, type: .ssh, name: "b-host", host: "10.1.1.1"))
+        let a = try repo.save(Connection(type: .ssh, name: "A-host", host: "10.2.2.2", username: "root"))
+        let library = try repo.library()
+
+        #expect(LibraryTree.matching([b, a], query: "", in: library).map(\.id) == [a.id, b.id])
+        #expect(LibraryTree.matching([b, a], query: "szeged", in: library).map(\.id) == [b.id])
+        #expect(LibraryTree.matching([b, a], query: "ROOT 10.2", in: library).map(\.id) == [a.id])
+        #expect(LibraryTree.matching([b, a], query: "nope", in: library).isEmpty)
+    }
 }

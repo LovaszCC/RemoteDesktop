@@ -3833,22 +3833,32 @@
         }
       }
     },
-    "Unlink" : {
-      "localizations" : {
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Leválasztás"
-          }
-        }
-      }
-    },
     "Unlink — the connection uses its own login" : {
       "localizations" : {
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Leválasztás — a kapcsolat a saját loginját használja"
+          }
+        }
+      }
+    },
+    "No matches" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nincs találat"
+          }
+        }
+      }
+    },
+    "Unlink %lld" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leválasztás (%lld)"
           }
         }
       }
