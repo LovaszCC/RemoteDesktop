@@ -85,6 +85,15 @@ final class TerminalSession: Identifiable {
         view.process.send(data: data)
     }
 
+    /// Wipes screen and scrollback and has the shell repaint its prompt (see `TerminalClear`). Goes only to
+    /// this pane's process, never to broadcast peers.
+    func clear() {
+        let action = TerminalClear.action(isAlternateScreen: view.getTerminal().isCurrentBufferAlternate, isRunning: isRunning)
+        guard action != .none else { return }
+        view.feed(text: TerminalClear.localSequence)
+        if action == .localAndRedraw { write(TerminalClear.redrawPrompt[...]) }
+    }
+
     func terminate() {
         if isRunning { view.terminate() }
     }

@@ -76,6 +76,9 @@ struct RemoteDesktopApp: App {
                 Button("Broadcast input to all panes") { state.toggleBroadcastInActiveSplit() }
                     .keyboardShortcut(shortcuts.keyboardShortcut(for: .broadcastAll))
                     .disabled(state.activeSplit == nil)
+                Button("Clear terminal") { state.clearActiveTerminal() }
+                    .keyboardShortcut(shortcuts.keyboardShortcut(for: .clearTerminal))
+                    .disabled(state.activeTerminal == nil)
                 // Also handled by AppDelegate's key monitor, so the terminal and the window's Close don't take them.
                 Button("Close session") { state.closeActiveSession() }
                     .keyboardShortcut(shortcuts.keyboardShortcut(for: .closeTab))
@@ -117,8 +120,8 @@ struct RemoteDesktopApp: App {
     }
 }
 
-/// Quit confirmation for running sessions, and close / next / previous tab shortcuts while a session tab is
-/// active (the window's own Close item and the terminal view would otherwise take them).
+/// Quit confirmation for running sessions, and close / next / previous tab / clear terminal shortcuts while a
+/// session tab is active (the window's own Close item and the terminal view would otherwise take them).
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private weak var state: AppState?
@@ -153,6 +156,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             state.cycleTabs(forward: true)
         case shortcuts.shortcut(for: .previousTab):
             state.cycleTabs(forward: false)
+        case shortcuts.shortcut(for: .clearTerminal) where state.activeTerminal != nil:
+            state.clearActiveTerminal()
         default:
             return false
         }

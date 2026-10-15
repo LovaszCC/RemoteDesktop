@@ -214,6 +214,7 @@ command or by macOS is refused).
 | Type clipboard into RDP session | <kbd>⇧⌘V</kbd> |
 | Split terminal (same server in a new pane) | <kbd>⌘D</kbd> |
 | Broadcast input to all panes of a split view | <kbd>⌥⌘I</kbd> |
+| Clear the active terminal (screen + scrollback, prompt redrawn) | <kbd>⌘K</kbd> |
 | Files (SCP) for the active SSH tab or selected entry | <kbd>⇧⌘F</kbd> |
 
 ---

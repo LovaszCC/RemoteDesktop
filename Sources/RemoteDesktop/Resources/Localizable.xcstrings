@@ -373,6 +373,16 @@
         }
       }
     },
+    "Clear terminal" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminál törlése"
+          }
+        }
+      }
+    },
     "Close session" : {
       "localizations" : {
         "hu" : {

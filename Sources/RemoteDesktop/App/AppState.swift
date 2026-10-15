@@ -1120,14 +1120,22 @@ final class AppState {
         checkHostKey(of: connection, then: .files(FileBrowserTarget(connectionId: connection.id, startPath: startPath)))
     }
 
-    /// Files for the active tab's terminal (its focused pane in a split), starting in the shell's directory.
-    func openFilesForActiveTab() {
-        let terminal: TerminalSession? = switch activeSession {
+    /// The active tab's terminal: the terminal tab itself, or the focused pane of a split.
+    var activeTerminal: TerminalSession? {
+        switch activeSession {
         case .terminal(let session): session
         case .split(let split): split.panes.first { $0.id == split.focusedPaneId } ?? split.panes.first
         default: nil
         }
-        if let terminal { openFiles(for: terminal) } else if let connection = selectedSSHConnections.first, selectedTags.count == 1 {
+    }
+
+    func clearActiveTerminal() {
+        activeTerminal?.clear()
+    }
+
+    /// Files for the active tab's terminal (its focused pane in a split), starting in the shell's directory.
+    func openFilesForActiveTab() {
+        if let terminal = activeTerminal { openFiles(for: terminal) } else if let connection = selectedSSHConnections.first, selectedTags.count == 1 {
             openFiles(connection)
         }
     }
