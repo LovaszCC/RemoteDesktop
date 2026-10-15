@@ -31,7 +31,7 @@ struct MainView: View {
 
                 Menu {
                     Button("Import from RDM…") { state.isImporting = true }
-                    Button("Import from WinBox…") { state.isImportingWinbox = true }
+                    Button("Import from WinBox…") { state.chooseWinboxFile() }
                 } label: {
                     Label("Import", systemImage: "square.and.arrow.down")
                 }
@@ -135,25 +135,13 @@ private struct MainDialogs: ViewModifier {
     }
 }
 
-/// File pickers of the imports.
+/// File picker of the RDM import (WinBox uses an `NSOpenPanel`, see `AppState.chooseWinboxFile`).
 private struct MainImporters: ViewModifier {
     @Environment(AppState.self) private var state
 
     func body(content: Content) -> some View {
         @Bindable var state = state
         content
-            // A second file importer must sit on another view: one view shows only its last one.
-            .background {
-                Color.clear.fileImporter(
-                    isPresented: $state.isImportingWinbox,
-                    allowedContentTypes: [UTType(filenameExtension: "cdb") ?? .data, .data]
-                ) { result in
-                    switch result {
-                    case .success(let url): state.loadWinbox(from: url)
-                    case .failure(let error): state.errorMessage = error.localizedDescription
-                    }
-                }
-            }
             .fileImporter(
                 isPresented: $state.isImporting,
                 allowedContentTypes: [UTType(filenameExtension: "rdm") ?? .xml, .xml]
