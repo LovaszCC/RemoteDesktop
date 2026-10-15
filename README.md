@@ -217,6 +217,14 @@ command or by macOS is refused).
 | Clear the active terminal (screen + scrollback, prompt redrawn) | <kbd>⌘K</kbd> |
 | Files (SCP) for the active SSH tab or selected entry | <kbd>⇧⌘F</kbd> |
 
+**Inside sessions** the Mac keyboard behaves like on the Mac:
+
+| Key | RDP | SSH terminal |
+|---|---|---|
+| <kbd>⌥</kbd> + key | Types the Mac character (`@ \| [ ] { } €` …, e.g. right ⌥Q → `@` on the Hungarian layout) whatever the server's layout; with keys that type nothing (Tab, F4, arrows) it is Alt | Types the Mac character; <kbd>⌥←</kbd> / <kbd>⌥→</kbd> jump words |
+| <kbd>⌘</kbd> + key | Ctrl + key (<kbd>⌘C</kbd> / <kbd>⌘V</kbd> copy and paste in Windows); app shortcuts such as <kbd>⌘W</kbd> stay with the app | — |
+| <kbd>⌘</kbd> alone | Windows key (Start menu) | — |
+
 ---
 
 ## 🔐 Security
