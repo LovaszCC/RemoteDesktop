@@ -99,6 +99,7 @@ static BOOL is_typable(NSString *characters)
 	BOOL _commandHeld;
 	BOOL _commandUsed;
 	BOOL _leftOptionHeld;
+	BOOL _rightOptionHeld;
 	BOOL _deadKeyPending;
 }
 
@@ -151,15 +152,15 @@ static BOOL side_pressed(NSUInteger flags, NSUInteger deviceBit, NSUInteger allD
 	      into:actions];
 	[self set:SC_LCONTROL down:(flags & NSEventModifierFlagControl) != 0 into:actions];
 
+	/* Either Option is held back: it types the Mac character, or becomes Alt with a key that types none.
+	 * A dead key's pending state survives releasing Option (⌥E, release, E → é). */
 	const NSUInteger optionBits = DEV_LALT | DEV_RALT;
-	[self set:SC_RMENU
-	      down:side_pressed(flags, DEV_RALT, optionBits, NSEventModifierFlagOption, NO)
-	      into:actions];
-	const BOOL leftOption = side_pressed(flags, DEV_LALT, optionBits, NSEventModifierFlagOption, YES);
-	/* A dead key's pending state survives releasing Option (⌥E, release, E → é). */
-	if (!leftOption)
+	_leftOptionHeld = side_pressed(flags, DEV_LALT, optionBits, NSEventModifierFlagOption, YES);
+	_rightOptionHeld = side_pressed(flags, DEV_RALT, optionBits, NSEventModifierFlagOption, NO);
+	if (!_leftOptionHeld)
 		[self set:SC_LMENU down:NO into:actions];
-	_leftOptionHeld = leftOption;
+	if (!_rightOptionHeld)
+		[self set:SC_RMENU down:NO into:actions];
 
 	const BOOL command = (flags & NSEventModifierFlagCommand) != 0;
 	if (command && !_commandHeld)
@@ -200,7 +201,7 @@ static BOOL side_pressed(NSUInteger flags, NSUInteger deviceBit, NSUInteger allD
 	const BOOL control = (_flags & NSEventModifierFlagControl) != 0;
 	if (_commandHeld)
 		_commandUsed = YES;
-	else if (_leftOptionHeld && !control)
+	else if ((_leftOptionHeld || _rightOptionHeld) && !control)
 	{
 		if (characters.length == 0)
 		{
@@ -227,6 +228,8 @@ static BOOL side_pressed(NSUInteger flags, NSUInteger deviceBit, NSUInteger allD
 		[self set:SC_RCONTROL down:YES into:actions];
 	if (_leftOptionHeld)
 		[self set:SC_LMENU down:YES into:actions];
+	if (_rightOptionHeld)
+		[self set:SC_RMENU down:YES into:actions];
 	[actions addObject:[RDPKeyAction scancode:scancode down:YES]];
 	if (_commandHeld)
 	{
@@ -264,6 +267,7 @@ static BOOL side_pressed(NSUInteger flags, NSUInteger deviceBit, NSUInteger allD
 	_commandHeld = NO;
 	_commandUsed = NO;
 	_leftOptionHeld = NO;
+	_rightOptionHeld = NO;
 	_deadKeyPending = NO;
 	return actions;
 }

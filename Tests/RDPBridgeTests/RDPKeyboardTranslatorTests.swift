@@ -60,10 +60,20 @@ import Testing
         #expect(t.keyDown(118, scancode: f4, characters: "\u{F707}") == [Self.down(Self.lMenu), Self.down(f4)])
     }
 
-    @Test func rightOptionIsAlt() {
+    @Test func rightOptionTypesTheMacCharacterToo() {
         let t = RDPKeyboardTranslator()
-        #expect(t.modifiersChanged(Self.rightOption) == [Self.down(Self.rMenu)])
-        #expect(t.keyDown(9, scancode: Self.keyV, characters: "@") == [Self.down(Self.keyV)])
+        let keyQ: UInt32 = 0x10
+        #expect(t.modifiersChanged(Self.rightOption).isEmpty)
+        #expect(t.keyDown(12, scancode: keyQ, characters: "@") == Self.unicode("@"))
+        #expect(t.keyUp(12, scancode: keyQ).isEmpty)
+        #expect(t.modifiersChanged(0).isEmpty)
+    }
+
+    @Test func rightOptionWithNonCharacterKeyIsRightAlt() {
+        let t = RDPKeyboardTranslator()
+        _ = t.modifiersChanged(Self.rightOption)
+        #expect(t.keyDown(48, scancode: Self.tab, characters: "\t") == [Self.down(Self.rMenu), Self.down(Self.tab)])
+        _ = t.keyUp(48, scancode: Self.tab)
         #expect(t.modifiersChanged(0) == [Self.up(Self.rMenu)])
     }
 
@@ -119,8 +129,8 @@ import Testing
     @Test func releaseAllLetsGoOfEverythingHeld() {
         let t = RDPKeyboardTranslator()
         _ = t.modifiersChanged(Self.leftShift | Self.rightOption)
-        _ = t.keyDown(8, scancode: Self.keyC, characters: "C")
-        #expect(t.releaseAll() == [Self.up(Self.keyC), Self.up(Self.rMenu), Self.up(Self.lShift)])
+        _ = t.keyDown(48, scancode: Self.tab, characters: "\t")
+        #expect(t.releaseAll() == [Self.up(Self.tab), Self.up(Self.rMenu), Self.up(Self.lShift)])
         #expect(t.releaseAll().isEmpty)
     }
 }

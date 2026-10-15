@@ -220,7 +220,7 @@ command or by macOS is refused).
 
 | Key | RDP | SSH terminal |
 |---|---|---|
-| <kbd>⌥</kbd> + key | Left ⌥ types the Mac character (`@ \| [ ] { } €` …) whatever the server's layout; with keys that type nothing (Tab, F4, arrows) it is Alt. Right ⌥ is Alt / AltGr | Types the Mac character; <kbd>⌥←</kbd> / <kbd>⌥→</kbd> jump words |
+| <kbd>⌥</kbd> + key | Types the Mac character (`@ \| [ ] { } €` …, e.g. right ⌥Q → `@` on the Hungarian layout) whatever the server's layout; with keys that type nothing (Tab, F4, arrows) it is Alt | Types the Mac character; <kbd>⌥←</kbd> / <kbd>⌥→</kbd> jump words |
 | <kbd>⌘</kbd> + key | Ctrl + key (<kbd>⌘C</kbd> / <kbd>⌘V</kbd> copy and paste in Windows); app shortcuts such as <kbd>⌘W</kbd> stay with the app | — |
 | <kbd>⌘</kbd> alone | Windows key (Start menu) | — |
 

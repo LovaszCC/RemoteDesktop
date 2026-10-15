@@ -20,9 +20,9 @@ typedef NS_ENUM(NSInteger, RDPKeyActionKind) {
 @end
 
 /// Maps Mac keyboard input to RDP keyboard events the way a Mac user expects:
-/// - left Option + a key that types a character on the Mac sends that character (Unicode), so the Mac
-///   layout's special characters arrive whatever the server's layout is; with other keys it is Alt;
-/// - right Option is Alt (AltGr on layouts that have it);
+/// - Option (either side) + a key that types a character on the Mac sends that character (Unicode), so the
+///   Mac layout's special characters arrive whatever the server's layout is (right ⌥Q → @ on the Hungarian
+///   layout); with a key that types nothing (Tab, F4, arrows) it is Alt of the same side;
 /// - ⌘ + key is Ctrl + key (⌘C copies), ⌘ tapped alone is the Windows key.
 /// Pure state machine: the view feeds it events and sends the returned actions.
 @interface RDPKeyboardTranslator : NSObject
