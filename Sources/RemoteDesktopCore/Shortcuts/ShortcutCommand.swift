@@ -3,7 +3,7 @@ import Foundation
 /// App commands whose keyboard shortcut can be changed in Settings.
 public enum ShortcutCommand: String, CaseIterable, Codable, Sendable {
     case newRDP, newSSH, newWeb, newMikrotik, newFolder, newCredential, importRDM, importWinbox
-    case connect, typeClipboard, splitTerminal, broadcastAll, clearTerminal, openFiles, closeTab, nextTab, previousTab, reconnect, lock
+    case connect, typeClipboard, splitTerminal, broadcastAll, clearTerminal, recordOutput, openFiles, closeTab, nextTab, previousTab, reconnect, lock
 
     /// Commands of the File menu (the rest belong to the Connection menu / sessions).
     public static let fileMenu: [ShortcutCommand] = [.newRDP, .newSSH, .newWeb, .newMikrotik, .newFolder, .newCredential, .importRDM, .importWinbox]
@@ -24,6 +24,7 @@ public enum ShortcutCommand: String, CaseIterable, Codable, Sendable {
         case .splitTerminal: String(localized: "Split terminal", bundle: .core)
         case .broadcastAll: String(localized: "Broadcast input to all panes", bundle: .core)
         case .clearTerminal: String(localized: "Clear terminal", bundle: .core)
+        case .recordOutput: String(localized: "Copy next command output", bundle: .core)
         case .openFiles: String(localized: "Files (SCP)…", bundle: .core)
         case .closeTab: String(localized: "Close session", bundle: .core)
         case .nextTab: String(localized: "Next tab", bundle: .core)
@@ -48,6 +49,7 @@ public enum ShortcutCommand: String, CaseIterable, Codable, Sendable {
         case .splitTerminal: KeyShortcut("d")
         case .broadcastAll: KeyShortcut("i", [.command, .option])
         case .clearTerminal: KeyShortcut("k")
+        case .recordOutput: KeyShortcut("c", [.command, .option])
         case .openFiles: KeyShortcut("f", [.command, .shift])
         case .closeTab: KeyShortcut("w")
         case .nextTab: KeyShortcut("tab", .control)

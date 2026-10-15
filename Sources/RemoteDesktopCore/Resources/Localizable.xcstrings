@@ -500,6 +500,16 @@
           }
         }
       }
+    },
+    "Copy next command output" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Következő parancs kimenetének másolása"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
