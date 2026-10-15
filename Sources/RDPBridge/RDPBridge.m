@@ -1,4 +1,5 @@
 #import "RDPBridge.h"
+#import "RDPInputView.h"
 
 #include <freerdp/freerdp.h>
 #include <freerdp/client.h>
@@ -153,7 +154,7 @@ static BOOL bridge_client_new(freerdp *instance, rdpContext *context)
 {
 	RDPConnectionConfiguration *_configuration;
 	rdpContext *_context;
-	MRDPView *_view;
+	RDPInputView *_view;
 	DispClientContext *_disp; /* written on the connection thread, used on main */
 	BOOL _connected;
 	BOOL _stopping;
@@ -173,7 +174,7 @@ static BOOL bridge_client_new(freerdp *instance, rdpContext *context)
 	if (self)
 	{
 		_configuration = configuration;
-		_view = [[MRDPView alloc]
+		_view = [[RDPInputView alloc]
 		    initWithFrame:NSMakeRect(0, 0, configuration.width, configuration.height)];
 		_view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
 		_typingQueue = dispatch_queue_create("RDPSessionBridge.typing", DISPATCH_QUEUE_SERIAL);

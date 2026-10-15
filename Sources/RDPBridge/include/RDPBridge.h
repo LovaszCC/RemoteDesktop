@@ -1,5 +1,7 @@
 #import <AppKit/AppKit.h>
 
+#import "RDPKeyboardTranslator.h"
+
 NS_ASSUME_NONNULL_BEGIN
 
 /// Answer to a certificate prompt; values match FreeRDP's VerifyCertificateEx contract.
