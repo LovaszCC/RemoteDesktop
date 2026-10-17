@@ -16,7 +16,13 @@
 ![macOS](https://img.shields.io/badge/macOS-15%2B-000000?style=for-the-badge&logo=apple&logoColor=white)
 ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-only-555555?style=for-the-badge&logo=apple&logoColor=white)
 ![Swift](https://img.shields.io/badge/Swift-native-F05138?style=for-the-badge&logo=swift&logoColor=white)
-
+<br>
+<br>
+<br>
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/R7Z128YA8L)
+<br>
+<br>
+<br>
 **[⬇️ Download](https://github.com/LovaszCC/RemoteDesktop/releases/latest)** ·
 **[✨ Features](#-features)** ·
 **[🔐 Security](#-security)** ·
