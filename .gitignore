@@ -1,0 +1,33 @@
+.DS_Store
+
+# Rust / Node build output
+target/
+node_modules/
+app/ui/dist/
+# Local release bundles (scripts/build-*.sh)
+dist/
+# FreeRDP builds (scripts/build-freerdp.sh)
+third_party/freerdp/build/
+
+# Throwaway spikes
+spikes/
+
+# Docs and planning notes stay local
+docs/
+
+# User data: WinBox address books and databases contain secrets / real hosts.
+# Only the made-up fixtures in tests/fixtures/ are committed.
+*.cdb
+*.sqlite
+*.sqlite.lock
+!tests/fixtures/*.sqlite
+
+# The Swift reference app stays local
+reference/
+
+# Tauri generated schemas
+app/src-tauri/gen/
+
+# Local secrets
+.env
+.env.*

@@ -1,0 +1,372 @@
+# Builds, signs (updater only), smoke tests and publishes RemoteDesktop.
+#
+#   push tag v1.2.3              → tests, bundles for 3 OSes, smoke tests, then a DRAFT GitHub release
+#                                  "v1.2.3" with the bundles, their .sig files and latest.json
+#   Run workflow (dry_run: true) → tests, bundles, smoke tests; bundles uploaded as workflow artifacts,
+#                                  no release (the default; works on any branch)
+#   push to beta                 → tests, bundles, smoke tests, then the rolling "beta-latest" PRE-release
+#                                  is replaced with these bundles (no latest.json: the updater ignores it)
+#
+# Runs on GitHub-hosted runners in the public LovaszCC/RemoteDesktop repository, where the Rust app lives on
+# the orphan `beta` branch next to the Swift app's `main`. In a private copy every job is skipped, so it
+# never spends paid minutes.
+#
+# Updater signatures need the TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD secrets. A
+# dry run without them skips the updater artifacts with a notice; a real release fails fast instead.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+    branches: [beta]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Dry run (build and smoke test only, no release). A real release needs a v* tag ref.
+        type: boolean
+        default: true
+      skip_tests:
+        description: Skip the CI test stage (dry runs only; for iterating on packaging).
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+
+jobs:
+  # Version, mode and the fail-fast checks of a real release.
+  prepare:
+    name: prepare
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      version: ${{ steps.mode.outputs.version }}
+      dry_run: ${{ steps.mode.outputs.dry_run }}
+      beta: ${{ steps.mode.outputs.beta }}
+      sign: ${{ steps.mode.outputs.sign }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version and mode
+        id: mode
+        env:
+          EVENT: ${{ github.event_name }}
+          DRY_RUN_INPUT: ${{ inputs.dry_run }}
+          HAS_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
+          [ -n "$version" ] || { echo "::error::no [workspace.package] version in Cargo.toml"; exit 1; }
+          # Real only for a pushed tag or an explicit dispatch with dry_run unchecked; everything else is dry.
+          if { [ "$EVENT" = push ] && [ "$GITHUB_REF_TYPE" = tag ]; } \
+            || { [ "$EVENT" = workflow_dispatch ] && [ "$DRY_RUN_INPUT" = false ]; }; then
+            dry_run=false
+          else
+            dry_run=true
+          fi
+
+          if [ "$dry_run" = false ]; then
+            problems=0
+            if [ "$GITHUB_REF_TYPE" != tag ]; then
+              echo "::error::A real release runs on a v* tag (push the tag, or dispatch the workflow on the tag)."
+              problems=1
+            elif [ "$GITHUB_REF_NAME" != "v$version" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME doesn't match the workspace version $version (Cargo.toml)."
+              problems=1
+            fi
+            if [ "$HAS_KEY" != true ]; then
+              echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set: the updater artifacts can't be signed. Set it with gh secret set."
+              problems=1
+            fi
+            if grep -q REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY app/src-tauri/tauri.conf.json; then
+              echo "::error::app/src-tauri/tauri.conf.json still has the placeholder updater pubkey; this release could never update itself."
+              problems=1
+            fi
+            [ "$problems" = 0 ] || exit 1
+          elif [ "$HAS_KEY" != true ]; then
+            echo "::notice title=Updater artifacts skipped::TAURI_SIGNING_PRIVATE_KEY is not set, so this dry run builds the bundles without updater signatures (.sig) and latest.json."
+          fi
+
+          # A push to beta builds like a dry run, then replaces the beta pre-release.
+          beta=false
+          if [ "$EVENT" = push ] && [ "$GITHUB_REF_TYPE" = branch ]; then beta=true; fi
+
+          sign=$HAS_KEY
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "dry_run=$dry_run" >> "$GITHUB_OUTPUT"
+          echo "beta=$beta" >> "$GITHUB_OUTPUT"
+          echo "sign=$sign" >> "$GITHUB_OUTPUT"
+          {
+            echo "### RemoteDesktop $version"
+            echo "- dry run: $dry_run"
+            echo "- beta pre-release: $beta"
+            echo "- updater signatures: $sign"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+
+      - name: latest.json generator tests
+        run: node --test scripts/make-latest-json.test.mjs
+
+  # The CI workflow: lint, unit tests and compile checks on all three OSes.
+  test:
+    name: test
+    needs: prepare
+    if: needs.prepare.outputs.dry_run == 'false' || inputs.skip_tests != true
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: build ${{ matrix.name }}
+    needs: [prepare, test]
+    # Runs after the tests, or without them when a dry run skipped them.
+    if: >-
+      !cancelled() && needs.prepare.result == 'success'
+      && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macos-aarch64
+            os: macos-15
+            target: aarch64-apple-darwin
+          - name: windows-x86_64
+            os: windows-2022
+            target: x86_64-pc-windows-msvc
+          - name: linux-x86_64
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      SMOKE_LABEL: ${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        if: runner.os == 'Linux'
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+
+      # Ubuntu 22.04 is the glibc baseline (2.35) of the Linux bundles.
+      - name: Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
+            libayatana-appindicator3-dev librsvg2-dev cmake ninja-build file xvfb xauth
+
+      - name: Rust toolchain
+        run: scripts/ci-rustup.sh ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.target }}
+
+      # FreeRDP + OpenSSL are built from pinned sources once per target (crates/rd-freerdp/build.rs) and
+      # cached; Windows takes CMake/Ninja from Visual Studio and Perl from Strawberry Perl on the image.
+      - name: FreeRDP build tools (macOS)
+        if: runner.os == 'macOS'
+        run: for tool in cmake ninja; do command -v $tool >/dev/null || brew install $tool; done
+
+      - uses: actions/cache@v4
+        with:
+          path: third_party/freerdp/build
+          key: freerdp-${{ matrix.target }}-${{ hashFiles('scripts/build-freerdp.sh', 'scripts/build-freerdp.ps1', 'scripts/freerdp-cmake-options.txt', 'crates/rd-freerdp/build.rs') }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: app/ui/pnpm-lock.yaml
+
+      - name: Install UI dependencies
+        run: pnpm -C app/ui install --frozen-lockfile
+
+      # Signing hooks, intentionally empty (decided: no paid signing for now). macOS bundles are ad-hoc
+      # signed by `tauri build` (bundle.macOS.signingIdentity "-"); Windows installers are unsigned. To add
+      # Developer ID / notarization or Authenticode later, import the certificate here and set
+      # APPLE_SIGNING_IDENTITY / APPLE_* or bundle.windows.signCommand.
+      - name: Code signing hook (macOS)
+        if: runner.os == 'macOS'
+        run: echo "No Developer ID configured; the app is ad-hoc signed."
+      - name: Code signing hook (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: echo "No Authenticode certificate configured; the installer is unsigned."
+
+      - name: Build bundles
+        shell: bash
+        env:
+          # Not "SIGN": linuxdeploy-plugin-appimage GPG-signs the AppImage whenever SIGN is set.
+          UPDATER_SIGN: ${{ needs.prepare.outputs.sign }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          args=(--target ${{ matrix.target }} --ci)
+          # linuxdeploy's bundled strip can't read newer ELF sections; the release profile strips already.
+          # linuxdeploy and the AppImage tools unpack themselves instead of mounting: no FUSE (libfuse2) needed.
+          if [ "$RUNNER_OS" = Linux ]; then export NO_STRIP=true APPIMAGE_EXTRACT_AND_RUN=1; args+=(--verbose); fi
+          if [ "$UPDATER_SIGN" = true ]; then
+            args+=(--config '{"bundle":{"createUpdaterArtifacts":true}}')
+          else
+            unset TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+          fi
+          pnpm -C app/ui tauri build "${args[@]}"
+
+      - name: Collect bundles
+        shell: bash
+        env:
+          UPDATER: ${{ needs.prepare.outputs.sign }}
+        run: scripts/collect-bundles.sh ${{ matrix.target }} "$VERSION" dist
+
+      - name: Smoke test (macOS, from the DMG)
+        if: runner.os == 'macOS'
+        run: |
+          dmg=$(ls dist/*.dmg)
+          mount=$(hdiutil attach -nobrowse -readonly "$dmg" | awk -F'\t' '/\/Volumes\//{print $NF}')
+          app=$(ls -d "$mount"/*.app)
+          exe="$app/Contents/MacOS/$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$app/Contents/Info.plist")"
+          codesign --verify --verbose=2 "$app"
+          scripts/smoke-test.sh "$exe" 15
+          hdiutil detach "$mount"
+
+      - name: Smoke test (Windows, installed per user)
+        if: runner.os == 'Windows'
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-test.ps1 \
+            -Installer "$(ls dist/*-setup.exe | head -1)" -Seconds 15
+
+      - name: Smoke test (Linux, AppImage under Xvfb)
+        if: runner.os == 'Linux'
+        run: |
+          chmod +x dist/*.AppImage
+          xvfb-run -a scripts/smoke-test.sh "$(ls dist/*.AppImage)" 15
+          dpkg-deb --info dist/*.deb
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundles-${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: ${{ needs.prepare.outputs.dry_run == 'true' && 7 || 30 }}
+
+  # Only for a real release: a draft for a human to review and publish (publishing makes it "latest",
+  # which is what the in-app updater reads).
+  release:
+    name: draft release
+    needs: [prepare, build]
+    if: needs.prepare.outputs.dry_run == 'false'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bundles-*
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: dist
+        run: |
+          if command -v sha256sum >/dev/null; then sum=(sha256sum); else sum=(shasum -a 256); fi
+          "${sum[@]}" -- * > "RemoteDesktop_${VERSION}_SHA256SUMS.txt"
+
+      - name: Draft release
+        run: |
+          gh release create "v$VERSION" dist/* --draft --verify-tag \
+            --title "RemoteDesktop $VERSION" --generate-notes
+
+      - name: latest.json
+        run: |
+          gh release view "v$VERSION" --json body --jq .body > notes.md
+          node scripts/make-latest-json.mjs dist "$VERSION" \
+            "https://github.com/${GITHUB_REPOSITORY}/releases/download/v$VERSION" notes.md > latest.json
+          cat latest.json
+          gh release upload "v$VERSION" latest.json
+          {
+            echo "Draft release v$VERSION created with latest.json. Review it and publish it on GitHub;"
+            echo "the in-app updater only sees published (not pre-release) releases."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Push to beta: the rolling "beta-latest" pre-release, always the latest green beta. Pre-releases have no
+  # latest.json and are never "latest", so neither the Swift app's updater (releases/latest) nor the Tauri
+  # updater ever offers it. The tag isn't "beta": a tag named like the branch makes `beta` ambiguous.
+  beta:
+    name: beta pre-release
+    needs: [prepare, build]
+    if: needs.prepare.outputs.beta == 'true'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    concurrency:
+      group: beta-release
+      cancel-in-progress: false
+    defaults:
+      run:
+        shell: bash
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bundles-*
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: dist
+        run: |
+          if command -v sha256sum >/dev/null; then sum=(sha256sum); else sum=(shasum -a 256); fi
+          "${sum[@]}" -- * > "RemoteDesktop_${VERSION}_SHA256SUMS.txt"
+
+      - name: Replace the beta pre-release
+        run: |
+          short=${GITHUB_SHA::7}
+          {
+            echo "Automatic build of the Rust rewrite (\`beta\` at ${short}, CI run ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})."
+            echo
+            echo "Beta: unsigned test build, replaced on every push to beta. It uses the same database and"
+            echo "settings as the Swift app. macOS: ad-hoc signed, right-click → Open on first launch."
+            echo "Windows: SmartScreen → More info → Run anyway."
+          } > notes.md
+          gh release delete beta-latest --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes 2>/dev/null || true
+          gh release create beta-latest dist/* --repo "$GITHUB_REPOSITORY" --prerelease --latest=false \
+            --target "$GITHUB_SHA" --title "RemoteDesktop beta $VERSION ($short)" --notes-file notes.md
+          echo "Beta pre-release updated: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/beta-latest" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,13 @@
+# libFuzzer dictionary for the WinBox .cdb format.
+magic="\x0D\xF0\x1D\xC0"
+record="M2"
+string_address="\x01\x00\x00\x21"
+string_login="\x02\x00\x00\x21"
+string_group="\x08\x00\x00\x21"
+string_name="\x09\x00\xFE\x21"
+bytes="\x0E\x00\x00\x31"
+u8="\x01\x00\xFE\x09"
+u32="\x0D\x00\x00\x08"
+bool="\x07\x00\x00\x01"
+host_port=":8291"
+ipv6="[2001:db8::1]"

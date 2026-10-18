@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Made-up RDM export for the importer tests (documentation addresses only). -->
+<ArrayOfConnection>
+  <Connection>
+    <ConnectionType>Group</ConnectionType>
+    <Group>Customers\Empty</Group>
+    <Name>Empty</Name>
+  </Connection>
+  <Connection>
+    <ConnectionType>RDPConfigured</ConnectionType>
+    <Group>Customers\Example</Group>
+    <Name>example-dc01</Name>
+    <Url>192.0.2.10:3390</Url>
+    <Description>Domain controller</Description>
+    <RDP>
+      <UserName>administrator</UserName>
+      <Domain>EXAMPLE</Domain>
+      <Password>Secret1</Password>
+    </RDP>
+  </Connection>
+  <Connection>
+    <ConnectionType>SSHShell</ConnectionType>
+    <Group>Customers/Example</Group>
+    <Name>example-web</Name>
+    <Terminal>
+      <Host>web.example.com</Host>
+      <HostPort>22</HostPort>
+      <Username>deploy</Username>
+      <PrivateKeyPath>~/.ssh/example</PrivateKeyPath>
+      <SafePassword>ENCRYPTED==</SafePassword>
+    </Terminal>
+  </Connection>
+  <Connection>
+    <ConnectionType>RDPConfigured</ConnectionType>
+    <Name>rootbox</Name>
+    <Url>rootbox.example.com</Url>
+    <UserName>me</UserName>
+  </Connection>
+  <Connection>
+    <ConnectionType>WebBrowser</ConnectionType>
+    <Name>portal</Name>
+    <Url>https://portal.example.com</Url>
+  </Connection>
+  <Connection>
+    <ConnectionType>RDPConfigured</ConnectionType>
+    <Name>nohost</Name>
+  </Connection>
+</ArrayOfConnection>

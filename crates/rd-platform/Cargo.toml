@@ -1,0 +1,42 @@
+[package]
+name = "rd-platform"
+description = "Per-OS integration: app identity, paths, external apps, clipboard shims"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+arboard.workspace = true
+rd-core.workspace = true
+tempfile.workspace = true
+dirs.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sysinfo.workspace = true
+zeroize.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2.workspace = true
+objc2-foundation = { workspace = true, features = ["std", "NSArray", "NSBundle", "NSFileManager", "NSString", "NSURL"] }
+objc2-app-kit = { workspace = true, features = ["std", "libc", "NSWorkspace", "NSRunningApplication"] }
+objc2-core-foundation = { workspace = true, features = ["std", "CFArray", "CFDictionary", "CFNumber", "CFString"] }
+objc2-application-services = { workspace = true, features = ["std", "libc", "HIServices", "AXUIElement", "AXError"] }
+
+[target.'cfg(windows)'.dependencies]
+winreg.workspace = true
+windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_Security_Credentials", "Win32_System_LibraryLoader", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging"] }
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+open.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+x11rb = "0.13"
+
+[dev-dependencies]
+tempfile.workspace = true

@@ -1,0 +1,102 @@
+# Lint, test and compile-check the workspace and the UI on all three platforms. Also the test stage of
+# release.yml. Runs on GitHub-hosted runners in the public LovaszCC/RemoteDesktop repository (unlimited
+# minutes there); in a private copy every job is skipped, so it never spends paid minutes.
+name: CI
+
+# Pushes to beta run it through release.yml (its test stage, then the beta pre-release).
+on:
+  pull_request:
+  workflow_dispatch:
+  # The release workflow runs this as its test stage.
+  workflow_call:
+
+concurrency:
+  # github.workflow is the caller's name when called, so a release run never cancels a CI run.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # Debug info roughly doubles target/ and fills the Linux runner's disk.
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+
+jobs:
+  check:
+    name: ${{ matrix.os }}
+    if: ${{ !github.event.repository.private }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # macos-15 is Apple Silicon; Ubuntu 22.04 matches the Linux bundles' glibc baseline.
+        os: [macos-15, windows-2022, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        if: runner.os == 'Linux'
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+
+      - name: Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
+            libayatana-appindicator3-dev librsvg2-dev cmake ninja-build
+
+      # rust-toolchain.toml pins the version; rustup installs it on first use.
+      - name: Rust toolchain
+        run: scripts/ci-rustup.sh
+
+      - uses: Swatinem/rust-cache@v2
+
+      # FreeRDP + OpenSSL are built from pinned sources once per target (crates/rd-freerdp/build.rs) and
+      # cached; Windows takes CMake/Ninja from Visual Studio and Perl from Strawberry Perl on the image.
+      - name: FreeRDP build tools (macOS)
+        if: runner.os == 'macOS'
+        run: for tool in cmake ninja; do command -v $tool >/dev/null || brew install $tool; done
+
+      - uses: actions/cache@v4
+        with:
+          path: third_party/freerdp/build
+          key: freerdp-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/build-freerdp.sh', 'scripts/build-freerdp.ps1', 'scripts/freerdp-cmake-options.txt', 'crates/rd-freerdp/build.rs') }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: app/ui/pnpm-lock.yaml
+
+      - name: Install UI dependencies
+        run: pnpm -C app/ui install --frozen-lockfile
+
+      - name: UI lint
+        run: pnpm -C app/ui lint
+
+      - name: UI tests
+        run: pnpm -C app/ui test
+
+      # tauri.conf.json's frontendDist must exist before the app crate compiles.
+      - name: UI build
+        run: pnpm -C app/ui build
+
+      - name: rustfmt
+        run: cargo fmt --all --check
+
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Tests
+        run: cargo test --workspace
+
+      - name: Tauri compile check
+        run: pnpm -C app/ui tauri build --debug --no-bundle

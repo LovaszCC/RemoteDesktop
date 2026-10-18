@@ -1,0 +1,49 @@
+[package]
+name = "rd-ssh"
+description = "PTY sessions, askpass, background SSH, port forwards and file transfers"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+rd-core.workspace = true
+rd-platform.workspace = true
+base64.workspace = true
+chrono.workspace = true
+dirs.workspace = true
+flate2.workspace = true
+getrandom.workspace = true
+hmac.workspace = true
+interprocess.workspace = true
+portable-pty.workspace = true
+russh.workspace = true
+russh-sftp.workspace = true
+secrecy.workspace = true
+serde.workspace = true
+sha1.workspace = true
+sha2.workspace = true
+tar.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+unicode-normalization.workspace = true
+vte.workspace = true
+zeroize.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+widestring.workspace = true
+
+[dev-dependencies]
+rd-core.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true
+
+[[test]]
+name = "sshd"
+harness = false

@@ -1,0 +1,230 @@
+/* Theme tokens: a native-feeling desktop look, light and dark (the OS or the user's choice). */
+
+:root {
+  color-scheme: light dark;
+
+  --font-ui:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, Ubuntu, Cantarell,
+    'Noto Sans', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+  --font-size: 13px;
+  --font-size-small: 11px;
+  --font-size-callout: 12px;
+  --font-size-title: 17px;
+  --font-size-large-title: 22px;
+
+  --radius-small: 4px;
+  --radius: 6px;
+  --radius-large: 10px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+
+  --control-height: 24px;
+  --toolbar-height: 44px;
+  --tabbar-height: 32px;
+
+  /* The content panel floats on the window chrome (sidebar and toolbar). */
+  --panel-radius: 12px;
+  --panel-gap: 8px;
+  /* Room for the macOS window buttons when the toolbar is the title bar. */
+  --titlebar-inset: 0px;
+  --glass-blur: blur(28px) saturate(1.8);
+
+  /* The accent (Settings → Appearance): every themed colour below derives from it. */
+  --accent-hue: 245;
+  --accent-chroma: 0.15;
+
+  --bg: color-mix(in oklab, #ebebf0 88%, var(--accent));
+  --bg-chrome: var(--bg);
+  --bg-content: #ffffff;
+  --bg-sidebar: transparent;
+  --bg-toolbar: color-mix(in oklab, #f7f7f9 94%, var(--accent));
+  --bg-control: #ffffff;
+  --bg-control-hover: color-mix(in oklab, #f2f2f4 92%, var(--accent));
+  --bg-hover: rgba(0, 0, 0, 0.05);
+  --bg-selected: rgba(0, 0, 0, 0.09);
+  --bg-elevated: #ffffff;
+  --bg-overlay: rgba(0, 0, 0, 0.25);
+  --fg: #1d1d1f;
+  --fg-secondary: #6e6e73;
+  --fg-tertiary: #a1a1a6;
+  --separator: rgba(0, 0, 0, 0.1);
+  --border-control: rgba(0, 0, 0, 0.16);
+  --accent: oklch(0.56 var(--accent-chroma) var(--accent-hue));
+  --accent-hover: oklch(0.5 var(--accent-chroma) var(--accent-hue));
+  --accent-fg: #ffffff;
+  --accent-soft: oklch(0.56 var(--accent-chroma) var(--accent-hue) / 0.14);
+  --focus-ring: oklch(0.6 var(--accent-chroma) var(--accent-hue) / 0.45);
+  --selection-accent: var(--accent);
+  /* The coloured glow behind the window chrome. */
+  --aurora-1: oklch(0.72 var(--accent-chroma) var(--accent-hue) / 0.3);
+  --aurora-2: oklch(0.72 var(--accent-chroma) calc(var(--accent-hue) + 55) / 0.22);
+  --chrome-tint: oklch(0.7 var(--accent-chroma) var(--accent-hue) / 0.06);
+  --danger: #d70015;
+  --danger-soft: rgba(215, 0, 21, 0.1);
+  --warning: #a05a00;
+  --warning-soft: rgba(255, 159, 10, 0.16);
+  --success: #1f8a3a;
+  --shadow-popover: 0 0 0 0.5px rgba(15, 23, 42, 0.14), 0 10px 30px rgba(15, 23, 42, 0.16);
+  --shadow-sheet: 0 0 0 0.5px rgba(15, 23, 42, 0.16), 0 24px 60px rgba(15, 23, 42, 0.26);
+  --shadow-panel:
+    0 0 0 0.5px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 28px rgba(15, 23, 42, 0.08);
+  /* Glass: a translucent, blurred surface with a lit top edge. */
+  --glass-surface: rgba(255, 255, 255, 0.72);
+  --glass-surface-strong: rgba(250, 250, 252, 0.88);
+  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.7), inset 0 0 0 0.5px rgba(255, 255, 255, 0.45);
+  --chrome-hover: rgba(0, 0, 0, 0.06);
+  --chrome-selected: rgba(0, 0, 0, 0.08);
+
+  --label-red: #ff3b30;
+  --label-orange: #ff9500;
+  --label-yellow: #ffcc00;
+  --label-green: #34c759;
+  --label-blue: #007aff;
+  --label-purple: #af52de;
+  --label-pink: #ff2d55;
+  --label-gray: #8e8e93;
+
+  --terminal-bg: #ffffff;
+  --terminal-fg: #1d1d1f;
+  --terminal-cursor: #0a64d8;
+  --terminal-selection: rgba(10, 100, 216, 0.25);
+}
+
+/* Dark: data-theme is set by applyTheme (Settings → Appearance; "System" follows the OS). */
+:root[data-theme='dark'] {
+  --bg: color-mix(in oklab, #121215 84%, var(--accent));
+  --bg-chrome: var(--bg);
+  --bg-content: color-mix(in oklab, #1a1a1e 87%, var(--accent));
+  --bg-sidebar: transparent;
+  --bg-toolbar: color-mix(in oklab, #222227 88%, var(--accent));
+  --bg-control: color-mix(in oklab, #36363c 90%, var(--accent));
+  --bg-control-hover: color-mix(in oklab, #404047 88%, var(--accent));
+  --bg-hover: rgba(255, 255, 255, 0.06);
+  --bg-selected: rgba(255, 255, 255, 0.12);
+  --bg-elevated: color-mix(in oklab, #2a2a2f 90%, var(--accent));
+  --bg-overlay: rgba(0, 0, 0, 0.45);
+  --fg: #f2f2f7;
+  --fg-secondary: #a1a1a6;
+  --fg-tertiary: #6e6e73;
+  --separator: rgba(255, 255, 255, 0.1);
+  --border-control: rgba(255, 255, 255, 0.14);
+  --accent: oklch(0.68 var(--accent-chroma) var(--accent-hue));
+  --accent-hover: oklch(0.74 var(--accent-chroma) var(--accent-hue));
+  --accent-soft: oklch(0.68 var(--accent-chroma) var(--accent-hue) / 0.22);
+  --focus-ring: oklch(0.7 var(--accent-chroma) var(--accent-hue) / 0.55);
+  --selection-accent: oklch(0.56 var(--accent-chroma) var(--accent-hue));
+  --aurora-1: oklch(0.6 var(--accent-chroma) var(--accent-hue) / 0.48);
+  --aurora-2: oklch(0.58 var(--accent-chroma) calc(var(--accent-hue) + 55) / 0.34);
+  --chrome-tint: oklch(0.55 var(--accent-chroma) var(--accent-hue) / 0.14);
+  --danger: #ff453a;
+  --danger-soft: rgba(255, 69, 58, 0.16);
+  --warning: #ffb340;
+  --warning-soft: rgba(255, 159, 10, 0.18);
+  --success: #32d74b;
+  --shadow-popover: 0 0 0 0.5px rgba(255, 255, 255, 0.12), 0 12px 32px rgba(0, 0, 0, 0.5);
+  --shadow-sheet: 0 0 0 0.5px rgba(255, 255, 255, 0.12), 0 24px 60px rgba(0, 0, 0, 0.6);
+  --shadow-panel:
+    0 0 0 0.5px rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 30px rgba(0, 0, 0, 0.35);
+  --glass-surface: color-mix(in oklab, rgba(38, 38, 44, 0.7) 88%, var(--accent));
+  --glass-surface-strong: color-mix(in oklab, rgba(32, 32, 38, 0.88) 90%, var(--accent));
+  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.09), inset 0 0 0 0.5px rgba(255, 255, 255, 0.07);
+  --chrome-hover: rgba(255, 255, 255, 0.07);
+  --chrome-selected: rgba(255, 255, 255, 0.1);
+
+  --label-red: #ff453a;
+  --label-orange: #ff9f0a;
+  --label-yellow: #ffd60a;
+  --label-green: #30d158;
+  --label-blue: #0a84ff;
+  --label-purple: #bf5af2;
+  --label-pink: #ff375f;
+  --label-gray: #98989d;
+
+  --terminal-bg: #1f1f22;
+  --terminal-fg: #f2f2f7;
+  --terminal-cursor: #2f86ff;
+  --terminal-selection: rgba(47, 134, 255, 0.35);
+}
+
+/* macOS: the window is transparent and the system's sidebar material shows through the chrome. */
+:root[data-glass] {
+  --bg: transparent;
+  --bg-chrome: transparent;
+  --titlebar-inset: 78px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--font-size);
+  line-height: 1.35;
+  color: var(--fg);
+  /* A soft glow of the accent behind the chrome (and through the macOS glass). */
+  background:
+    radial-gradient(70% 55% at 0% 0%, var(--aurora-1), transparent 70%),
+    radial-gradient(60% 60% at 100% 100%, var(--aurora-2), transparent 70%),
+    linear-gradient(var(--chrome-tint), var(--chrome-tint)), var(--bg);
+  -webkit-font-smoothing: antialiased;
+  /* Desktop apps don't select UI text on drag; inputs and `.selectable` opt back in. */
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+#app {
+  height: 100%;
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
+  color: inherit;
+}
+
+input,
+textarea,
+.selectable {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+/* A translucent, blurred surface with a lit edge (menus, sheets, toasts, overlays). */
+.glass {
+  background: var(--glass-surface);
+  box-shadow: var(--glass-edge), var(--shadow-popover);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

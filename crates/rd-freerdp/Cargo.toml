@@ -1,0 +1,17 @@
+[package]
+name = "rd-freerdp"
+description = "FreeRDP (built statically from pinned sources) behind a small C shim and a safe Rust API"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+links = "freerdp3"
+
+# The workspace denies unsafe code; this crate is where the FFI lives, each use allowed where it is.
+[lints]
+workspace = true
+
+[build-dependencies]
+cc = "1.2"

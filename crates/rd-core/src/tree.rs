@@ -1,0 +1,663 @@
+//! The sidebar: the folder tree, favorites, search and the row tags used for selection and drag and drop.
+//!
+//! A port of the Swift `LibraryTree` and `SidebarDrag`.
+
+use std::collections::{HashMap, HashSet};
+use std::fmt;
+
+use crate::library::Library;
+use crate::model::{Connection, Credential, Folder};
+use crate::natural::natural_cmp;
+
+/// A sidebar node: a folder with its children, or a connection leaf.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TreeNode<'a> {
+    /// A folder; `children` lists its subfolders first, then its connections.
+    Folder {
+        /// The folder.
+        folder: &'a Folder,
+        /// Subfolders, then connections.
+        children: Vec<TreeNode<'a>>,
+    },
+    /// A connection.
+    Connection(&'a Connection),
+}
+
+impl TreeNode<'_> {
+    /// The row's sidebar tag (`f:<id>` or `c:<id>`).
+    #[must_use]
+    pub fn tag(&self) -> SidebarTag {
+        match self {
+            Self::Folder { folder, .. } => SidebarTag::Folder(folder.id.clone()),
+            Self::Connection(connection) => SidebarTag::Connection(connection.id.clone()),
+        }
+    }
+
+    /// A folder's children; `None` for a connection.
+    #[must_use]
+    pub fn children(&self) -> Option<&[Self]> {
+        match self {
+            Self::Folder { children, .. } => Some(children),
+            Self::Connection(_) => None,
+        }
+    }
+}
+
+/// The tree under the root: at each level folders by (sort order, lowercased name), then connections in
+/// natural name order. Connections whose folder no longer exists are listed at the root.
+#[must_use]
+pub fn build(library: &Library) -> Vec<TreeNode<'_>> {
+    let mut folders_by_parent: HashMap<Option<&str>, Vec<&Folder>> = HashMap::new();
+    for folder in &library.folders {
+        folders_by_parent
+            .entry(folder.parent_id.as_deref())
+            .or_default()
+            .push(folder);
+    }
+    for folders in folders_by_parent.values_mut() {
+        folders.sort_by_cached_key(|f| (f.sort_order, f.name.to_lowercase()));
+    }
+    let known: HashSet<&str> = library.folders.iter().map(|f| f.id.as_str()).collect();
+    let mut connections_by_folder: HashMap<Option<&str>, Vec<&Connection>> = HashMap::new();
+    for connection in &library.connections {
+        let folder = connection.folder_id.as_deref().filter(|id| known.contains(id));
+        connections_by_folder.entry(folder).or_default().push(connection);
+    }
+    for connections in connections_by_folder.values_mut() {
+        connections.sort_by(|a, b| natural_cmp(&a.name, &b.name));
+    }
+    nodes(
+        None,
+        &folders_by_parent,
+        &connections_by_folder,
+        &mut HashSet::new(),
+    )
+}
+
+fn nodes<'a>(
+    parent: Option<&str>,
+    folders: &HashMap<Option<&str>, Vec<&'a Folder>>,
+    connections: &HashMap<Option<&str>, Vec<&'a Connection>>,
+    visited: &mut HashSet<&'a str>,
+) -> Vec<TreeNode<'a>> {
+    let mut result = Vec::new();
+    for &folder in folders.get(&parent).into_iter().flatten() {
+        // A parent cycle is never reachable from the root, but guard against a self-parented folder.
+        if !visited.insert(&folder.id) {
+            continue;
+        }
+        let children = nodes(Some(&folder.id), folders, connections, visited);
+        result.push(TreeNode::Folder { folder, children });
+    }
+    result.extend(
+        connections
+            .get(&parent)
+            .into_iter()
+            .flatten()
+            .map(|&c| TreeNode::Connection(c)),
+    );
+    result
+}
+
+/// Favorite connections in natural name order.
+#[must_use]
+pub fn favorites(library: &Library) -> Vec<&Connection> {
+    let mut result: Vec<&Connection> = library.connections.iter().filter(|c| c.is_favorite).collect();
+    result.sort_by(|a, b| natural_cmp(&a.name, &b.name));
+    result
+}
+
+fn terms(query: &str) -> Vec<String> {
+    query
+        .to_lowercase()
+        .split_whitespace()
+        .map(str::to_owned)
+        .collect()
+}
+
+/// The sidebar search: every whitespace-separated term must occur in the name, host, user, notes or folder
+/// path (case-insensitive). An empty query finds nothing. Results are in natural name order.
+#[must_use]
+pub fn search<'a>(library: &'a Library, query: &str) -> Vec<&'a Connection> {
+    let terms = terms(query);
+    if terms.is_empty() {
+        return Vec::new();
+    }
+    let paths = FolderPaths::new(library);
+    let mut result: Vec<&Connection> = library
+        .connections
+        .iter()
+        .filter(|c| {
+            let haystack = [
+                c.name.as_str(),
+                &c.host,
+                &c.username,
+                &c.notes,
+                &paths.path(c.folder_id.as_deref()),
+            ]
+            .join(" ")
+            .to_lowercase();
+            terms.iter().all(|t| haystack.contains(t.as_str()))
+        })
+        .collect();
+    result.sort_by(|a, b| natural_cmp(&a.name, &b.name));
+    result
+}
+
+/// `connections` in natural name order, filtered so that every term of a non-empty query occurs in the
+/// name, host, user or folder path. An empty query keeps every connection.
+#[must_use]
+pub fn matching<'a>(
+    connections: impl IntoIterator<Item = &'a Connection>,
+    query: &str,
+    library: &Library,
+) -> Vec<&'a Connection> {
+    let terms = terms(query);
+    let paths = FolderPaths::new(library);
+    let mut result: Vec<&Connection> = connections
+        .into_iter()
+        .filter(|c| {
+            let haystack = [
+                c.name.as_str(),
+                &c.host,
+                &c.username,
+                &paths.path(c.folder_id.as_deref()),
+            ]
+            .join(" ")
+            .to_lowercase();
+            terms.iter().all(|t| haystack.contains(t.as_str()))
+        })
+        .collect();
+    result.sort_by(|a, b| natural_cmp(&a.name, &b.name));
+    result
+}
+
+/// Connections that can be linked to a credential: those not linked to it yet (including ones linked to
+/// another credential), filtered like [`matching`].
+#[must_use]
+pub fn link_candidates<'a>(library: &'a Library, credential_id: &str, query: &str) -> Vec<&'a Connection> {
+    matching(
+        library
+            .connections
+            .iter()
+            .filter(|c| c.credential_id.as_deref() != Some(credential_id)),
+        query,
+        library,
+    )
+}
+
+/// Credentials whose name, `DOMAIN\user` or notes contain every term, in library order. An empty query
+/// finds nothing.
+#[must_use]
+pub fn search_credentials<'a>(library: &'a Library, query: &str) -> Vec<&'a Credential> {
+    let terms = terms(query);
+    if terms.is_empty() {
+        return Vec::new();
+    }
+    library
+        .credentials
+        .iter()
+        .filter(|c| {
+            let haystack = format!("{} {} {}", c.name, c.display_user(), c.notes).to_lowercase();
+            terms.iter().all(|t| haystack.contains(t.as_str()))
+        })
+        .collect()
+}
+
+/// `Parent / Child` for a folder id; empty for the root or an unknown folder. Safe against parent cycles.
+#[must_use]
+pub fn folder_path(library: &Library, folder_id: Option<&str>) -> String {
+    FolderPaths::new(library).path(folder_id)
+}
+
+/// Every folder depth first for pickers, siblings by lowercased name, with the depth (root = 0). The
+/// `excluding` folder and its whole subtree are left out (a folder can't move into itself).
+#[must_use]
+pub fn flattened_folders<'a>(library: &'a Library, excluding: Option<&str>) -> Vec<(&'a Folder, usize)> {
+    let mut by_parent: HashMap<Option<&str>, Vec<&Folder>> = HashMap::new();
+    for folder in &library.folders {
+        by_parent
+            .entry(folder.parent_id.as_deref())
+            .or_default()
+            .push(folder);
+    }
+    for folders in by_parent.values_mut() {
+        folders.sort_by_cached_key(|f| f.name.to_lowercase());
+    }
+    let mut result = Vec::new();
+    let mut visited = HashSet::new();
+    walk(None, 0, &by_parent, excluding, &mut visited, &mut result);
+    result
+}
+
+fn walk<'a>(
+    parent: Option<&str>,
+    depth: usize,
+    by_parent: &HashMap<Option<&str>, Vec<&'a Folder>>,
+    excluding: Option<&str>,
+    visited: &mut HashSet<&'a str>,
+    result: &mut Vec<(&'a Folder, usize)>,
+) {
+    for &folder in by_parent.get(&parent).into_iter().flatten() {
+        if Some(folder.id.as_str()) == excluding || !visited.insert(&folder.id) {
+            continue;
+        }
+        result.push((folder, depth));
+        walk(Some(&folder.id), depth + 1, by_parent, excluding, visited, result);
+    }
+}
+
+/// Folder paths with the folder index built once.
+struct FolderPaths<'a> {
+    by_id: HashMap<&'a str, &'a Folder>,
+}
+
+impl<'a> FolderPaths<'a> {
+    fn new(library: &'a Library) -> Self {
+        Self {
+            by_id: library.folders.iter().map(|f| (f.id.as_str(), f)).collect(),
+        }
+    }
+
+    fn path(&self, folder_id: Option<&str>) -> String {
+        let mut names = Vec::new();
+        let mut seen = HashSet::new();
+        let mut cursor = folder_id;
+        while let Some(id) = cursor
+            && let Some(folder) = self.by_id.get(id)
+            && seen.insert(id)
+        {
+            names.push(folder.name.as_str());
+            cursor = folder.parent_id.as_deref();
+        }
+        names.reverse();
+        names.join(" / ")
+    }
+}
+
+/// The identity of a sidebar row, used for selection and drag and drop.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum SidebarTag {
+    /// `f:<id>`, a folder.
+    Folder(String),
+    /// `c:<id>`, a connection in the tree or in the search results.
+    Connection(String),
+    /// `fav:<id>`, the Favorites row of a connection.
+    Favorite(String),
+    /// `k:<id>`, a credential.
+    Credential(String),
+    /// `s:<id>`, a saved split.
+    Split(String),
+}
+
+impl SidebarTag {
+    /// Parses `f:`, `c:`, `fav:`, `k:` or `s:` followed by an id; anything else is `None`.
+    #[must_use]
+    pub fn parse(tag: &str) -> Option<Self> {
+        // `fav:` before `f:` is not needed (`fav:` doesn't start with `f:`), but keep the Swift order.
+        if let Some(id) = tag.strip_prefix("f:") {
+            Some(Self::Folder(id.to_owned()))
+        } else if let Some(id) = tag.strip_prefix("c:") {
+            Some(Self::Connection(id.to_owned()))
+        } else if let Some(id) = tag.strip_prefix("fav:") {
+            Some(Self::Favorite(id.to_owned()))
+        } else if let Some(id) = tag.strip_prefix("k:") {
+            Some(Self::Credential(id.to_owned()))
+        } else {
+            tag.strip_prefix("s:").map(|id| Self::Split(id.to_owned()))
+        }
+    }
+
+    /// The record id behind the tag.
+    #[must_use]
+    pub fn id(&self) -> &str {
+        match self {
+            Self::Folder(id)
+            | Self::Connection(id)
+            | Self::Favorite(id)
+            | Self::Credential(id)
+            | Self::Split(id) => id,
+        }
+    }
+}
+
+impl fmt::Display for SidebarTag {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let prefix = match self {
+            Self::Folder(_) => "f:",
+            Self::Connection(_) => "c:",
+            Self::Favorite(_) => "fav:",
+            Self::Credential(_) => "k:",
+            Self::Split(_) => "s:",
+        };
+        write!(f, "{prefix}{}", self.id())
+    }
+}
+
+/// What a dragged row carries: the whole selection (sorted, one tag per line) when the row is part of a
+/// selection of more than one row, otherwise just the row's tag.
+#[must_use]
+pub fn drag_payload(tag: &str, selection: &[String]) -> String {
+    let mut sorted: Vec<&str> = selection.iter().map(String::as_str).collect();
+    sorted.sort_unstable();
+    sorted.dedup();
+    if sorted.len() > 1 && sorted.contains(&tag) {
+        sorted.join("\n")
+    } else {
+        tag.to_owned()
+    }
+}
+
+/// The tags in dropped payloads, in order.
+#[must_use]
+pub fn tags_from_payloads(payloads: &[String]) -> Vec<String> {
+    payloads
+        .iter()
+        .flat_map(|p| p.split('\n'))
+        .filter(|t| !t.is_empty())
+        .map(str::to_owned)
+        .collect()
+}
+
+/// The ids behind a set of sidebar tags, each list de-duplicated in tag order.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SidebarItems {
+    /// From `c:` and `fav:` tags (a favorite row is its connection).
+    pub connection_ids: Vec<String>,
+    /// From `f:` tags.
+    pub folder_ids: Vec<String>,
+    /// From `k:` tags.
+    pub credential_ids: Vec<String>,
+}
+
+/// Sorts tags into connection, folder and credential ids. Split and unknown tags are ignored.
+#[must_use]
+pub fn sidebar_items<S: AsRef<str>>(tags: &[S]) -> SidebarItems {
+    let mut items = SidebarItems::default();
+    for tag in tags {
+        match SidebarTag::parse(tag.as_ref()) {
+            Some(SidebarTag::Folder(id)) => items.folder_ids.push(id),
+            Some(SidebarTag::Connection(id) | SidebarTag::Favorite(id)) => items.connection_ids.push(id),
+            Some(SidebarTag::Credential(id)) => items.credential_ids.push(id),
+            Some(SidebarTag::Split(_)) | None => {}
+        }
+    }
+    unique(&mut items.connection_ids);
+    unique(&mut items.folder_ids);
+    unique(&mut items.credential_ids);
+    items
+}
+
+/// What a drop moves: connection and folder ids. Credentials have no place in the tree.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Movable {
+    /// Connections to move.
+    pub connection_ids: Vec<String>,
+    /// Folders to move.
+    pub folder_ids: Vec<String>,
+}
+
+/// The connections and folders behind dropped tags (see [`sidebar_items`]).
+#[must_use]
+pub fn movable<S: AsRef<str>>(tags: &[S]) -> Movable {
+    let items = sidebar_items(tags);
+    Movable {
+        connection_ids: items.connection_ids,
+        folder_ids: items.folder_ids,
+    }
+}
+
+fn unique(ids: &mut Vec<String>) {
+    let mut seen = HashSet::new();
+    ids.retain(|id| seen.insert(id.clone()));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::ConnectionType;
+
+    fn folder(id: &str, parent: Option<&str>, name: &str, sort_order: i64) -> Folder {
+        Folder {
+            id: id.into(),
+            parent_id: parent.map(Into::into),
+            name: name.into(),
+            sort_order,
+            color: None,
+        }
+    }
+
+    fn connection(
+        id: &str,
+        folder: Option<&str>,
+        kind: ConnectionType,
+        name: &str,
+        host: &str,
+    ) -> Connection {
+        let mut c = Connection::new(kind, name, host);
+        c.id = id.into();
+        c.folder_id = folder.map(Into::into);
+        c
+    }
+
+    /// `LibraryTreeTests` fixture.
+    fn library() -> Library {
+        let mut c1 = connection("1", Some("web"), ConnectionType::Ssh, "web02", "192.0.2.2");
+        c1.is_favorite = true;
+        let c2 = connection("2", Some("web"), ConnectionType::Ssh, "web01", "192.0.2.1");
+        let mut c3 = connection("3", None, ConnectionType::Rdp, "laptop", "laptop.example.com");
+        c3.username = "bob".into();
+        let mut c4 = connection("4", Some("gone"), ConnectionType::Rdp, "orphan", "x");
+        c4.is_favorite = true;
+        let mut c5 = connection("5", Some("prod"), ConnectionType::Rdp, "dc01", "dc");
+        c5.notes = "domain controller".into();
+        Library {
+            folders: vec![
+                folder("arch", None, "Archive", 1),
+                folder("web", Some("prod"), "Web", 0),
+                folder("prod", None, "Prod", 0),
+            ],
+            connections: vec![c1, c2, c3, c4, c5],
+            ..Library::default()
+        }
+    }
+
+    fn tags(nodes: &[TreeNode<'_>]) -> Vec<String> {
+        nodes.iter().map(|n| n.tag().to_string()).collect()
+    }
+
+    fn ids(connections: &[&Connection]) -> Vec<String> {
+        connections.iter().map(|c| c.id.clone()).collect()
+    }
+
+    #[test]
+    fn builds_nested_tree_folders_first() {
+        let library = library();
+        let tree = build(&library);
+        assert_eq!(tags(&tree), ["f:prod", "f:arch", "c:3", "c:4"]);
+
+        let prod = tree[0].children().unwrap();
+        assert_eq!(tags(prod), ["f:web", "c:5"]);
+        assert_eq!(tags(prod[0].children().unwrap()), ["c:2", "c:1"]);
+        assert_eq!(tree[1].children(), Some(&[][..]));
+        assert_eq!(tree[2].children(), None);
+    }
+
+    #[test]
+    fn tree_connections_use_natural_order() {
+        let library = Library {
+            connections: vec![
+                connection("a", None, ConnectionType::Ssh, "srv10", "h"),
+                connection("b", None, ConnectionType::Ssh, "srv9", "h"),
+                connection("c", None, ConnectionType::Ssh, "Srv1", "h"),
+            ],
+            ..Library::default()
+        };
+        assert_eq!(tags(&build(&library)), ["c:c", "c:b", "c:a"]);
+    }
+
+    #[test]
+    fn favorites_sorted_by_name() {
+        assert_eq!(ids(&favorites(&library())), ["4", "1"]);
+    }
+
+    #[test]
+    fn search_all_terms_across_fields() {
+        let library = library();
+        assert!(search(&library, "").is_empty());
+        assert!(search(&library, "   ").is_empty());
+        assert_eq!(ids(&search(&library, "WEB")), ["2", "1"]);
+        assert_eq!(ids(&search(&library, "prod web01")), ["2"]);
+        assert_eq!(ids(&search(&library, "bob")), ["3"]);
+        assert_eq!(ids(&search(&library, "controller")), ["5"]);
+        assert!(search(&library, "nomatch").is_empty());
+    }
+
+    #[test]
+    fn folder_path_and_cycle_safety() {
+        let library = library();
+        assert_eq!(folder_path(&library, Some("web")), "Prod / Web");
+        assert_eq!(folder_path(&library, None), "");
+        assert_eq!(folder_path(&library, Some("missing")), "");
+        let cyclic = Library {
+            folders: vec![folder("a", Some("b"), "A", 0), folder("b", Some("a"), "B", 0)],
+            ..Library::default()
+        };
+        assert_eq!(folder_path(&cyclic, Some("a")), "B / A");
+    }
+
+    #[test]
+    fn flattened_folders_with_exclusion() {
+        let library = library();
+        let all = flattened_folders(&library, None);
+        assert_eq!(
+            all.iter().map(|(f, _)| f.id.as_str()).collect::<Vec<_>>(),
+            ["arch", "prod", "web"]
+        );
+        assert_eq!(all.iter().map(|(_, d)| *d).collect::<Vec<_>>(), [0, 0, 1]);
+        let excluded = flattened_folders(&library, Some("prod"));
+        assert_eq!(
+            excluded.iter().map(|(f, _)| f.id.as_str()).collect::<Vec<_>>(),
+            ["arch"]
+        );
+    }
+
+    #[test]
+    fn search_credentials_keeps_library_order() {
+        let mut a = Credential::new("Domain Admin");
+        a.id = "a".into();
+        a.username = "admin".into();
+        a.domain = "CORP".into();
+        let mut b = Credential::new("Linux root");
+        b.id = "b".into();
+        b.username = "root".into();
+        b.notes = "shared admin".into();
+        let library = Library {
+            credentials: vec![a, b],
+            ..Library::default()
+        };
+        let found = |q: &str| {
+            search_credentials(&library, q)
+                .iter()
+                .map(|c| c.id.clone())
+                .collect::<Vec<_>>()
+        };
+        assert!(found("").is_empty());
+        assert_eq!(found("corp"), ["a"]);
+        assert_eq!(found("root linux"), ["b"]);
+        assert_eq!(found("admin"), ["a", "b"]);
+    }
+
+    /// `CredentialLinkTests`: linkCandidatesSkipLinkedAndMatchQuery.
+    #[test]
+    fn link_candidates_skip_linked_and_match_query() {
+        let library = Library {
+            folders: vec![folder("bp", None, "Budapest", 0)],
+            connections: {
+                let mut linked = connection("linked", None, ConnectionType::Ssh, "linked", "h");
+                linked.credential_id = Some("admin".into());
+                let mut router = connection(
+                    "router",
+                    Some("bp"),
+                    ConnectionType::Mikrotik,
+                    "router",
+                    "192.0.2.1",
+                );
+                router.credential_id = Some("other".into());
+                let server = connection("server", None, ConnectionType::Rdp, "Server", "srv");
+                vec![linked, router, server]
+            },
+            ..Library::default()
+        };
+        assert_eq!(ids(&link_candidates(&library, "admin", "")), ["router", "server"]);
+        assert_eq!(
+            ids(&link_candidates(&library, "admin", "budapest 192.0")),
+            ["router"]
+        );
+        assert_eq!(ids(&link_candidates(&library, "admin", "SRV")), ["server"]);
+        assert!(link_candidates(&library, "admin", "linked").is_empty());
+    }
+
+    /// `CredentialLinkTests`: matchingFiltersAndSortsByName.
+    #[test]
+    fn matching_filters_and_sorts_by_name() {
+        let b = connection("b", Some("sz"), ConnectionType::Ssh, "b-host", "192.0.2.11");
+        let mut a = connection("a", None, ConnectionType::Ssh, "A-host", "192.0.2.22");
+        a.username = "root".into();
+        a.notes = "notes are not searched".into();
+        let library = Library {
+            folders: vec![folder("sz", None, "Szeged", 0)],
+            connections: vec![b.clone(), a.clone()],
+            ..Library::default()
+        };
+        let both = [&b, &a];
+        assert_eq!(ids(&matching(both, "", &library)), ["a", "b"]);
+        assert_eq!(ids(&matching(both, "szeged", &library)), ["b"]);
+        assert_eq!(ids(&matching(both, "ROOT 192.0.2.2", &library)), ["a"]);
+        assert!(matching(both, "nope", &library).is_empty());
+        assert!(matching(both, "searched", &library).is_empty());
+    }
+
+    #[test]
+    fn tags_parse_and_format() {
+        for raw in ["f:1", "c:2", "fav:3", "k:4", "s:5"] {
+            assert_eq!(SidebarTag::parse(raw).unwrap().to_string(), raw);
+        }
+        assert_eq!(SidebarTag::parse("fav:9"), Some(SidebarTag::Favorite("9".into())));
+        assert_eq!(SidebarTag::parse("f:9").unwrap().id(), "9");
+        assert_eq!(SidebarTag::parse("junk"), None);
+        assert_eq!(SidebarTag::parse("x:3"), None);
+    }
+
+    #[test]
+    fn payload_carries_selection_only_for_selected_row() {
+        let selection: Vec<String> = ["c:2", "f:9", "c:1"].map(String::from).to_vec();
+        assert_eq!(drag_payload("c:1", &selection), "c:1\nc:2\nf:9");
+        assert_eq!(drag_payload("c:7", &selection), "c:7");
+        assert_eq!(drag_payload("c:1", &["c:1".to_owned()]), "c:1");
+    }
+
+    #[test]
+    fn tags_from_payloads_split_lines() {
+        assert_eq!(
+            tags_from_payloads(&["c:1\nf:2".to_owned(), "c:3".to_owned()]),
+            ["c:1", "f:2", "c:3"]
+        );
+        assert!(tags_from_payloads(&[]).is_empty());
+    }
+
+    #[test]
+    fn movable_maps_favorites_and_ignores_credentials() {
+        let items = movable(&["c:1", "fav:1", "fav:2", "f:9", "k:5", "f:9", "junk"]);
+        assert_eq!(items.connection_ids, ["1", "2"]);
+        assert_eq!(items.folder_ids, ["9"]);
+    }
+
+    #[test]
+    fn items_include_credentials() {
+        let items = sidebar_items(&["k:5", "c:1", "fav:1", "f:9", "k:5", "x:3", "s:4"]);
+        assert_eq!(items.connection_ids, ["1"]);
+        assert_eq!(items.folder_ids, ["9"]);
+        assert_eq!(items.credential_ids, ["5"]);
+    }
+}

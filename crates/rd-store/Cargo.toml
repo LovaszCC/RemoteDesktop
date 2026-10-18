@@ -1,0 +1,32 @@
+[package]
+name = "rd-store"
+description = "SQLite store (GRDB-compatible migrations), repository and vault"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+aes-gcm = { workspace = true, features = ["zeroize"] }
+getrandom.workspace = true
+hostname.workspace = true
+keyring.workspace = true
+pbkdf2.workspace = true
+rd-core.workspace = true
+rd-platform.workspace = true
+secrecy.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+sysinfo.workspace = true
+zeroize.workspace = true
+rusqlite.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

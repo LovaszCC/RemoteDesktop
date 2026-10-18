@@ -1,0 +1,30 @@
+[package]
+name = "rd-rdp"
+description = "Embedded RDP engine wrapper, framebuffer, input and clipboard"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+base64.workspace = true
+png.workspace = true
+rd-freerdp.workspace = true
+rd-core.workspace = true
+serde.workspace = true
+sha2.workspace = true
+unicode-normalization.workspace = true
+x509-cert.workspace = true
+zeroize.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+rustix.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+tempfile.workspace = true

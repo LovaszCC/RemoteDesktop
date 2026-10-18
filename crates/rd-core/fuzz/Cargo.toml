@@ -1,0 +1,25 @@
+# cargo-fuzz targets for rd-core's parsers. Not a workspace member: run with a nightly toolchain,
+#   cargo +nightly fuzz run winbox_cdb --fuzz-dir crates/rd-core/fuzz -- -max_total_time=30
+[package]
+name = "rd-core-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4.13"
+rd-core = { path = ".." }
+
+# Its own workspace, so the root workspace doesn't try to build it.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "winbox_cdb"
+path = "fuzz_targets/winbox_cdb.rs"
+test = false
+doc = false
+bench = false

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Main and file browser windows: core events, window dragging (the toolbar is the title bar on macOS), the window theme (Settings → Appearance) and the app's own typed commands only. No shell or fs plugins.",
+  "windows": ["main", "files-*"],
+  "permissions": ["core:default", "core:window:allow-start-dragging", "core:window:allow-set-theme"]
+}

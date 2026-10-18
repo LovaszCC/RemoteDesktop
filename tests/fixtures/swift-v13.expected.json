@@ -1,0 +1,359 @@
+{
+  "kdfIterations" : 10000,
+  "password" : "fixture-password",
+  "secrets" : {
+    "connection.00000000-0000-4000-8000-0000000000A2.passwordEnc" : "Ünicode-pässwörd ✓",
+    "connection.00000000-0000-4000-8000-0000000000A4.passwordEnc" : "root-fixture",
+    "connection.00000000-0000-4000-8000-0000000000A4.sshKeyPassphraseEnc" : "bastion-pass",
+    "connection.00000000-0000-4000-8000-0000000000A5.passwordEnc" : "web-fixture",
+    "connection.00000000-0000-4000-8000-0000000000A6.passwordEnc" : "mt-fixture",
+    "credential.00000000-0000-4000-8000-0000000000C1.passwordEnc" : "Adm1n-fixture!",
+    "credential.00000000-0000-4000-8000-0000000000C2.sshKeyPassphraseEnc" : "key-passphrase",
+    "credential.00000000-0000-4000-8000-0000000000C2.sshKeyUnlockedEnc" : "-----BEGIN OPENSSH PRIVATE KEY-----\nZml4dHVyZS1vbmx5LW5vdC1hLXJlYWwta2V5LWZvci10aGUtcnVzdC10ZXN0cw==\n-----END OPENSSH PRIVATE KEY-----\n"
+  },
+  "tables" : {
+    "connection" : [
+      {
+        "browserBundleId" : null,
+        "color" : "red",
+        "createdAt" : "2026-01-01 00:00:00.000",
+        "credentialId" : "00000000-0000-4000-8000-0000000000C1",
+        "domain" : "",
+        "folderId" : "00000000-0000-4000-8000-000000000F03",
+        "host" : "dc01.example.com",
+        "id" : "00000000-0000-4000-8000-0000000000A1",
+        "isFavorite" : 1,
+        "mikrotikMode" : "winbox",
+        "name" : "DC01",
+        "notes" : "Domain controller\nsecond line",
+        "passwordEnc" : null,
+        "port" : null,
+        "rdpAdminSession" : 1,
+        "rdpClient" : "embedded",
+        "sshKeyPassphraseEnc" : null,
+        "sshKeyPath" : null,
+        "sshTerminal" : "embedded",
+        "type" : "rdp",
+        "updatedAt" : "2026-10-16 09:30:25.454",
+        "username" : ""
+      },
+      {
+        "browserBundleId" : null,
+        "color" : "orange",
+        "createdAt" : "2026-01-01 00:00:00.000",
+        "credentialId" : null,
+        "domain" : "EXAMPLE",
+        "folderId" : "00000000-0000-4000-8000-000000000F03",
+        "host" : "192.0.2.10",
+        "id" : "00000000-0000-4000-8000-0000000000A2",
+        "isFavorite" : 0,
+        "mikrotikMode" : "winbox",
+        "name" : "Terminal server",
+        "notes" : "",
+        "passwordEnc" : "hex:07caa047e9b8143afce15b957f82d5fd9ff88ff704270181de316d266f183416f67c8e86056b3d04e9c7ae11672c563a983f3c",
+        "port" : 3390,
+        "rdpAdminSession" : 0,
+        "rdpClient" : "windowsApp",
+        "sshKeyPassphraseEnc" : null,
+        "sshKeyPath" : null,
+        "sshTerminal" : "embedded",
+        "type" : "rdp",
+        "updatedAt" : "2026-10-16 09:30:25.455",
+        "username" : "jdoe"
+      },
+      {
+        "browserBundleId" : null,
+        "color" : "green",
+        "createdAt" : "2026-01-01 00:00:00.000",
+        "credentialId" : "00000000-0000-4000-8000-0000000000C2",
+        "domain" : "",
+        "folderId" : "00000000-0000-4000-8000-000000000F02",
+        "host" : "web01.example.com",
+        "id" : "00000000-0000-4000-8000-0000000000A3",
+        "isFavorite" : 0,
+        "mikrotikMode" : "winbox",
+        "name" : "web01",
+        "notes" : "",
+        "passwordEnc" : null,
+        "port" : 2222,
+        "rdpAdminSession" : 0,
+        "rdpClient" : "embedded",
+        "sshKeyPassphraseEnc" : null,
+        "sshKeyPath" : null,
+        "sshTerminal" : "embedded",
+        "type" : "ssh",
+        "updatedAt" : "2026-10-16 09:30:25.456",
+        "username" : "deploy"
+      },
+      {
+        "browserBundleId" : null,
+        "color" : null,
+        "createdAt" : "2026-01-01 00:00:00.000",
+        "credentialId" : null,
+        "domain" : "",
+        "folderId" : null,
+        "host" : "192.0.2.20",
+        "id" : "00000000-0000-4000-8000-0000000000A4",
+        "isFavorite" : 0,
+        "mikrotikMode" : "winbox",
+        "name" : "bastion",
+        "notes" : "",
+        "passwordEnc" : "hex:a3eb1189f358c347ed32549755d53035e460769b8f10e0c3fdd5ecfb82ab69f02678380d864976bf",
+        "port" : null,
+        "rdpAdminSession" : 0,
+        "rdpClient" : "embedded",
+        "sshKeyPassphraseEnc" : "hex:aaef64db0ddbe6443639f03b0e8f105c90931c0939854806b0445f5309012f81174fbe1b3bd42b32",
+        "sshKeyPath" : "~\/.ssh\/id_ed25519",
+        "sshTerminal" : "external",
+        "type" : "ssh",
+        "updatedAt" : "2026-10-16 09:30:25.456",
+        "username" : "root"
+      },
+      {
+        "browserBundleId" : "com.apple.Safari",
+        "color" : "yellow",
+        "createdAt" : "2026-01-01 00:00:00.000",
+        "credentialId" : null,
+        "domain" : "",
+        "folderId" : "00000000-0000-4000-8000-000000000F04",
+        "host" : "router.example.com\/admin",
+        "id" : "00000000-0000-4000-8000-0000000000A5",
+        "isFavorite" : 0,
+        "mikrotikMode" : "winbox",
+        "name" : "Router UI",
+        "notes" : "",
+        "passwordEnc" : "hex:9ecfea5d5d9f5ac326e433c65b303d833ad5fbe7ec782617c435fa1b480ba7cfc152c865aa8b30",
+        "port" : null,
+        "rdpAdminSession" : 0,
+        "rdpClient" : "embedded",
+        "sshKeyPassphraseEnc" : null,
+        "sshKeyPath" : null,
+        "sshTerminal" : "embedded",
+        "type" : "web",
+        "updatedAt" : "2026-10-16 09:30:25.457",
+        "username" : "admin"
+      },
+      {
+        "browserBundleId" : null,
+        "color" : "pink",
+        "createdAt" : "2026-01-01 00:00:00.000",
+        "credentialId" : null,
+        "domain" : "",
+        "folderId" : "00000000-0000-4000-8000-000000000F04",
+        "host" : "192.0.2.1",
+        "id" : "00000000-0000-4000-8000-0000000000A6",
+        "isFavorite" : 0,
+        "mikrotikMode" : "winbox",
+        "name" : "CHR WinBox",
+        "notes" : "WinBox port 8291",
+        "passwordEnc" : "hex:140b6f848868323adf188a0b650381d84dba0e8b5398a903ee424cdaa05498128559c56210ce",
+        "port" : 8291,
+        "rdpAdminSession" : 0,
+        "rdpClient" : "embedded",
+        "sshKeyPassphraseEnc" : null,
+        "sshKeyPath" : null,
+        "sshTerminal" : "embedded",
+        "type" : "mikrotik",
+        "updatedAt" : "2026-10-16 09:30:25.457",
+        "username" : "admin"
+      },
+      {
+        "browserBundleId" : null,
+        "color" : "gray",
+        "createdAt" : "2026-01-01 00:00:00.000",
+        "credentialId" : "00000000-0000-4000-8000-0000000000C1",
+        "domain" : "",
+        "folderId" : "00000000-0000-4000-8000-000000000F04",
+        "host" : "192.0.2.2",
+        "id" : "00000000-0000-4000-8000-0000000000A7",
+        "isFavorite" : 0,
+        "mikrotikMode" : "ssh",
+        "name" : "CHR SSH",
+        "notes" : "",
+        "passwordEnc" : null,
+        "port" : null,
+        "rdpAdminSession" : 0,
+        "rdpClient" : "embedded",
+        "sshKeyPassphraseEnc" : null,
+        "sshKeyPath" : null,
+        "sshTerminal" : "embedded",
+        "type" : "mikrotik",
+        "updatedAt" : "2026-10-16 09:30:25.458",
+        "username" : ""
+      },
+      {
+        "browserBundleId" : null,
+        "color" : null,
+        "createdAt" : "2026-01-01 00:00:00.000",
+        "credentialId" : null,
+        "domain" : "",
+        "folderId" : null,
+        "host" : "empty.example.com",
+        "id" : "00000000-0000-4000-8000-0000000000A8",
+        "isFavorite" : 0,
+        "mikrotikMode" : "winbox",
+        "name" : "No password",
+        "notes" : "",
+        "passwordEnc" : null,
+        "port" : null,
+        "rdpAdminSession" : 0,
+        "rdpClient" : "embedded",
+        "sshKeyPassphraseEnc" : null,
+        "sshKeyPath" : null,
+        "sshTerminal" : "embedded",
+        "type" : "ssh",
+        "updatedAt" : "2026-10-16 09:30:25.458",
+        "username" : "guest"
+      }
+    ],
+    "credential" : [
+      {
+        "createdAt" : "2026-01-01 00:00:00.000",
+        "domain" : "EXAMPLE",
+        "id" : "00000000-0000-4000-8000-0000000000C1",
+        "name" : "Example admin",
+        "notes" : "Shared admin login",
+        "passwordEnc" : "hex:338f92e68e4e03f0683fca6c20f6052bab786f3cc29634312fd8f67343d78d7823bf6e652a267a71f637",
+        "sshKeyPassphraseEnc" : null,
+        "sshKeyPath" : null,
+        "sshKeyUnlockedEnc" : null,
+        "updatedAt" : "2026-10-16 09:30:25.450",
+        "username" : "administrator"
+      },
+      {
+        "createdAt" : "2026-01-01 00:00:00.000",
+        "domain" : "",
+        "id" : "00000000-0000-4000-8000-0000000000C2",
+        "name" : "Deploy key (no username)",
+        "notes" : "",
+        "passwordEnc" : null,
+        "sshKeyPassphraseEnc" : "hex:58acaf3206e38a4533e6fb0169b60d02dc6b9820eeb4029fbf09b9a2d2d7149d823016bf96a4ef04706b",
+        "sshKeyPath" : "~\/.ssh\/id_fixture",
+        "sshKeyUnlockedEnc" : "hex:0db348602aacd7306c8d7608d46cc8cddda2a4e936303682a3ed146279547be76520ac69969745ff17ebef7353697b8e1343ca6343d4d7997a06e329fadc29882efcdae14e475a6b25be8b6837df215a86d3e808f04093deb73665d74539709a995f6a60001ab842be53a7dca5f7088cc1bae1e13d1ae8fe0197102878e5fc5f8a8fb1f9cf34b2d8597f4a73982972765b3b3a6645c7847f5c4da7bd2bbd40e8d89751",
+        "updatedAt" : "2026-10-16 09:30:25.453",
+        "username" : ""
+      }
+    ],
+    "folder" : [
+      {
+        "color" : "blue",
+        "id" : "00000000-0000-4000-8000-000000000F01",
+        "name" : "Clients",
+        "parentId" : null,
+        "sortOrder" : 0
+      },
+      {
+        "color" : "green",
+        "id" : "00000000-0000-4000-8000-000000000F02",
+        "name" : "Example Corp",
+        "parentId" : "00000000-0000-4000-8000-000000000F01",
+        "sortOrder" : 0
+      },
+      {
+        "color" : null,
+        "id" : "00000000-0000-4000-8000-000000000F03",
+        "name" : "Servers",
+        "parentId" : "00000000-0000-4000-8000-000000000F02",
+        "sortOrder" : 1
+      },
+      {
+        "color" : "purple",
+        "id" : "00000000-0000-4000-8000-000000000F04",
+        "name" : "Lab",
+        "parentId" : null,
+        "sortOrder" : 1
+      }
+    ],
+    "grdb_migrations" : [
+      {
+        "identifier" : "v1"
+      },
+      {
+        "identifier" : "v2-credentials"
+      },
+      {
+        "identifier" : "v3-rdp-admin"
+      },
+      {
+        "identifier" : "v4-unlocked-key"
+      },
+      {
+        "identifier" : "v5-web"
+      },
+      {
+        "identifier" : "v6-mikrotik"
+      },
+      {
+        "identifier" : "v7-ssh-terminal"
+      },
+      {
+        "identifier" : "v8-rdp-client"
+      },
+      {
+        "identifier" : "v9-port-forwards"
+      },
+      {
+        "identifier" : "v10-external-terminal"
+      },
+      {
+        "identifier" : "v11-folder-color"
+      },
+      {
+        "identifier" : "v12-connection-color"
+      },
+      {
+        "identifier" : "v13-saved-split"
+      }
+    ],
+    "meta" : [
+      {
+        "key" : "kdf_iterations",
+        "value" : "hex:00002710"
+      },
+      {
+        "key" : "kdf_salt",
+        "value" : "hex:68900169bca0e61633c054c74a44147a"
+      },
+      {
+        "key" : "verifier",
+        "value" : "hex:3837f94dc04b614def29a14505cd51677459a81c6b92c09290238a34119daabed2cabe1f920f07d3f06471eae02812e973dc"
+      }
+    ],
+    "portForward" : [
+      {
+        "connectionId" : "00000000-0000-4000-8000-0000000000A3",
+        "createdAt" : "2026-01-01 00:00:00.000",
+        "id" : "00000000-0000-4000-8000-0000000000B1",
+        "localPort" : 15432,
+        "name" : "PostgreSQL",
+        "remoteHost" : "127.0.0.1",
+        "remotePort" : 5432
+      },
+      {
+        "connectionId" : "00000000-0000-4000-8000-0000000000A3",
+        "createdAt" : "2026-01-01 00:00:00.000",
+        "id" : "00000000-0000-4000-8000-0000000000B2",
+        "localPort" : 13389,
+        "name" : "",
+        "remoteHost" : "192.0.2.30",
+        "remotePort" : 3389
+      }
+    ],
+    "savedSplit" : [
+      {
+        "connectionIds" : "[\"00000000-0000-4000-8000-0000000000A3\",\"00000000-0000-4000-8000-0000000000A4\",\"00000000-0000-4000-8000-0000000000A3\"]",
+        "createdAt" : "2026-01-01 00:00:00.000",
+        "id" : "00000000-0000-4000-8000-0000000000D1",
+        "name" : "Web tier",
+        "sortOrder" : 0
+      },
+      {
+        "connectionIds" : "[\"00000000-0000-4000-8000-0000000000A7\",\"00000000-0000-4000-8000-0000000000A4\"]",
+        "createdAt" : "2026-01-01 00:00:00.000",
+        "id" : "00000000-0000-4000-8000-0000000000D2",
+        "name" : "Routers",
+        "sortOrder" : 1
+      }
+    ]
+  }
+}

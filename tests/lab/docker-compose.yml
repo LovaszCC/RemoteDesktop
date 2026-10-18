@@ -1,0 +1,12 @@
+# Local test lab: SSH targets with GNU and busybox userlands, and an xrdp target.
+# Credentials are made up and only valid inside these containers (see README.md).
+services:
+  sshd-gnu:
+    build: ./sshd-gnu
+    ports: ["127.0.0.1:2221:22"]
+  sshd-busybox:
+    build: ./sshd-busybox
+    ports: ["127.0.0.1:2222:22"]
+  xrdp:
+    build: ./xrdp
+    ports: ["127.0.0.1:3390:3389"]

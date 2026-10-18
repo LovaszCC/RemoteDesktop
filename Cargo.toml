@@ -1,0 +1,89 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "app/src-tauri"]
+# cargo-fuzz targets build with nightly on their own (see crates/rd-core/fuzz/Cargo.toml).
+exclude = ["crates/rd-core/fuzz"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "MIT"
+repository = "https://github.com/LovaszCC/RemoteDesktop"
+
+[workspace.dependencies]
+rd-core = { path = "crates/rd-core" }
+rd-store = { path = "crates/rd-store" }
+rd-ssh = { path = "crates/rd-ssh" }
+rd-rdp = { path = "crates/rd-rdp" }
+rd-freerdp = { path = "crates/rd-freerdp" }
+rd-platform = { path = "crates/rd-platform" }
+rd-update = { path = "crates/rd-update" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = "2.12"
+tauri-build = "2.7"
+tauri-plugin-dialog = "2.8"
+tauri-plugin-opener = "2.7"
+tauri-plugin-single-instance = "2.5"
+tauri-plugin-updater = { version = "2.13", default-features = false, features = ["rustls-tls", "zip"] }
+arboard = { version = "3.7", default-features = false }
+ssh-key = { version = "0.6", features = ["encryption"] }
+thiserror = "2"
+time = { version = "0.3.55", features = ["formatting", "parsing", "macros"] }
+uuid = { version = "1.28", features = ["v4"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
+pbkdf2 = "0.13"
+hmac = "0.13"
+sha2 = "0.11"
+sha1 = "0.11"
+base64 = "0.22"
+png = "0.18"
+aes-gcm = "0.11"
+rand = "0.10"
+zeroize = "1.9"
+secrecy = "0.10"
+keyring = "4.2"
+sysinfo = { version = "0.39", default-features = false, features = ["system"] }
+hostname = "0.4"
+getrandom = "0.4"
+tempfile = "3.27"
+rustix = { version = "1.1", default-features = false, features = ["std", "fs"] }
+quick-xml = "0.42"
+dirs = "7.0"
+portable-pty = "0.9"
+vte = "0.15"
+interprocess = "2.4"
+widestring = "1"
+# ring instead of the default aws-lc-rs: no cmake/NASM on Windows, no OpenSSL anywhere.
+russh = { version = "0.64", default-features = false, features = ["ring", "rsa", "flate2"] }
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
+unicode-normalization = "0.1"
+tar = { version = "0.4.46", default-features = false }
+flate2 = "1.1"
+russh-sftp = "3.0"
+tokio-util = "0.7"
+objc2 = "0.6.5"
+objc2-foundation = { version = "0.3.2", default-features = false }
+objc2-app-kit = { version = "0.3.2", default-features = false }
+open = "5.4"
+winreg = "0.56"
+windows-sys = "0.61"
+objc2-core-foundation = { version = "0.3.2", default-features = false }
+objc2-application-services = { version = "0.3.2", default-features = false }
+x509-cert = { version = "0.2", default-features = false, features = ["std"] }
+tokio = { version = "1.53", features = ["rt-multi-thread", "net", "time", "sync", "io-util", "macros"] }
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+assert_is_empty = "allow"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
