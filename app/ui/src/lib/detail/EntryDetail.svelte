@@ -279,7 +279,8 @@
   }
   .connection-groups.row {
     flex-direction: row;
-    align-items: flex-start;
+    /* Every card as tall as the tallest one. */
+    align-items: stretch;
     overflow-x: auto;
     padding-bottom: var(--space-1);
   }
