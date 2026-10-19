@@ -39,6 +39,10 @@ router's web UI bookmarked somewhere, and passwords in a fourth place. RemoteDes
 one window: a sidebar with your folders and connections, and tabs for the sessions you open. Everything
 sensitive is locked behind one master password.
 
+<p align="center">
+  <img src="screenshots/split-broadcast.png" width="900" alt="Three SSH sessions side by side in a split view, typing into two of them at once">
+</p>
+
 > [!NOTE]
 > **New in 1.6.5:** RemoteDesktop now runs on Windows and Linux too. If you used the earlier macOS app,
 > just update — your connections, passwords and settings come with you
@@ -131,11 +135,21 @@ And a few things that make everyday work nicer:
   clean text. Works even after `sudo -i` or on RouterOS.
 - **📁 File browser.** Copy files and folders between your computer and a server over SSH, with drag and
   drop.
-- **🔀 Port forwards.** Save SSH tunnels with a connection and start or stop them with one click.
+- **🔀 Port forwards.** Save SSH tunnels with an entry and start or stop them with one click. With several
+  SSH connections you pick which one each tunnel runs through.
 - **⚠️ Root warning.** A tab shows a warning sign while you're logged in as root.
 - **☁️ Your data, your place.** Everything lives in a single database file. Put it in iCloud Drive,
   OneDrive or Dropbox and use it from several computers (just not from two at the same time).
 - **🌍 English and Hungarian**, switchable without restarting.
+
+### 📸 A quick look
+
+| | |
+|:-:|:-:|
+| <img src="screenshots/entry-details.png" width="440" alt="An entry with an SSH and an RDP connection, each on its own card, plus Add connection"> | <img src="screenshots/production-root-tab.png" width="440" alt="A red PRODUCTION tab with the root warning"> |
+| One entry, several connections | A production server, logged in as root |
+| <img src="screenshots/open-sessions.png" width="440" alt="Green dots in the sidebar next to the servers with an open session"> | <img src="screenshots/file-browser.png" width="440" alt="The file browser: a server on the left, this computer on the right"> |
+| Green dots show what's open | Copy files over SSH |
 
 ### ⌨️ Keyboard shortcuts
 
