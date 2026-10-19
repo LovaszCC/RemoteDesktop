@@ -203,5 +203,14 @@
   "Update required": "Frissítés szükséges",
   "This database was last used with RemoteDesktop %@. This is version %@: update the app to open it.": "Ezt az adatbázist legutóbb a RemoteDesktop %@ használta. Ez a %@ verzió: frissítsd az appot a megnyitásához.",
   "Check for updates": "Frissítések keresése",
-  "Default connection": "Alapértelmezett kapcsolat"
+  "Default connection": "Alapértelmezett kapcsolat",
+  "Add connection": "Kapcsolat hozzáadása",
+  "Label": "Címke",
+  "Scheme": "Séma",
+  "Paste a full URL into these fields to fill them.": "Egy teljes URL-t ide beillesztve ezek a mezők kitöltődnek.",
+  "The URL is on %@, this entry on %@.": "Az URL hosztja %@, ennek az elemnek %@.",
+  "Use %@": "%@ használata",
+  "Show as button on Details": "Gombként a Részletek oldalon",
+  "Set as default": "Legyen az alapértelmezett",
+  "Remove this connection": "Kapcsolat eltávolítása"
 }

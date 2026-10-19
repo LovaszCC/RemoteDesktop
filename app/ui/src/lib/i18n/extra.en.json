@@ -203,5 +203,14 @@
   "Update required": "Update required",
   "This database was last used with RemoteDesktop %@. This is version %@: update the app to open it.": "This database was last used with RemoteDesktop %@. This is version %@: update the app to open it.",
   "Check for updates": "Check for updates",
-  "Default connection": "Default connection"
+  "Default connection": "Default connection",
+  "Add connection": "Add connection",
+  "Label": "Label",
+  "Scheme": "Scheme",
+  "Paste a full URL into these fields to fill them.": "Paste a full URL into these fields to fill them.",
+  "The URL is on %@, this entry on %@.": "The URL is on %@, this entry on %@.",
+  "Use %@": "Use %@",
+  "Show as button on Details": "Show as button on Details",
+  "Set as default": "Set as default",
+  "Remove this connection": "Remove this connection"
 }

@@ -318,7 +318,7 @@ describe('sidebar actions', () => {
     const { actions, editor, library } = setup();
     library.select('e:c3');
     actions.newConnection('rdp');
-    expect(editor.connection).toEqual({ mode: 'new', type: 'rdp', folderId: 'f2' });
+    expect(editor.entry).toEqual({ mode: 'new', type: 'rdp', folderId: 'f2' });
     library.select('f:f1');
     actions.newFolder();
     expect(editor.folder).toEqual({ mode: 'new', parentId: 'f1' });
@@ -326,9 +326,17 @@ describe('sidebar actions', () => {
     actions.newFolder();
     expect(editor.folder).toEqual({ mode: 'new', parentId: null });
     actions.editConnection('c1');
-    expect(editor.connection).toEqual({ mode: 'edit', id: 'c1' });
+    expect(editor.entry).toEqual({ mode: 'edit', id: 'c1' });
     actions.renameFolder('f1');
     expect(editor.folder).toEqual({ mode: 'edit', id: 'f1' });
+  });
+
+  it('edits the entry of a connection', () => {
+    const { actions, editor } = setup({}, multiEntryLibrary());
+    actions.editConnection('h2');
+    expect(editor.entry).toEqual({ mode: 'edit', id: 'e1' });
+    actions.editEntry('e1', 'h2');
+    expect(editor.entry).toEqual({ mode: 'edit', id: 'e1', connectionId: 'h2' });
   });
 
   it('sets a folder colour keeping its name', async () => {

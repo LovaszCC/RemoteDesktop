@@ -41,16 +41,21 @@ describe('dialog store', () => {
 describe('editor store', () => {
   it('opens and closes the editor requests', () => {
     const editor = createEditorStore();
-    editor.openConnectionEditor({ type: 'ssh' });
-    expect(editor.connection).toEqual({ mode: 'new', type: 'ssh', folderId: null });
-    editor.openConnectionEditor({ id: 'c1' });
-    expect(editor.connection).toEqual({ mode: 'edit', id: 'c1' });
+    editor.openEntryEditor({ type: 'ssh' });
+    expect(editor.entry).toEqual({ mode: 'new', type: 'ssh', folderId: null });
+    editor.openEntryEditor({ mode: 'new', type: 'web', folderId: 'f1' });
+    expect(editor.entry).toEqual({ mode: 'new', type: 'web', folderId: 'f1' });
+    editor.openEntryEditor({ id: 'e1' });
+    expect(editor.entry).toEqual({ mode: 'edit', id: 'e1' });
+    editor.openEntryEditor({ id: 'e1', connectionId: 'h2' });
+    expect(editor.entry).toEqual({ mode: 'edit', id: 'e1', connectionId: 'h2' });
+    expect(editor.connection).toBe(editor.entry);
     editor.openCredentialEditor();
     expect(editor.credential).toEqual({ mode: 'new' });
     editor.openFolderEditor({ parentId: 'f1' });
     expect(editor.folder).toEqual({ mode: 'new', parentId: 'f1' });
-    editor.closeConnectionEditor();
-    expect(editor.connection).toBeNull();
+    editor.closeEntryEditor();
+    expect(editor.entry).toBeNull();
     editor.closeAll();
     expect([editor.credential, editor.folder]).toEqual([null, null]);
   });

@@ -146,7 +146,7 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
 
     // Editors
     newConnection(type: ConnectionType, folderId: string | null = actions.selectedFolderId()) {
-      editor.openConnectionEditor({ type, folderId });
+      editor.openEntryEditor({ type, folderId });
     },
     newFolder(parentId: string | null = actions.selectedFolderId()) {
       editor.openFolderEditor({ parentId });
@@ -154,8 +154,13 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
     newCredential() {
       editor.openCredentialEditor();
     },
+    /** Edits the entry of connection `id` (General tab). */
     editConnection(id: string) {
-      editor.openConnectionEditor({ id });
+      actions.editEntry(library.connection(id)?.entryId ?? id);
+    },
+    /** Edits an entry, on the `connectionId` tab when given. */
+    editEntry(id: string, connectionId?: string) {
+      editor.openEntryEditor({ id, connectionId });
     },
     editCredential(id: string) {
       editor.openCredentialEditor(id);

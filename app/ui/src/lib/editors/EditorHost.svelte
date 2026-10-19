@@ -1,16 +1,16 @@
 <script lang="ts">
   import { viewDeps } from '../detail/deps';
-  import ConnectionEditor from './ConnectionEditor.svelte';
   import CredentialEditor from './CredentialEditor.svelte';
+  import EntryEditor from './EntryEditor.svelte';
   import FolderEditor from './FolderEditor.svelte';
 
   /** Renders the editor sheet the editor store asks for. */
   const { editor } = viewDeps();
 </script>
 
-{#if editor.connection}
-  {#key editor.connection}
-    <ConnectionEditor request={editor.connection} onclose={() => editor.closeConnectionEditor()} />
+{#if editor.entry}
+  {#key editor.entry}
+    <EntryEditor request={editor.entry} onclose={() => editor.closeEntryEditor()} />
   {/key}
 {/if}
 {#if editor.credential}

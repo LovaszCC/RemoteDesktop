@@ -1,17 +1,20 @@
 // The editors' pure logic (Swift `ConnectionDraft`, `CredentialDraft`, `FolderEditorView`): the editable
-// form state, the secret field rule, the draft sent to Rust with the fields each type doesn't use left
-// out, the picker options and where a validation error from Rust shows.
+// form state, the secret field rule, the entry and connection drafts sent to Rust with the fields each
+// type doesn't use left out, pasted URL splitting, the picker options and where a validation error from
+// Rust shows.
 
 import { t } from '../i18n/index.svelte';
-import { usesSSH } from '../sidebar/model';
+import { typeName, usesSSH } from '../sidebar/model';
 import { browserPickerOptions } from '../stores/browsers.svelte';
 import type {
   BrowserDto,
-  LegacyConnectionDraft,
   ConnectionDto,
+  ConnectionSave,
   ConnectionType,
   CredentialDto,
   CredentialInput,
+  EntryDraft,
+  EntryDto,
   LabelColor,
   LibraryDto,
   MikrotikMode,
@@ -61,50 +64,72 @@ export function keepsStored(secret: SecretState): boolean {
   return secret.stored && !secret.cleared && secret.text === '';
 }
 
-// Connection editor
+// Entry editor
 
+/** One connection tab of the entry editor: its own fields; the shared ones are the entry's. */
 export interface ConnectionForm {
+  /** Stable key of the tab: the connection id, or a fresh `new-<n>` for an added connection. */
+  key: string;
+  /** `null` for a connection added in this editor. */
+  id: string | null;
   type: ConnectionType;
-  folderId: string | null;
   credentialId: string | null;
-  name: string;
-  host: string;
   port: string;
   username: string;
   domain: string;
   sshKeyPath: string;
-  notes: string;
-  isFavorite: boolean;
   rdpAdminSession: boolean;
   rdpClient: RdpClient;
   browserBundleId: string | null;
+  /** The browser saved before editing, listed even when it isn't installed. */
+  savedBrowserBundleId: string | null;
   mikrotikMode: MikrotikMode;
   sshTerminal: SshTerminal;
-  color: LabelColor | null;
+  webScheme: string;
+  webPath: string;
+  label: string;
+  showAsButton: boolean;
   password: SecretState;
   passphrase: SecretState;
 }
 
-/** A blank form for a new connection (Swift `ConnectionDraft(type:folderId:)`). */
-export function newConnectionForm(type: ConnectionType, folderId: string | null): ConnectionForm {
+/** The entry editor: the General tab's shared fields and the connections in order. */
+export interface EntryForm {
+  name: string;
+  host: string;
+  folderId: string | null;
+  notes: string;
+  color: LabelColor | null;
+  isFavorite: boolean;
+  connections: ConnectionForm[];
+  /** The key of the default connection. */
+  defaultKey: string | null;
+}
+
+let newKeys = 0;
+
+/** A blank connection of `type` (Swift `ConnectionDraft(type:)`), shown as a button on Details. */
+export function newConnectionForm(type: ConnectionType): ConnectionForm {
+  newKeys += 1;
   return {
+    key: `new-${newKeys}`,
+    id: null,
     type,
-    folderId,
     credentialId: null,
-    name: '',
-    host: '',
     port: '',
     username: '',
     domain: '',
     sshKeyPath: '',
-    notes: '',
-    isFavorite: false,
     rdpAdminSession: false,
     rdpClient: 'embedded',
     browserBundleId: null,
+    savedBrowserBundleId: null,
     mikrotikMode: 'winbox',
     sshTerminal: 'embedded',
-    color: null,
+    webScheme: 'https',
+    webPath: '',
+    label: '',
+    showAsButton: true,
     password: secretState(false),
     passphrase: secretState(false),
   };
@@ -113,70 +138,194 @@ export function newConnectionForm(type: ConnectionType, folderId: string | null)
 /** The form for an existing connection; its own secrets are only flagged. */
 export function connectionFormFrom(connection: ConnectionDto): ConnectionForm {
   return {
+    key: connection.id,
+    id: connection.id,
     type: connection.type,
-    folderId: connection.folderId,
     credentialId: connection.credentialId,
-    name: connection.name,
-    host: connection.host,
     port: connection.port === null ? '' : String(connection.port),
     username: connection.username,
     domain: connection.domain,
     sshKeyPath: connection.sshKeyPath ?? '',
-    notes: connection.notes,
-    isFavorite: connection.isFavorite,
     rdpAdminSession: connection.rdpAdminSession,
     rdpClient: connection.rdpClient,
     browserBundleId: connection.browserBundleId,
+    savedBrowserBundleId: connection.browserBundleId,
     mikrotikMode: connection.mikrotikMode,
     sshTerminal: connection.sshTerminal,
-    color: connection.color,
+    webScheme: connection.webScheme,
+    webPath: connection.webPath,
+    label: connection.label,
+    showAsButton: connection.showAsButton,
     password: secretState(connection.hasPassword),
     passphrase: secretState(connection.hasPassphrase),
   };
 }
 
+/** "+ New SSH…": an entry with one connection of `type`, its default. */
+export function newEntryForm(type: ConnectionType, folderId: string | null): EntryForm {
+  const connection = newConnectionForm(type);
+  return {
+    name: '',
+    host: '',
+    folderId,
+    notes: '',
+    color: null,
+    isFavorite: false,
+    connections: [connection],
+    defaultKey: connection.key,
+  };
+}
+
+/** The form for an existing entry and its connections (in order). */
+export function entryFormFrom(entry: EntryDto, connections: readonly ConnectionDto[]): EntryForm {
+  return {
+    name: entry.name,
+    host: entry.host,
+    folderId: entry.folderId,
+    notes: entry.notes,
+    color: entry.color,
+    isFavorite: entry.isFavorite,
+    connections: connections.map(connectionFormFrom),
+    defaultKey: entry.defaultConnectionId ?? connections[0]?.id ?? null,
+  };
+}
+
+/** A connection tab's title, like Rust's `displayLabel`: the label, else `<TYPE> · <user>`, else `<TYPE>`;
+ * the user is the linked credential's when it has one. */
+export function connectionTabLabel(form: ConnectionForm, credential?: CredentialDto): string {
+  const label = form.label.trim();
+  if (label) return label;
+  const user = credential && credential.username !== '' ? credential.username : form.username;
+  return user ? `${typeName(form.type)} · ${user}` : typeName(form.type);
+}
+
 /** Swift `ConnectionType.defaultPort`, the port field's placeholder. */
 export const DEFAULT_PORTS: Record<ConnectionType, number> = { rdp: 3389, ssh: 22, web: 443, mikrotik: 22 };
 
-/** What `save_connection` receives. */
-export interface ConnectionSave {
-  draft: LegacyConnectionDraft;
-  password: string | null;
-  passphrase: string | null;
-}
-
 /**
- * The draft for Rust (which validates, trims and drops the same fields again): the port only for
- * non-web types, the domain and admin flag only for RDP, the key path and passphrase only for SSH
- * types, the browser only for web. Untouched secrets are `null` (kept).
+ * One connection for `save_entry` (Rust validates, trims and drops the same fields again): the domain
+ * and admin flag only for RDP, the key path and passphrase only for SSH types, the browser, scheme and
+ * path only for web. Untouched secrets are `null` (kept).
  */
-export function buildConnectionSave(form: ConnectionForm): ConnectionSave {
+export function buildConnectionSave(form: ConnectionForm, isDefault: boolean): ConnectionSave {
   const ssh = usesSSH(form.type);
   const rdp = form.type === 'rdp';
   const web = form.type === 'web';
   return {
+    id: form.id,
     draft: {
       type: form.type,
-      folderId: form.folderId,
       credentialId: form.credentialId,
-      name: form.name,
-      host: form.host,
-      port: web ? '' : form.port.trim(),
+      port: form.port.trim(),
       username: form.username,
       domain: rdp ? form.domain : '',
       sshKeyPath: ssh ? form.sshKeyPath : '',
-      notes: form.notes,
-      isFavorite: form.isFavorite,
       rdpAdminSession: rdp && form.rdpAdminSession,
       rdpClient: form.rdpClient,
       browserBundleId: web ? form.browserBundleId : null,
       mikrotikMode: form.mikrotikMode,
       sshTerminal: form.sshTerminal,
-      color: form.color,
+      webScheme: web ? form.webScheme.trim() : 'https',
+      webPath: web ? form.webPath.trim() : '',
+      label: form.label,
+      showAsButton: form.showAsButton,
     },
     password: secretUpdate(form.password),
     passphrase: ssh ? secretUpdate(form.passphrase) : null,
+    isDefault,
   };
+}
+
+/** What `save_entry` receives: the shared fields and every connection in the tabs' order, the default
+ * one flagged. */
+export function buildEntrySave(form: EntryForm): { entry: EntryDraft; connections: ConnectionSave[] } {
+  return {
+    entry: {
+      name: form.name,
+      host: form.host,
+      folderId: form.folderId,
+      notes: form.notes,
+      color: form.color,
+      isFavorite: form.isFavorite,
+    },
+    connections: form.connections.map((c) => buildConnectionSave(c, c.key === form.defaultKey)),
+  };
+}
+
+/** Whether a typed port is empty or a number from 1 to 65535 (Rust's rule). */
+function validPort(text: string): boolean {
+  const port = text.trim();
+  return port === '' || (/^\d+$/.test(port) && Number(port) >= 1 && Number(port) <= 65535);
+}
+
+/** The key of the first connection whose port Rust rejects (`invalidPort` names no connection). */
+export function invalidPortKey(form: EntryForm): string | null {
+  return form.connections.find((c) => !validPort(c.port))?.key ?? null;
+}
+
+/** The parts of a pasted web URL. */
+export interface WebParts {
+  scheme: string;
+  host: string;
+  port: number | null;
+  /** The path with its `?query#fragment`; empty for none. */
+  path: string;
+}
+
+const SCHEME = /^[A-Za-z][A-Za-z0-9+.-]*$/;
+
+/**
+ * Splits a pasted URL like Rust's `split_web_url`: any `scheme://`, none means `https`; a `user@` is
+ * dropped; an IPv6 host stays bracketed; the path keeps its `?query#fragment`; the port is kept as typed,
+ * even the scheme's default. `null` for an empty value, one with whitespace, a bad scheme, a missing
+ * host, a port that isn't a number from 1 to 65535, or what `URL` can't parse.
+ */
+export function splitPastedUrl(text: string): WebParts | null {
+  const trimmed = text.trim();
+  // eslint-disable-next-line no-control-regex
+  if (trimmed === '' || /[\s\u0000-\u001f\u007f]/.test(trimmed)) return null;
+  const marker = trimmed.indexOf('://');
+  const scheme = marker < 0 ? 'https' : trimmed.slice(0, marker);
+  const rest = marker < 0 ? trimmed : trimmed.slice(marker + 3);
+  if (!SCHEME.test(scheme)) return null;
+  const end = rest.search(/[/?#]/);
+  const authority = end < 0 ? rest : rest.slice(0, end);
+  const path = end < 0 ? '' : rest.slice(end);
+  const hostPort = authority.slice(authority.lastIndexOf('@') + 1);
+  let host: string;
+  let portText: string | null;
+  if (hostPort.startsWith('[')) {
+    const close = hostPort.indexOf(']');
+    if (close < 0) return null;
+    host = hostPort.slice(0, close + 1);
+    const after = hostPort.slice(close + 1);
+    if (after !== '' && !after.startsWith(':')) return null;
+    portText = after === '' ? null : after.slice(1);
+  } else {
+    const colon = hostPort.indexOf(':');
+    host = colon < 0 ? hostPort : hostPort.slice(0, colon);
+    portText = colon < 0 ? null : hostPort.slice(colon + 1);
+  }
+  if (host === '' || host === '[]') return null;
+  let port: number | null = null;
+  if (portText !== null) {
+    if (!/^\d+$/.test(portText)) return null;
+    port = Number(portText);
+    if (port < 1 || port > 65535) return null;
+  }
+  try {
+    new URL(`${scheme}://${host}${port === null ? '' : `:${port}`}${path}`);
+  } catch {
+    return null;
+  }
+  return { scheme, host, port, path };
+}
+
+/** The URL a web connection opens, for the preview: `scheme://host[:port][/path]`. */
+export function webUrlPreview(scheme: string, host: string, port: string, path: string): string {
+  const trimmedPath = path.trim();
+  const joined = trimmedPath === '' || /^[/?#]/.test(trimmedPath) ? trimmedPath : `/${trimmedPath}`;
+  return `${scheme.trim()}://${host.trim()}${port.trim() ? `:${port.trim()}` : ''}${joined}`;
 }
 
 /** Save is enabled once the name isn't blank; the rest is validated by Rust. */
