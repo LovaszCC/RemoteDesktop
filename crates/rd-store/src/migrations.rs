@@ -7,7 +7,7 @@
 
 use rusqlite::{Connection, Transaction, params};
 
-use rd_core::draft::split_web_url;
+use rd_core::draft::split_stored_web_url;
 
 use crate::StoreError;
 
@@ -128,7 +128,7 @@ fn split_web_urls(tx: &Transaction<'_>) -> Result<(), StoreError> {
         .collect::<Result<_, _>>()?;
     for (id, host, port) in rows {
         // The stored value was the whole URL; one that doesn't parse stays the host as typed.
-        let (scheme, host, port, path) = match split_web_url(&host) {
+        let (scheme, host, port, path) = match split_stored_web_url(&host) {
             Some(parts) => (parts.scheme, parts.host, parts.port.map(i64::from), parts.path),
             None => ("https".to_owned(), host, port, String::new()),
         };
@@ -309,17 +309,18 @@ mod tests {
     fn v14_splits_web_urls() {
         let mut conn = Connection::open_in_memory().unwrap();
         migrate_up_to(&mut conn, "v13-saved-split").unwrap();
-        for (id, kind, host) in [
-            ("A", "web", "https://192.168.1.10:8443/admin?x=1"),
-            ("B", "web", "smb://homeserver.local/share"),
-            ("C", "web", "router.example.com"),
-            ("D", "web", "not a url"),
-            ("E", "ssh", "https://kept.example.com/x"),
+        for (id, kind, host, port) in [
+            ("A", "web", "https://192.168.1.10:8443/admin?x=1", None),
+            ("B", "web", "smb://homeserver.local/share", None),
+            ("C", "web", "router.example.com", None),
+            ("D", "web", "not a url", Some(99)),
+            ("E", "ssh", "https://kept.example.com/x", None),
+            ("F", "web", "https://user:pass@host.example.com/", None),
         ] {
             conn.execute(
-                "INSERT INTO connection (id, type, name, host, createdAt, updatedAt) \
-                 VALUES (?1, ?2, 'n', ?3, '2025-01-01 00:00:00.000', '2025-01-01 00:00:00.000')",
-                params![id, kind, host],
+                "INSERT INTO connection (id, type, name, host, port, createdAt, updatedAt) \
+                 VALUES (?1, ?2, 'n', ?3, ?4, '2025-01-01 00:00:00.000', '2025-01-01 00:00:00.000')",
+                params![id, kind, host, port],
             )
             .unwrap();
         }
@@ -367,7 +368,7 @@ mod tests {
                 (
                     text("D"),
                     text("not a url"),
-                    None,
+                    Some(99),
                     text("https"),
                     String::new(),
                     text("not a url")
@@ -379,6 +380,14 @@ mod tests {
                     text("https"),
                     String::new(),
                     text("https://kept.example.com/x")
+                ),
+                (
+                    text("F"),
+                    text("user:pass@host.example.com"),
+                    None,
+                    text("https"),
+                    text("/"),
+                    text("user:pass@host.example.com")
                 ),
             ]
         );

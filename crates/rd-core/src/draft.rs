@@ -194,17 +194,36 @@ impl ConnectionDraft {
             return Err(DraftError::EmptyName);
         }
         if self.kind == ConnectionType::Web {
-            web_url(
-                trim(&self.web_scheme),
-                trim(&self.host),
-                None,
-                trim(&self.web_path),
-            )
-            .ok_or(DraftError::InvalidUrl)?;
-        } else if trim(&self.host).is_empty() {
+            return self.web_parts().map(|_| ());
+        }
+        if trim(&self.host).is_empty() {
             return Err(DraftError::EmptyHost);
         }
         self.parsed_port().map(|_| ())
+    }
+
+    /// The parts of a web draft's URL. A host holding a whole URL (`://`, or a path) is split and replaces the draft's
+    /// scheme, port and path; otherwise the host may only be `[userinfo@]host` (a bracketed IPv6 address is
+    /// fine) and the scheme must be a valid one.
+    fn web_parts(&self) -> Result<WebParts, DraftError> {
+        let host = trim(&self.host);
+        if host.contains("://") || host.contains(['/', '?', '#']) {
+            return split_web_url(host).ok_or(DraftError::InvalidUrl);
+        }
+        let scheme = trim(&self.web_scheme);
+        let plain = split_authority(host, true).is_some_and(|(_, port)| port.is_none());
+        if !is_scheme(scheme) || !plain || host.chars().any(|c| c.is_whitespace() || c.is_control()) {
+            return Err(DraftError::InvalidUrl);
+        }
+        let parts = WebParts {
+            scheme: scheme.to_owned(),
+            host: host.to_owned(),
+            port: self.parsed_port()?,
+            path: trim(&self.web_path).to_owned(),
+        };
+        web_url(&parts.scheme, &parts.host, parts.port, &parts.path)
+            .map(|_| parts)
+            .ok_or(DraftError::InvalidUrl)
     }
 
     /// The port to store: `None` when empty.
@@ -239,7 +258,11 @@ impl ConnectionDraft {
         connection.credential_id.clone_from(&self.credential_id);
         trim(&self.name).clone_into(&mut connection.name);
         trim(&self.host).clone_into(&mut connection.host);
-        connection.port = self.parsed_port()?;
+        connection.port = if self.kind == ConnectionType::Web {
+            None
+        } else {
+            self.parsed_port()?
+        };
         trim(&self.username).clone_into(&mut connection.username);
         connection.domain = if self.kind == ConnectionType::Rdp {
             trim(&self.domain).to_owned()
@@ -251,8 +274,11 @@ impl ConnectionDraft {
             connection.ssh_key_passphrase_enc = None;
         }
         if self.kind == ConnectionType::Web {
-            trim(&self.web_scheme).clone_into(&mut connection.web_scheme);
-            trim(&self.web_path).clone_into(&mut connection.web_path);
+            let parts = self.web_parts()?;
+            connection.host = parts.host;
+            connection.port = parts.port;
+            connection.web_scheme = parts.scheme;
+            connection.web_path = parts.path;
         } else {
             connection.web_scheme = default_web_scheme();
             connection.web_path = String::new();
@@ -288,47 +314,76 @@ pub struct WebParts {
 
 /// Splits a typed web URL (Swift `WebLaunch.url(from:)`, reworked): any `scheme://` is accepted, none means
 /// `https`; a `user@` is dropped; the path keeps its `?query#fragment`. `None` for an empty value, one with
-/// whitespace, a bad scheme, a missing host or a port that isn't a number from 0 to 65535.
+/// whitespace, a bad scheme, a missing host or a port that isn't a number from 1 to 65535.
 #[must_use]
 pub fn split_web_url(text: &str) -> Option<WebParts> {
-    let trimmed = text.trim();
-    if trimmed.is_empty() || trimmed.chars().any(|c| c.is_whitespace() || c.is_control()) {
-        return None;
-    }
-    let (scheme, rest) = trimmed.split_once("://").unwrap_or(("https", trimmed));
-    let mut scheme_chars = scheme.chars();
-    if !scheme_chars.next().is_some_and(|c| c.is_ascii_alphabetic())
-        || !scheme_chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'))
-    {
-        return None;
-    }
-    let end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
-    let (authority, path) = rest.split_at(end);
+    split_inner(text, false)
+}
+
+/// Like [`split_web_url`], but keeps a `userinfo@` as part of the host, so the rebuilt URL opens the same
+/// page. Used when upgrading stored URLs.
+#[must_use]
+pub fn split_stored_web_url(text: &str) -> Option<WebParts> {
+    split_inner(text, true)
+}
+
+fn is_scheme(scheme: &str) -> bool {
+    let mut chars = scheme.chars();
+    chars.next().is_some_and(|c| c.is_ascii_alphabetic())
+        && chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'))
+}
+
+/// Splits an authority into its host (with `userinfo@` when `keep_userinfo`) and the port text.
+fn split_authority(authority: &str, keep_userinfo: bool) -> Option<(String, Option<&str>)> {
     let host_port = authority.rsplit_once('@').map_or(authority, |(_, h)| h);
     let (host, port) = if host_port.starts_with('[') {
         let close = host_port.find(']')?;
         let (host, after) = host_port.split_at(close + 1);
-        (host, after.strip_prefix(':'))
+        let port = if after.is_empty() {
+            None
+        } else {
+            Some(after.strip_prefix(':')?)
+        };
+        (host, port)
     } else {
         match host_port.split_once(':') {
             Some((host, port)) => (host, Some(port)),
             None => (host_port, None),
         }
     };
-    if host.is_empty()
-        || host == "[]"
-        || (host_port.starts_with('[') && port.is_none() && host.len() != host_port.len())
-    {
+    if host.is_empty() || host == "[]" {
         return None;
     }
+    let prefix = if keep_userinfo {
+        &authority[..authority.len() - host_port.len()]
+    } else {
+        ""
+    };
+    Some((format!("{prefix}{host}"), port))
+}
+
+fn split_inner(text: &str, keep_userinfo: bool) -> Option<WebParts> {
+    let trimmed = text.trim();
+    if trimmed.is_empty() || trimmed.chars().any(|c| c.is_whitespace() || c.is_control()) {
+        return None;
+    }
+    let (scheme, rest) = trimmed.split_once("://").unwrap_or(("https", trimmed));
+    if !is_scheme(scheme) {
+        return None;
+    }
+    let end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
+    let (authority, path) = rest.split_at(end);
+    let (host, port) = split_authority(authority, keep_userinfo)?;
     let port = match port {
         None => None,
-        Some(p) if !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()) => Some(p.parse().ok()?),
+        Some(p) if !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()) => {
+            Some(p.parse::<u16>().ok().filter(|&p| p >= 1)?)
+        }
         Some(_) => return None,
     };
     Some(WebParts {
         scheme: scheme.to_owned(),
-        host: host.to_owned(),
+        host,
         port,
         path: path.to_owned(),
     })
@@ -455,6 +510,57 @@ mod tests {
         assert_eq!(web_url("https", "  ", None, ""), None);
         assert_eq!(web_url(" ", "h", None, ""), None);
         assert_eq!(web_url("https", "a b", None, ""), None);
+    }
+
+    #[test]
+    fn split_rejects_port_zero_and_can_keep_userinfo() {
+        assert_eq!(split_web_url("https://h:0"), None);
+        assert_eq!(
+            split_stored_web_url("https://user:pw@h:81/x"),
+            Some(parts("https", "user:pw@h", Some(81), "/x"))
+        );
+        assert_eq!(
+            split_stored_web_url("u@[::1]"),
+            Some(parts("https", "u@[::1]", None, ""))
+        );
+    }
+
+    #[test]
+    fn web_draft_host_is_split_or_checked() {
+        let mut d = draft(ConnectionType::Web);
+        d.host = " smb://user@nas.local:445/share?x#y ".into();
+        d.web_scheme = "https".into();
+        d.port = "junk".into();
+        assert_eq!(d.validate(), Ok(()));
+        let mut c = Connection::new(ConnectionType::Web, "w", "w");
+        d.apply_to(&mut c).unwrap();
+        assert_eq!(
+            (
+                c.host.as_str(),
+                c.port,
+                c.web_scheme.as_str(),
+                c.web_path.as_str()
+            ),
+            ("nas.local", Some(445), "smb", "/share?x#y")
+        );
+
+        for bad in ["host:8080", "[::1", "a b", "https://", "http://:80"] {
+            d.host = bad.into();
+            assert_eq!(d.validate(), Err(DraftError::InvalidUrl), "{bad}");
+        }
+        d.host = "a/b".into();
+        d.port = String::new();
+        d.apply_to(&mut c).unwrap();
+        assert_eq!((c.host.as_str(), c.web_path.as_str()), ("a", "/b"));
+        d.host = "u:p@h".into();
+        assert_eq!(d.validate(), Ok(()));
+        d.host = "[::1]".into();
+        assert_eq!(d.validate(), Ok(()));
+        d.host = "h".into();
+        for bad in ["1ht!", "https://", "", "a b"] {
+            d.web_scheme = bad.into();
+            assert_eq!(d.validate(), Err(DraftError::InvalidUrl), "{bad}");
+        }
     }
 
     #[test]
