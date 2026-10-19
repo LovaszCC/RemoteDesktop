@@ -9,7 +9,7 @@
 *A fast, lightweight alternative to Devolutions Remote Desktop Manager.*<br>
 *Rust + Tauri · instant start · everything behind one master password.*
 
-[![Beta](https://img.shields.io/github/v/release/LovaszCC/RemoteDesktop?include_prereleases&style=for-the-badge&logo=github&color=2563eb&label=beta)](https://github.com/LovaszCC/RemoteDesktop/releases/tag/beta-latest)
+[![Release](https://img.shields.io/github/v/release/LovaszCC/RemoteDesktop?style=for-the-badge&logo=github&color=2563eb&label=release)](https://github.com/LovaszCC/RemoteDesktop/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)](LICENSE)
 <br>
 ![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon-000000?style=for-the-badge&logo=apple&logoColor=white)
@@ -17,7 +17,7 @@
 ![Linux](https://img.shields.io/badge/Linux-x86__64-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![Rust](https://img.shields.io/badge/Rust-Tauri%202-CE422B?style=for-the-badge&logo=rust&logoColor=white)
 
-**[⬇️ Download](https://github.com/LovaszCC/RemoteDesktop/releases/tag/beta-latest)** ·
+**[⬇️ Download](https://github.com/LovaszCC/RemoteDesktop/releases/latest)** ·
 **[✨ Features](#-features)** ·
 **[🔐 Security](#-security)** ·
 **[🛠 Build](#-build-from-source)**
@@ -26,19 +26,21 @@
 
 </div>
 
-> [!WARNING]
-> **Beta.** This is the cross-platform rewrite of the macOS app on `main`. It uses the same identity: on
-> macOS it replaces the installed RemoteDesktop and opens the same database and remembered key. Back up
-> `~/Library/Application Support/RemoteDesktop/connections.sqlite` before the first start.
+> [!NOTE]
+> **Since 1.6.5** RemoteDesktop is a cross-platform Rust + Tauri app. It replaces the earlier macOS-only
+> Swift app and keeps its identity: an existing install updates into it and opens the same database,
+> remembered key and settings ([details](#-coming-from-the-swift-app-164-or-older)). The Swift code is kept
+> in the [`swift-final`](https://github.com/LovaszCC/RemoteDesktop/tree/swift-final) tag.
 
 ---
 
 ## 🚀 Install
 
 Download the file for your system from the
-[latest release](https://github.com/LovaszCC/RemoteDesktop/releases/latest). Test builds of every change
-to the `beta` branch are in the
-[beta-latest](https://github.com/LovaszCC/RemoteDesktop/releases/tag/beta-latest) pre-release.
+[latest release](https://github.com/LovaszCC/RemoteDesktop/releases/latest). Want the newest changes
+early? Every change to the `beta` branch is built into the
+[beta-latest](https://github.com/LovaszCC/RemoteDesktop/releases/tag/beta-latest) pre-release (untested
+between releases).
 
 ### 🍎 macOS (Apple Silicon)
 
@@ -93,7 +95,8 @@ yet: install the newest one over the old one.
 everything from the Swift app: the same database and remembered master key, and its settings (database
 file, language, keyboard shortcuts, external terminal, update check, expanded folders). A banner welcomes
 you and, if needed, asks for the Accessibility permission again. The Swift app's settings are left as they
-were, so reinstalling it still works.
+were, so reinstalling it still works. To be extra safe, back up
+`~/Library/Application Support/RemoteDesktop/connections.sqlite` before the first start.
 
 > [!IMPORTANT]
 > macOS: after every update, grant the Accessibility permission again (*System Settings → Privacy &
