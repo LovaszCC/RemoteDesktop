@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { closeContextMenu, contextMenu } from '../components/menu.svelte';
 import EntryDetail from '../detail/EntryDetail.svelte';
 import { fakeBridge } from '../testing/bridge';
-import { sidebarLibrary } from '../testing/fixtures';
+import { multiEntryLibrary, sidebarLibrary } from '../testing/fixtures';
 import { buttonByText, cleanupView, click, renderView, settle, text, type } from '../testing/views';
 import type { ForwardStatusDto, HostKeyPromptDto, LibraryDto, PortForwardDto } from '../types';
 import { createForwardStore, isRunning } from './forwards.svelte';
@@ -196,6 +196,8 @@ describe('port forward section', () => {
     expect(text()).toContain('New port forward');
     const inputs = [...document.querySelectorAll<HTMLInputElement>('.modal input, [role="dialog"] input')];
     expect(inputs).toHaveLength(4);
+    // One SSH connection: nothing to choose.
+    expect(document.querySelector('[role="dialog"] select')).toBeNull();
     type(inputs[1]!, '8080');
     type(inputs[3]!, '80');
     click(buttonByText('Save & Start'));
@@ -252,6 +254,68 @@ describe('port forward section', () => {
     const entry = library.entries.find((e) => e.id === mikrotik.entryId)!;
     renderView(EntryDetail, { entry, connections: [mikrotik] }, { library });
     expect(text()).not.toContain('Port forwards');
+  });
+});
+
+describe('port forwards of an entry with several SSH connections', () => {
+  /** "Home Server" (e1): h1 "SSH · root" (default) and h2 turned into "SSH · admin"; one forward on each. */
+  function library(): LibraryDto {
+    const lib = multiEntryLibrary();
+    lib.connections = lib.connections.map((c) =>
+      c.id === 'h2' ? { ...c, type: 'ssh' as const, displayLabel: 'SSH · admin' } : c,
+    );
+    lib.portForwards = [
+      { ...FORWARD, id: 'p1', connectionId: 'h1', name: 'Web' },
+      { ...FORWARD, id: 'p2', connectionId: 'h2', name: 'DB', localPort: 15432 },
+    ];
+    return lib;
+  }
+
+  function render() {
+    const lib = library();
+    const entry = lib.entries.find((e) => e.id === 'e1')!;
+    return renderView(
+      EntryDetail,
+      { entry, connections: lib.connections.filter((c) => c.entryId === 'e1') },
+      { library: lib, replies: { port_forward_save: 'p3' } },
+    );
+  }
+
+  const picker = () => document.querySelector<HTMLSelectElement>('[role="dialog"] select');
+
+  it('shows one section listing every forward with its connection', () => {
+    render();
+    const headings = [...document.querySelectorAll('h2')].map((h) => h.textContent?.trim());
+    expect(headings.filter((h) => h === 'Port forwards')).toHaveLength(1);
+    expect(document.querySelector('[data-forward="p1"]')!.textContent).toContain('Web · SSH · root');
+    expect(document.querySelector('[data-forward="p2"]')!.textContent).toContain('DB · SSH · admin');
+  });
+
+  it('a new forward starts on the default connection and can go to another', async () => {
+    const { bridge } = render();
+    click(buttonByText('New forward'));
+    expect([...picker()!.options].map((o) => o.textContent?.trim())).toEqual(['SSH · root', 'SSH · admin']);
+    expect(picker()!.value).toBe('h1');
+    picker()!.value = 'h2';
+    picker()!.dispatchEvent(new Event('change', { bubbles: true }));
+    const inputs = [...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input')];
+    type(inputs[1]!, '8080');
+    type(inputs[2]!, 'intranet');
+    type(inputs[3]!, '80');
+    click(buttonByText('Save'));
+    await settle();
+    expect(bridge.invoke).toHaveBeenCalledWith('port_forward_save', {
+      forward: expect.objectContaining({ id: null, connectionId: 'h2', localPort: '8080' }),
+    });
+  });
+
+  it('editing a forward keeps its own connection', () => {
+    render();
+    const edit = document
+      .querySelector('[data-forward="p2"]')!
+      .querySelector<HTMLButtonElement>('button[aria-label="Edit…"]')!;
+    click(edit);
+    expect(picker()!.value).toBe('h2');
   });
 });
 

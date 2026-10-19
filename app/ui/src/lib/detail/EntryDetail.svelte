@@ -217,14 +217,13 @@
     </section>
   {/if}
 
-  {#each sshConnections as connection (connection.id)}
+  {#if sshConnections.length > 0}
     <PortForwardSection
-      {connection}
-      title={sshConnections.length > 1
-        ? `${t('Port forwards')} · ${connection.displayLabel}`
-        : t('Port forwards')}
+      connections={sshConnections}
+      defaultConnectionId={sshConnections.find((c) => c.id === entry.defaultConnectionId)?.id ??
+        sshConnections[0]!.id}
     />
-  {/each}
+  {/if}
 
   {#if entry.notes}
     <section>

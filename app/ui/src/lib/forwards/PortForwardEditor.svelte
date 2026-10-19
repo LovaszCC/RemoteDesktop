@@ -3,6 +3,7 @@
   // with Rust's validation message inline.
   import Button from '../components/Button.svelte';
   import Modal from '../components/Modal.svelte';
+  import Select from '../components/Select.svelte';
   import TextField from '../components/TextField.svelte';
   import FormRow from '../editors/FormRow.svelte';
   import { errorMessage } from '../errors';
@@ -12,13 +13,15 @@
 
   interface Props {
     draft: PortForwardDraft;
+    /** The SSH connections to choose from; empty (one connection) hides the picker. */
+    connections?: readonly { value: string; label: string }[];
     forwards: ForwardStore;
     onclose: () => void;
     /** Start errors after saving (shown as an alert by the caller). */
     onstarterror?: (error: unknown) => void;
   }
 
-  let { draft, forwards, onclose, onstarterror }: Props = $props();
+  let { draft, connections = [], forwards, onclose, onstarterror }: Props = $props();
   // svelte-ignore state_referenced_locally
   let fields = $state({ ...draft });
   let error = $state<string | null>(null);
@@ -43,6 +46,11 @@
 </script>
 
 <Modal title={draft.id ? t('Edit port forward') : t('New port forward')} {onclose} width={460}>
+  {#if connections.length > 1}
+    <FormRow label={t('Connection')}>
+      <Select bind:value={fields.connectionId} options={connections} label={t('Connection')} />
+    </FormRow>
+  {/if}
   <FormRow label={t('Name')} for="pf-name-{uid}">
     <TextField id="pf-name-{uid}" bind:value={fields.name} placeholder={t('Optional')} />
   </FormRow>

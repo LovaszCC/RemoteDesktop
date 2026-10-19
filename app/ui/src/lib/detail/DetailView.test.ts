@@ -231,19 +231,6 @@ describe('EntryDetail', () => {
     expect(document.querySelector('.connection-groups')!.classList.contains('row')).toBe(true);
   });
 
-  it('names the connection in each port forward heading when several SSH connections exist', () => {
-    const lib = multiEntryLibrary();
-    lib.connections = lib.connections.map((c) =>
-      c.id === 'h2' ? { ...c, type: 'ssh' as const, displayLabel: 'SSH · admin' } : c,
-    );
-    render(['e:e1'], { library: lib });
-    const headings = [...document.querySelectorAll('h2')].map((h) => h.textContent?.trim());
-    expect(headings.filter((h) => h?.startsWith('Port forwards'))).toEqual([
-      'Port forwards · SSH · root',
-      'Port forwards · SSH · admin',
-    ]);
-  });
-
   it('a single connection keeps the plain stacked layout', () => {
     render(['e:c1'], { library: multiEntryLibrary() });
     expect(document.querySelector('.connection-groups')!.classList.contains('row')).toBe(false);
