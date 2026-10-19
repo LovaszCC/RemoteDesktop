@@ -203,5 +203,17 @@
   "Update required": "Frissítés szükséges",
   "This database was last used with RemoteDesktop %@. This is version %@: update the app to open it.": "Ezt az adatbázist legutóbb a RemoteDesktop %@ használta. Ez a %@ verzió: frissítsd az appot a megnyitásához.",
   "Check for updates": "Frissítések keresése",
-  "Default connection": "Alapértelmezett kapcsolat"
+  "Default connection": "Alapértelmezett kapcsolat",
+  "Merge…": "Összevonás…",
+  "Merge into “%@”": "Összevonás ebbe: „%@”",
+  "The connections of the checked entries move into this entry; the emptied entries are deleted.": "A kijelölt bejegyzések kapcsolatai ebbe a bejegyzésbe kerülnek; a kiürült bejegyzések törlődnek.",
+  "Name, host or folder": "Név, host vagy mappa",
+  "No entries": "Egy bejegyzés sem",
+  "its connections will use %@": "a kapcsolatai ezt kapják: %@",
+  "Merge %lld": "Összevonás (%lld)",
+  "Merged — %lld connections moved": {
+    "one": "Összevonva — %lld kapcsolat áthelyezve",
+    "other": "Összevonva — %lld kapcsolat áthelyezve"
+  },
+  "All connections": "Minden kapcsolat"
 }

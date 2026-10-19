@@ -1,7 +1,7 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import { closeContextMenu, contextMenu } from '../components/menu.svelte';
-import ConnectionDetail from '../detail/ConnectionDetail.svelte';
+import EntryDetail from '../detail/EntryDetail.svelte';
 import { fakeBridge } from '../testing/bridge';
 import { sidebarLibrary } from '../testing/fixtures';
 import { buttonByText, cleanupView, click, renderView, settle, text, type } from '../testing/views';
@@ -117,8 +117,8 @@ describe('port forward section', () => {
   function render(options: Parameters<typeof renderView>[2] = {}) {
     const library = libraryWithForward();
     return renderView(
-      ConnectionDetail,
-      { connection: library.connections[0]! },
+      EntryDetail,
+      { entry: library.entries[0]!, connections: [library.connections[0]!] },
       {
         library,
         ...options,
@@ -249,7 +249,8 @@ describe('port forward section', () => {
   it('is only shown for SSH connections', () => {
     const library = libraryWithForward();
     const mikrotik = library.connections.find((c) => c.type === 'mikrotik')!;
-    renderView(ConnectionDetail, { connection: mikrotik }, { library });
+    const entry = library.entries.find((e) => e.id === mikrotik.entryId)!;
+    renderView(EntryDetail, { entry, connections: [mikrotik] }, { library });
     expect(text()).not.toContain('Port forwards');
   });
 });

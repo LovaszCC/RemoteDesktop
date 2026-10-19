@@ -1,16 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { connection, sidebarLibrary } from '../testing/fixtures';
+import { connection, entry, multiEntryLibrary, sidebarLibrary } from '../testing/fixtures';
 import type { ConnectionDto, PortForwardDto } from '../types';
 import {
   allPicked,
   canCopyPassword,
   connectionFields,
+  connectMenuItems,
   connectionSubtitle,
   credentialFields,
   directConnectionCount,
   displayValue,
+  entryButtons,
   forwardDestination,
   forwardName,
+  mergeCandidates,
   pickedAmong,
   setAllPicked,
   setPicked,
@@ -158,5 +161,66 @@ describe('checkbox sets', () => {
     picked = setPicked(picked, 'b', false);
     expect([...picked]).toEqual(['a']);
     expect(pickedAmong(new Set(['a', 'gone']), ['a', 'c'])).toEqual(['a']);
+  });
+});
+
+describe('entryButtons', () => {
+  const a = conn({ id: 'a', displayLabel: 'SSH' });
+  const b = conn({ id: 'b', displayLabel: 'RDP', type: 'rdp' });
+  const c = conn({ id: 'c', displayLabel: 'Web', type: 'web', showAsButton: false });
+
+  it('pins the shown connections, the default first and primary', () => {
+    const buttons = entryButtons(entry('e', [a, b, c], { defaultConnectionId: 'b' }), [a, b, c]);
+    expect(buttons.map((x) => [x.connection.id, x.primary])).toEqual([
+      ['b', true],
+      ['a', false],
+    ]);
+  });
+
+  it('a default without a button leaves no primary', () => {
+    const buttons = entryButtons(entry('e', [a, b, c], { defaultConnectionId: 'c' }), [a, b, c]);
+    expect(buttons.map((x) => [x.connection.id, x.primary])).toEqual([
+      ['a', false],
+      ['b', false],
+    ]);
+  });
+
+  it('a single connection is always the primary button', () => {
+    const lone = { ...c, showAsButton: false };
+    expect(entryButtons(entry('e', [lone]), [lone])).toEqual([{ connection: lone, primary: true }]);
+  });
+});
+
+describe('connectMenuItems', () => {
+  it('lists every connection, the default checked, and connects the picked one', () => {
+    const a = conn({ id: 'a', displayLabel: 'SSH · root' });
+    const b = conn({ id: 'b', displayLabel: 'Console', showAsButton: false });
+    const picked: string[] = [];
+    const items = connectMenuItems([a, b], 'a', (c) => picked.push(c.id));
+    expect(items.map((i) => (i.kind === 'separator' ? '-' : [i.label, i.checked]))).toEqual([
+      ['SSH · root', true],
+      ['Console', false],
+    ]);
+    const second = items[1]!;
+    if (second.kind !== 'separator') second.action?.();
+    expect(picked).toEqual(['b']);
+  });
+});
+
+describe('mergeCandidates', () => {
+  it('lists the other entries by name, filtered by name, host or folder', () => {
+    const library = multiEntryLibrary();
+    expect(mergeCandidates(library, 'e1', '').map((r) => r.entry.id)).toEqual(['c1', 'c3', 'c5', 'c4', 'c2']);
+    expect(mergeCandidates(library, 'e1', ' SERVERS ').map((r) => r.entry.id)).toEqual(['c3']);
+    expect(mergeCandidates(library, 'e1', 'c2.example').map((r) => r.entry.id)).toEqual(['c2']);
+    expect(mergeCandidates(library, 'missing', '')).toEqual([]);
+  });
+
+  it('flags a host that differs from the target, ignoring case', () => {
+    const library = multiEntryLibrary();
+    library.entries = library.entries.map((e) => (e.id === 'c1' ? { ...e, host: 'HOME.example.test' } : e));
+    const rows = mergeCandidates(library, 'e1', '');
+    expect(rows.find((r) => r.entry.id === 'c1')?.hostDiffers).toBe(false);
+    expect(rows.find((r) => r.entry.id === 'c3')?.hostDiffers).toBe(true);
   });
 });

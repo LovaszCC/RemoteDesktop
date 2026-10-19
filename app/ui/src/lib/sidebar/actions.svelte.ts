@@ -55,6 +55,8 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
   let pendingExpansion = $state<string[] | null>(null);
   /** Connections whose SSH key setup is running. */
   let keySetups = $state<string[]>([]);
+  /** The entry the merge sheet merges into, while it is open. */
+  let mergeTarget = $state<string | null>(null);
 
   async function perform<T>(work: () => Promise<T>): Promise<T | undefined> {
     try {
@@ -190,6 +192,23 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
     // Connections
     /** Duplicates an entry with all its connections. */
     duplicate: (entryId: string) => perform(() => api.duplicateEntry(entryId, t(' (copy)'))),
+    /** The entry the open merge sheet merges into; `null` when it is closed. */
+    get mergeTarget(): string | null {
+      return mergeTarget;
+    },
+    /** "Merge…": opens the merge sheet for the entry. */
+    merge(targetId: string) {
+      mergeTarget = targetId;
+    },
+    closeMerge() {
+      mergeTarget = null;
+    },
+    /** Moves the connections of `sources` into `target` (the emptied entries go away). */
+    async mergeEntries(target: string, sources: string[]) {
+      const result = await perform(() => api.mergeEntries(target, sources));
+      if (result) toast.show(t('Merged — %lld connections moved', result.movedConnections));
+      return result;
+    },
     /** Stars or unstars the entry of a connection. */
     setFavorite: (connectionId: string, isFavorite: boolean) =>
       perform(() => api.setFavorite(`c:${connectionId}`, isFavorite)),

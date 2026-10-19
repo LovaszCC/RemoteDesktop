@@ -23,6 +23,7 @@ function fakeActions(): MenuActions {
     'editCredential',
     'renameFolder',
     'duplicate',
+    'merge',
     'setFavorite',
     'deleteConnection',
     'deleteEntry',
@@ -110,6 +111,7 @@ describe('sidebar menus', () => {
       '-',
       'Edit…',
       'Duplicate',
+      'Merge…',
       'Remove from favorites',
       'Move',
       '-',
@@ -290,19 +292,49 @@ describe('importMenu', () => {
   it('an entry row acts on its default connection and deletes the entry, a child row only itself', () => {
     const ctx = context({ library: multiEntryLibrary() });
     const entry = itemMenu(ctx, 'e:e1');
-    find(entry, 'Connect').action?.();
-    expect(ctx.actions.connect).toHaveBeenCalledWith(expect.objectContaining({ id: 'h1' }));
     find(entry, 'Duplicate').action?.();
     expect(ctx.actions.duplicate).toHaveBeenCalledWith('e1');
     find(entry, 'Delete').action?.();
     expect(ctx.actions.deleteEntry).toHaveBeenCalledWith('e1');
     const child = itemMenu(ctx, 'c:h2');
     expect(labels(child)).toContain('Open in Windows App');
+    expect(labels(child)).not.toContain('Merge…');
     find(child, 'Delete').action?.();
     expect(ctx.actions.deleteConnection).toHaveBeenCalledWith('h2');
     const move = find(child, 'Move');
     const root = move.submenu?.[0];
     if (root && root.kind !== 'separator') root.action?.();
     expect(ctx.actions.move).toHaveBeenCalledWith(['e:e1'], null);
+  });
+
+  it('entry_menu_has_merge_and_connect_submenu', () => {
+    const ctx = context({ library: multiEntryLibrary() });
+    const menu = itemMenu(ctx, 'e:e1');
+    expect(labels(menu)).toEqual([
+      'Connect',
+      '-',
+      'Edit…',
+      'Duplicate',
+      'Merge…',
+      'Add to favorites',
+      'Move',
+      '-',
+      'Copy host',
+      '-',
+      'Delete',
+    ]);
+    const connect = find(menu, 'Connect').submenu!;
+    expect(labels(connect)).toEqual(['✓SSH · root', 'Console']);
+    find(connect, 'Console').action!();
+    expect(ctx.actions.connect).toHaveBeenCalledWith(expect.objectContaining({ id: 'h2' }));
+    find(menu, 'Merge…').action!();
+    expect(ctx.actions.merge).toHaveBeenCalledWith('e1');
+    find(menu, 'Edit…').action!();
+    expect(ctx.actions.editConnection).toHaveBeenCalledWith('h1');
+    expect(labels(itemMenu(context({ library: multiEntryLibrary(), readOnly: true }), 'fav:e1'))).toEqual([
+      'Connect',
+      '-',
+      'Copy host',
+    ]);
   });
 });

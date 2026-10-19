@@ -203,5 +203,17 @@
   "Update required": "Update required",
   "This database was last used with RemoteDesktop %@. This is version %@: update the app to open it.": "This database was last used with RemoteDesktop %@. This is version %@: update the app to open it.",
   "Check for updates": "Check for updates",
-  "Default connection": "Default connection"
+  "Default connection": "Default connection",
+  "Merge…": "Merge…",
+  "Merge into “%@”": "Merge into “%@”",
+  "The connections of the checked entries move into this entry; the emptied entries are deleted.": "The connections of the checked entries move into this entry; the emptied entries are deleted.",
+  "Name, host or folder": "Name, host or folder",
+  "No entries": "No entries",
+  "its connections will use %@": "its connections will use %@",
+  "Merge %lld": "Merge %lld",
+  "Merged — %lld connections moved": {
+    "one": "Merged — %lld connection moved",
+    "other": "Merged — %lld connections moved"
+  },
+  "All connections": "All connections"
 }

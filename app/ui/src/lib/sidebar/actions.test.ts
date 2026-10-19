@@ -124,6 +124,26 @@ describe('sidebar actions', () => {
     expect(bridge.invoke).toHaveBeenCalledWith('duplicate_entry', { id: 'e1', copySuffix: ' (copy)' });
   });
 
+  it('opens and closes the merge sheet, and merges with a toast', async () => {
+    const { actions, bridge, toast, alerts } = setup({ merge_entries: { movedConnections: 1 } });
+    expect(actions.mergeTarget).toBeNull();
+    actions.merge('e1');
+    expect(actions.mergeTarget).toBe('e1');
+    actions.closeMerge();
+    expect(actions.mergeTarget).toBeNull();
+    await actions.mergeEntries('e1', ['c1']);
+    expect(bridge.invoke).toHaveBeenCalledWith('merge_entries', { target: 'e1', sources: ['c1'] });
+    expect(toast.current?.message).toBe('Merged — 1 connection moved');
+    const failing = setup({
+      merge_entries: () => {
+        throw { code: 'mergeIntoSelf', message: 'x', detail: null };
+      },
+    });
+    await failing.actions.mergeEntries('e1', ['e1']);
+    expect(failing.alerts.current).toBeTruthy();
+    expect(alerts.current).toBeNull();
+  });
+
   it('stars the entry of a connection', async () => {
     const { actions, bridge } = setup({ set_favorite: null });
     await actions.setFavorite('h1', true);

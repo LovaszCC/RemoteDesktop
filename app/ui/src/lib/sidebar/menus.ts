@@ -4,8 +4,16 @@
 
 import { t } from '../i18n/index.svelte';
 import type { MenuItem } from '../components/menu.svelte';
-import { connectionOfTag, parseTag } from '../stores/library.svelte';
-import { LABEL_COLORS, type ConnectionDto, type ImportKind, type LibraryDto, type Platform } from '../types';
+import { connectMenuItems } from '../detail/model';
+import { connectionOfTag, isEntryKind, parseTag } from '../stores/library.svelte';
+import {
+  LABEL_COLORS,
+  type ConnectionDto,
+  type EntryDto,
+  type ImportKind,
+  type LibraryDto,
+  type Platform,
+} from '../types';
 import { MAX_PANES } from '../terminal/split';
 import type { SidebarActions } from './actions.svelte';
 import {
@@ -28,6 +36,7 @@ export type MenuActions = Pick<
   | 'editCredential'
   | 'renameFolder'
   | 'duplicate'
+  | 'merge'
   | 'setFavorite'
   | 'deleteConnection'
   | 'deleteEntry'
@@ -151,8 +160,8 @@ export function moveMenu(
 }
 
 /**
- * The menu of an entry row (`e:`, `fav:`: its default connection; Delete removes the whole entry) or of a
- * child row (`c:`: that connection; Delete removes only it).
+ * The menu of a one-connection entry row (`e:`, `fav:`: its connection; Merge…; Delete removes the whole
+ * entry) or of a child row (`c:`: that connection; Delete removes only it).
  */
 function connectionMenu(ctx: MenuContext, connection: ConnectionDto, tag: string): MenuItem[] {
   const isChild = parseTag(tag)?.kind === 'connection';
@@ -211,6 +220,7 @@ function connectionMenu(ctx: MenuContext, connection: ConnectionDto, tag: string
     items.push(
       { label: t('Edit…'), action: () => actions.editConnection(connection.id) },
       { label: t('Duplicate'), action: () => void actions.duplicate(connection.entryId) },
+      ...(isChild ? [] : [{ label: t('Merge…'), action: () => actions.merge(connection.entryId) }]),
       {
         label: connection.isFavorite ? t('Remove from favorites') : t('Add to favorites'),
         action: () => void actions.setFavorite(connection.id, !connection.isFavorite),
@@ -239,6 +249,44 @@ function connectionMenu(ctx: MenuContext, connection: ConnectionDto, tag: string
   return items;
 }
 
+/**
+ * The menu of an entry row with several connections: Connect ▸ (each connection, the default checked),
+ * then the entry's own items. The connection-specific items live on the child rows.
+ */
+function entryMenu(ctx: MenuContext, entry: EntryDto, connections: ConnectionDto[]): MenuItem[] {
+  const { actions, readOnly, library } = ctx;
+  const items: MenuItem[] = [
+    {
+      label: t('Connect'),
+      submenu: connectMenuItems(connections, entry.defaultConnectionId, (c) => void actions.connect(c)),
+    },
+    separator,
+  ];
+  if (!readOnly) {
+    const editId = entry.defaultConnectionId ?? connections[0]!.id;
+    items.push(
+      { label: t('Edit…'), action: () => actions.editConnection(editId) },
+      { label: t('Duplicate'), action: () => void actions.duplicate(entry.id) },
+      { label: t('Merge…'), action: () => actions.merge(entry.id) },
+      {
+        label: entry.isFavorite ? t('Remove from favorites') : t('Add to favorites'),
+        action: () => void actions.setFavorite(editId, !entry.isFavorite),
+      },
+      moveMenu(library, entry.folderId, null, (to) => void actions.move([`e:${entry.id}`], to)),
+      separator,
+    );
+  }
+  items.push({ label: t('Copy host'), action: () => void actions.copyHost(connections[0]!) });
+  if (!readOnly) {
+    items.push(separator, {
+      label: t('Delete'),
+      destructive: true,
+      action: () => void actions.deleteEntry(entry.id),
+    });
+  }
+  return items;
+}
+
 /** The menu of one row (`f:`, `e:`, `c:`, `fav:`, `k:` or `s:`); empty when the item is gone. */
 export function itemMenu(ctx: MenuContext, tag: string): MenuItem[] {
   const parsed = parseTag(tag);
@@ -248,6 +296,11 @@ export function itemMenu(ctx: MenuContext, tag: string): MenuItem[] {
     case 'entry':
     case 'favorite':
     case 'connection': {
+      const entry = isEntryKind(parsed.kind) ? library.entries.find((e) => e.id === parsed.id) : undefined;
+      const connections = (entry?.connectionIds ?? []).flatMap(
+        (id) => library.connections.find((c) => c.id === id) ?? [],
+      );
+      if (entry && connections.length > 1) return tidy(entryMenu(ctx, entry, connections));
       const connection = connectionOfTag(library, tag);
       return connection ? tidy(connectionMenu(ctx, connection, tag)) : [];
     }
