@@ -21,11 +21,23 @@ impl Database {
     /// # Errors
     /// If the folder can't be created, the file can't be opened, or a migration fails.
     pub fn open(path: &Path) -> Result<Self, StoreError> {
+        let db = Self::open_unmigrated(path)?;
+        db.migrate()?;
+        Ok(db)
+    }
+
+    /// Opens (or creates) the file without migrating it, so the caller can look at it first (the app
+    /// stamps its version before migrating, and a read-only open must not migrate at all). Use
+    /// [`pending_migrations`](Self::pending_migrations) and [`migrate`](Self::migrate) before anything else.
+    ///
+    /// # Errors
+    /// If the folder can't be created or the file can't be opened.
+    pub fn open_unmigrated(path: &Path) -> Result<Self, StoreError> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
         let conn = Connection::open(path)?;
-        Self::configure(conn, Some(path.to_path_buf()))
+        Self::connect(conn, Some(path.to_path_buf()))
     }
 
     /// A migrated database in memory, for tests and previews.
@@ -36,14 +48,35 @@ impl Database {
         Self::configure(Connection::open_in_memory()?, None)
     }
 
-    fn configure(mut conn: Connection, path: Option<PathBuf>) -> Result<Self, StoreError> {
+    fn configure(conn: Connection, path: Option<PathBuf>) -> Result<Self, StoreError> {
+        let db = Self::connect(conn, path)?;
+        db.migrate()?;
+        Ok(db)
+    }
+
+    fn connect(conn: Connection, path: Option<PathBuf>) -> Result<Self, StoreError> {
         conn.execute_batch("PRAGMA foreign_keys = ON")?;
         conn.query_row("PRAGMA journal_mode = DELETE", [], |_| Ok(()))?;
-        migrations::migrate(&mut conn)?;
         Ok(Self {
             conn: Mutex::new(conn),
             path,
         })
+    }
+
+    /// The migration ids this build knows that the file hasn't applied yet, in order.
+    ///
+    /// # Errors
+    /// If SQLite fails.
+    pub fn pending_migrations(&self) -> Result<Vec<&'static str>, StoreError> {
+        migrations::pending(&self.conn())
+    }
+
+    /// Applies the pending migrations.
+    ///
+    /// # Errors
+    /// If SQLite or a migration fails; that migration is rolled back.
+    pub fn migrate(&self) -> Result<(), StoreError> {
+        migrations::migrate(&mut self.conn())
     }
 
     /// The file this database was opened from; `None` in memory.

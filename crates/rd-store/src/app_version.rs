@@ -43,6 +43,22 @@ pub fn stored_app_version(path: &Path) -> Result<Option<String>, StoreError> {
     Ok(value.map(|bytes| String::from_utf8_lossy(&bytes).into_owned()))
 }
 
+/// The migrations the database at `path` still needs, read without creating, migrating or writing
+/// anything; every one for a missing file or a file without the bookkeeping table.
+///
+/// # Errors
+/// If the file exists but SQLite can't read it.
+pub fn pending_migrations(path: &Path) -> Result<Vec<&'static str>, StoreError> {
+    if !path.exists() {
+        return Ok(crate::MIGRATION_IDS.to_vec());
+    }
+    let conn = Connection::open_with_flags(
+        path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )?;
+    crate::migrations::pending(&conn)
+}
+
 /// Whether `stored` is a newer version than `running` (semantic versioning: `1.6.6-beta.3` < `1.6.6`).
 /// Anything that doesn't parse counts as not newer.
 #[must_use]
@@ -145,5 +161,32 @@ mod tests {
         )
         .unwrap();
         assert!(stored_app_version(&garbage).is_err());
+    }
+
+    #[test]
+    fn pending_migrations_are_peeked_without_writing() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("missing.sqlite");
+        assert_eq!(
+            pending_migrations(&missing).unwrap(),
+            crate::MIGRATION_IDS.to_vec()
+        );
+        assert!(!missing.exists());
+
+        let path = dir.path().join("v13.sqlite");
+        {
+            let mut conn = Connection::open(&path).unwrap();
+            crate::migrate_up_to(&mut conn, "v13-saved-split").unwrap();
+        }
+        let before = std::fs::read(&path).unwrap();
+        assert_eq!(pending_migrations(&path).unwrap(), vec!["v14-entries"]);
+        assert_eq!(std::fs::read(&path).unwrap(), before, "the peek must not write");
+
+        let db = Database::open_unmigrated(&path).unwrap();
+        assert_eq!(db.pending_migrations().unwrap(), vec!["v14-entries"]);
+        db.migrate().unwrap();
+        assert!(db.pending_migrations().unwrap().is_empty());
+        drop(db);
+        assert!(pending_migrations(&path).unwrap().is_empty());
     }
 }

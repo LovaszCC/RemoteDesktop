@@ -114,6 +114,10 @@ fn account(path: &Path) -> String {
         .into_owned()
 }
 
+fn open_error(error: &dyn std::fmt::Display) -> String {
+    format!("Can't open the database: {error}")
+}
+
 fn failed(code: &str, error: impl Into<String>) -> Phase {
     Phase::NoDatabase {
         code: code.to_owned(),
@@ -313,22 +317,18 @@ impl AppCore {
     }
 
     fn finish_open(&self, inner: &mut Inner, path: &Path) {
-        let opened = Database::open(path).map_err(|e| e.to_string()).and_then(|db| {
-            let initialized = Vault::is_initialized(&db).map_err(|e| e.to_string())?;
+        let opened = self.open_file(path, inner.read_only).and_then(|db| {
+            let initialized = Vault::is_initialized(&db).map_err(|e| ("openFailed", open_error(&e)))?;
             Ok((db, initialized))
         });
         let (db, initialized) = match opened {
             Ok(value) => value,
-            Err(e) => {
+            Err((code, message)) => {
                 inner.lock = None;
-                inner.phase = failed("openFailed", format!("Can't open the database: {e}"));
+                inner.phase = failed(code, message);
                 return;
             }
         };
-        if !inner.read_only {
-            // Like the keyring writes, a failed stamp doesn't stop the open.
-            let _ = db.record_app_version(&self.app_version);
-        }
         if !initialized {
             inner.db = Some(db);
             inner.phase = Phase::Locked { needs_setup: true };
@@ -345,6 +345,38 @@ impl AppCore {
             Some(vault) => self.did_unlock(inner, vault),
             None => inner.phase = Phase::Locked { needs_setup: false },
         }
+    }
+
+    /// Opens the file for [`finish_open`](Self::finish_open). A read-only open never migrates: a file that
+    /// needs migrations is refused with `readOnlyNeedsUpgrade`, because the computer holding the lock may
+    /// run an older build that would keep writing the old schema. A writable open of an existing database
+    /// stamps this app version before migrating (a stamp that fails then fails the open), so a migrated
+    /// file can never be left without the stamp that keeps older builds out, and stamps again afterwards.
+    fn open_file(&self, path: &Path, read_only: bool) -> Result<Database, (&'static str, String)> {
+        let open_failed = |e: &dyn std::fmt::Display| ("openFailed", open_error(e));
+        if read_only {
+            let pending = rd_store::pending_migrations(path).map_err(|e| open_failed(&e))?;
+            if !pending.is_empty() {
+                return Err((
+                    "readOnlyNeedsUpgrade",
+                    "This database needs an upgrade, which can't be done while it is open on another \
+                     computer. Close it there, or update the app there first, then retry."
+                        .to_owned(),
+                ));
+            }
+            return Database::open_unmigrated(path).map_err(|e| open_failed(&e));
+        }
+        let db = Database::open_unmigrated(path).map_err(|e| open_failed(&e))?;
+        let pending = db.pending_migrations().map_err(|e| open_failed(&e))?;
+        // "v1" creates the meta table: before it there is nothing to stamp (a new or empty file).
+        if !pending.is_empty() && !pending.contains(&"v1") {
+            db.record_app_version(&self.app_version)
+                .map_err(|e| open_failed(&e))?;
+        }
+        db.migrate().map_err(|e| open_failed(&e))?;
+        // Like the keyring writes, a failed stamp here doesn't stop the open.
+        let _ = db.record_app_version(&self.app_version);
+        Ok(db)
     }
 
     /// Stops the tunnels and drops the vault, the database and the lock file; `clear_key` also forgets the

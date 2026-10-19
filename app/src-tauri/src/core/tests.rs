@@ -404,6 +404,98 @@ fn a_read_only_open_does_not_stamp() {
     assert_eq!(stamp(&path).as_deref(), Some("1.0.0"));
 }
 
+/// Points the settings at `path` and writes there a database file with the migrations up to `v13-saved-split` (the last one older builds
+/// know), stamped `version`.
+fn write_v13(env: &Env, path: &Path, version: &str) {
+    let mut settings = Settings::load(&env.settings_dir());
+    settings.database_path = Some(path.to_path_buf());
+    settings.save(&env.settings_dir()).unwrap();
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let mut conn = rusqlite::Connection::open(path).unwrap();
+    rd_store::migrate_up_to(&mut conn, "v13-saved-split").unwrap();
+    conn.execute(
+        "INSERT INTO meta(key, value) VALUES (?1, ?2)",
+        rusqlite::params![rd_store::APP_VERSION_KEY, version.as_bytes()],
+    )
+    .unwrap();
+}
+
+#[test]
+fn a_read_only_open_refuses_a_database_that_needs_migrating() {
+    let env = Env::new();
+    let path = env.db("connections.sqlite");
+    write_v13(&env, &path, "1.6.6");
+    write_foreign_lock(&path);
+    let before = std::fs::read(&path).unwrap();
+
+    let core = versioned(&env, "1.6.7");
+    assert!(matches!(phase(&core), Phase::LockConflict { .. }));
+    let status = core.resolve_db_lock(LockChoice::ReadOnly).unwrap();
+    let Phase::NoDatabase { code, error } = status.phase else {
+        panic!("expected the error screen, got {:?}", status.phase)
+    };
+    assert_eq!(code, "readOnlyNeedsUpgrade");
+    assert!(error.starts_with("This database needs an upgrade"), "{error}");
+    assert_eq!(std::fs::read(&path).unwrap(), before, "the file is untouched");
+    assert_eq!(rd_store::pending_migrations(&path).unwrap(), vec!["v14-entries"]);
+    assert_eq!(stamp(&path).as_deref(), Some("1.6.6"));
+    assert_eq!(
+        core.save_folder(&FolderInput::default()).unwrap_err().code,
+        "locked"
+    );
+}
+
+#[test]
+fn a_read_only_open_of_a_migrated_database_works_without_writing() {
+    let env = Env::new();
+    let path = env.db("connections.sqlite");
+    let id = connection(&env.unlocked(), "srv", None);
+    write_foreign_lock(&path);
+    let before = std::fs::read(&path).unwrap();
+
+    let core = env.core();
+    let status = core.resolve_db_lock(LockChoice::ReadOnly).unwrap();
+    assert_eq!(status.phase, Phase::Unlocked { read_only: true });
+    assert_eq!(core.library().connections[0].id, id);
+    assert_eq!(std::fs::read(&path).unwrap(), before, "the file is untouched");
+}
+
+#[test]
+fn a_writable_open_stamps_before_migrating() {
+    let env = Env::new();
+    let path = env.db("connections.sqlite");
+    write_v13(&env, &path, "1.6.6");
+    let core = versioned(&env, "1.6.7");
+    assert_eq!(phase(&core), SETUP);
+    assert!(rd_store::pending_migrations(&path).unwrap().is_empty());
+    assert_eq!(stamp(&path).as_deref(), Some("1.6.7"));
+    drop(core);
+    // The older build that knows only v13 is refused now.
+    assert!(matches!(
+        phase(&versioned(&env, "1.6.6")),
+        Phase::NeedsUpdate { .. }
+    ));
+
+    // A migration that fails still leaves the stamp, so the older build can't open the half-done file.
+    let broken = env.db("broken.sqlite");
+    write_v13(&env, &broken, "1.6.6");
+    rusqlite::Connection::open(&broken)
+        .unwrap()
+        .execute_batch("CREATE TABLE entry (x)")
+        .unwrap();
+    let core = versioned(&env, "1.6.7");
+    let Phase::NoDatabase { code, .. } = core.open_database(&broken).phase else {
+        panic!("expected the error screen")
+    };
+    assert_eq!(code, "openFailed");
+    assert_eq!(
+        rd_store::pending_migrations(&broken).unwrap(),
+        vec!["v14-entries"]
+    );
+    assert_eq!(stamp(&broken).as_deref(), Some("1.6.7"));
+    assert!(!DbLock::path_for(&broken).exists());
+}
+
 #[test]
 fn change_password_checks_the_current_one_and_rekeys() {
     let env = Env::new();

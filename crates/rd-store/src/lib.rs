@@ -16,7 +16,7 @@ mod repository;
 mod rows;
 mod vault;
 
-pub use app_version::{APP_VERSION_KEY, is_newer, stored_app_version};
+pub use app_version::{APP_VERSION_KEY, is_newer, pending_migrations, stored_app_version};
 pub use database::Database;
 pub use error::StoreError;
 pub use import::{ImportBatch, ImportCounts};

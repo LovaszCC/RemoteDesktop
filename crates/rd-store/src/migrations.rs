@@ -162,6 +162,27 @@ pub const MIGRATION_IDS: [&str; 14] = [
     "v14-entries",
 ];
 
+/// The known migration ids that `conn` hasn't recorded, in order; all of them for a database without
+/// the bookkeeping table. Reads only.
+pub(crate) fn pending(conn: &Connection) -> Result<Vec<&'static str>, StoreError> {
+    let has_table: bool = conn.query_row(
+        "SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'grdb_migrations')",
+        [],
+        |r| r.get(0),
+    )?;
+    if !has_table {
+        return Ok(MIGRATION_IDS.to_vec());
+    }
+    let applied: Vec<String> = conn
+        .prepare("SELECT identifier FROM grdb_migrations")?
+        .query_map([], |row| row.get(0))?
+        .collect::<Result<_, _>>()?;
+    Ok(MIGRATION_IDS
+        .into_iter()
+        .filter(|id| !applied.iter().any(|a| a == id))
+        .collect())
+}
+
 /// Applies every migration that isn't recorded yet. Ids recorded by another build but unknown here are
 /// left alone, as GRDB does.
 pub(crate) fn migrate(conn: &mut Connection) -> Result<(), StoreError> {
