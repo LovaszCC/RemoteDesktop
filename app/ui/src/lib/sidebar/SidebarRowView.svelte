@@ -166,6 +166,8 @@
       <span class="star"><Star size={10} fill="currentColor" strokeWidth={0} /></span>
     {/if}
   {:else if row.kind === 'connection' && connection}
+    <!-- The disclosure's place, as on entry rows, so a connection sits one step inside its entry. -->
+    <span class="disclosure hidden" aria-hidden="true"></span>
     <ConnectionIcon type={connection.type} />
     <span class="text">
       <span class="title-line">
