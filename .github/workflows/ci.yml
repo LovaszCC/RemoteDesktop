@@ -3,7 +3,8 @@
 # minutes there); in a private copy every job is skipped, so it never spends paid minutes.
 name: CI
 
-# Pushes to beta run it through release.yml (its test stage, then the beta pre-release).
+# Runs on pull requests only (plus manual runs); a branch push without a PR runs nothing. A PR merged into
+# beta runs it again through release.yml (its test stage, then the beta pre-release).
 on:
   pull_request:
   workflow_dispatch:
@@ -37,6 +38,9 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Called by release.yml for a merged PR: test the merge commit on beta.
+          ref: ${{ github.event.pull_request.merged && github.event.pull_request.merge_commit_sha || '' }}
 
       - name: Free disk space
         if: runner.os == 'Linux'
