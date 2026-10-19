@@ -14,6 +14,7 @@
   import { errorMessage } from '../errors';
   import { t } from '../i18n/index.svelte';
   import DetailView from '../detail/DetailView.svelte';
+  import MergeSheet from '../detail/MergeSheet.svelte';
   import EditorHost from '../editors/EditorHost.svelte';
   import { sidebarActions } from '../sidebar/actions.svelte';
   import ImportSheet from '../importer/ImportSheet.svelte';
@@ -182,6 +183,11 @@
 
 <EditorHost />
 <DialogHost />
+{#if sidebarActions.mergeTarget}
+  {#key sidebarActions.mergeTarget}
+    <MergeSheet targetId={sidebarActions.mergeTarget} onclose={() => sidebarActions.closeMerge()} />
+  {/key}
+{/if}
 <ImportSheet {importer} />
 
 <style>
