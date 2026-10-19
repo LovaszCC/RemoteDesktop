@@ -227,6 +227,13 @@ describe('EntryDetail', () => {
     expect(groups[1]!.classList.contains('selected')).toBe(true);
     expect(groups[0]!.classList.contains('selected')).toBe(false);
     expect(groups[1]!.textContent).toContain('3389');
+    // Side by side in one scrollable row, so the sections below stay in view.
+    expect(document.querySelector('.connection-groups')!.classList.contains('row')).toBe(true);
+  });
+
+  it('a single connection keeps the plain stacked layout', () => {
+    render(['e:c1'], { library: multiEntryLibrary() });
+    expect(document.querySelector('.connection-groups')!.classList.contains('row')).toBe(false);
   });
 
   it('Edit opens the selected connection’s tab, General for an entry row, its tab for one connection', () => {

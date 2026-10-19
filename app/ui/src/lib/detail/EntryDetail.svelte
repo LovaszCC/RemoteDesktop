@@ -155,46 +155,50 @@
     {/if}
   </div>
 
-  {#each connections as connection (connection.id)}
-    {@const fields = connectionFields(connection)}
-    {@const credential = deps.library.credential(connection.credentialId)}
-    <div
-      class="connection-group"
-      class:grouped={!single}
-      class:selected={!single && connection.id === selectedId}
-    >
-      {#if !single}
-        <div class="group-head">
-          <h3>
-            <ConnectionIcon type={connection.type} size={13} />
-            <span>{connection.displayLabel}</span>
-            {#if connection.id === entry.defaultConnectionId}
-              <span class="default" title={t('Default connection')} aria-label={t('Default connection')}>
-                <CircleCheck size={12} strokeWidth={2} />
-              </span>
-            {/if}
-          </h3>
-          <span class="caption">{subtitleOf(connection)}</span>
-        </div>
-      {/if}
-      <div class="grid">
-        {#each fields.before as field (field.label)}
-          <FieldValue {field} oncopy={copy} />
-        {/each}
-        {#if credential}
-          <span class="label">{t('Credential')}</span>
-          <span class="value">
-            <Button variant="link" onclick={() => deps.library.select(`k:${credential.id}`)}>
-              <UserRoundKey size={13} />{credential.name}
-            </Button>
-          </span>
+  <!-- Several connections sit side by side in one scrollable row, so what follows (port forwards, notes)
+       stays in view. -->
+  <div class="connection-groups" class:row={!single}>
+    {#each connections as connection (connection.id)}
+      {@const fields = connectionFields(connection)}
+      {@const credential = deps.library.credential(connection.credentialId)}
+      <div
+        class="connection-group"
+        class:grouped={!single}
+        class:selected={!single && connection.id === selectedId}
+      >
+        {#if !single}
+          <div class="group-head">
+            <h3>
+              <ConnectionIcon type={connection.type} size={13} />
+              <span>{connection.displayLabel}</span>
+              {#if connection.id === entry.defaultConnectionId}
+                <span class="default" title={t('Default connection')} aria-label={t('Default connection')}>
+                  <CircleCheck size={12} strokeWidth={2} />
+                </span>
+              {/if}
+            </h3>
+            <span class="caption">{subtitleOf(connection)}</span>
+          </div>
         {/if}
-        {#each fields.after as field (field.label)}
-          <FieldValue {field} oncopy={copy} />
-        {/each}
+        <div class="grid">
+          {#each fields.before as field (field.label)}
+            <FieldValue {field} oncopy={copy} />
+          {/each}
+          {#if credential}
+            <span class="label">{t('Credential')}</span>
+            <span class="value">
+              <Button variant="link" onclick={() => deps.library.select(`k:${credential.id}`)}>
+                <UserRoundKey size={13} />{credential.name}
+              </Button>
+            </span>
+          {/if}
+          {#each fields.after as field (field.label)}
+            <FieldValue {field} oncopy={copy} />
+          {/each}
+        </div>
       </div>
-    </div>
-  {/each}
+    {/each}
+  </div>
 
   {#if openTabs.length > 1}
     <section>
@@ -260,6 +264,22 @@
   .connection-group.grouped {
     padding: var(--space-2) var(--space-3);
     border-radius: var(--radius);
+  }
+  .connection-groups {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .connection-groups.row {
+    flex-direction: row;
+    align-items: flex-start;
+    overflow-x: auto;
+    padding-bottom: var(--space-1);
+  }
+  .connection-groups.row .connection-group {
+    flex: 0 0 auto;
+    min-width: 260px;
+    border: 0.5px solid var(--separator);
   }
   .connection-group.selected {
     background: var(--bg-selected);

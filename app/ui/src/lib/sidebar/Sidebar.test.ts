@@ -302,8 +302,9 @@ describe('entries with several connections', () => {
   it('expands an entry with a chevron to its connections, the default marked', async () => {
     render({ library: multiEntryLibrary() });
     expect(chevron('e:e1')).toBeTruthy();
-    // A one-connection entry looks as before: no chevron.
-    expect(row('e:c1').querySelector('.disclosure')).toBeNull();
+    // A one-connection entry keeps the chevron's place, hidden, so all entries line up.
+    expect(row('e:c1').querySelector('.disclosure.hidden')).toBeTruthy();
+    expect(row('e:e1').querySelector('.disclosure.hidden')).toBeNull();
     expect(rowTags()).not.toContain('c:h1');
     chevron('e:e1').click();
     flushSync();
