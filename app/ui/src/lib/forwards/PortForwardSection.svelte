@@ -21,7 +21,14 @@
   import { draftOf, failureText } from './model';
   import PortForwardEditor from './PortForwardEditor.svelte';
 
-  let { connection }: { connection: ConnectionDto } = $props();
+  let {
+    connection,
+    title = t('Port forwards'),
+  }: {
+    connection: ConnectionDto;
+    /** The heading; an entry with several SSH connections names the connection in it. */
+    title?: string;
+  } = $props();
   const deps = viewDeps();
   const forwards = $derived(forwardsOf(deps.library.library, connection.id));
   let editing = $state<PortForwardDraft | null>(null);
@@ -55,7 +62,7 @@
 
 <section>
   <div class="section-head">
-    <h2>{t('Port forwards')}</h2>
+    <h2>{title}</h2>
     <Button disabled={deps.readOnly} onclick={() => (editing = draftOf(connection.id))}>
       <Plus size={13} />{t('New forward')}
     </Button>

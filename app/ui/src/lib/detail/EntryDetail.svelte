@@ -44,6 +44,7 @@
 
   const primary = $derived(connections.find((c) => c.id === entry.defaultConnectionId) ?? connections[0]!);
   const single = $derived(connections.length === 1);
+  const sshConnections = $derived(connections.filter((c) => c.type === 'ssh'));
   const buttons = $derived(entryButtons(entry, connections));
   /** Files: the default connection when it uses SSH, else the first that does. */
   const filesConnection = $derived(
@@ -216,8 +217,13 @@
     </section>
   {/if}
 
-  {#each connections.filter((c) => c.type === 'ssh') as connection (connection.id)}
-    <PortForwardSection {connection} />
+  {#each sshConnections as connection (connection.id)}
+    <PortForwardSection
+      {connection}
+      title={sshConnections.length > 1
+        ? `${t('Port forwards')} · ${connection.displayLabel}`
+        : t('Port forwards')}
+    />
   {/each}
 
   {#if entry.notes}
@@ -267,6 +273,8 @@
   }
   .connection-groups {
     display: flex;
+    /* A scrolling row in the page's flex column would otherwise shrink and clip the cards. */
+    flex-shrink: 0;
     flex-direction: column;
     gap: var(--space-3);
   }
