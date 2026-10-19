@@ -94,6 +94,8 @@ pub struct AppCore {
     key_setup: std::sync::Arc<ssh_keys::KeySetupShared>,
     launcher: Box<dyn rd_platform::launch::Launcher>,
     launch_notifier: Mutex<Option<LaunchNotifier>>,
+    /// This build's version: stamped into the database, and an older build than the stamp is refused.
+    app_version: String,
 }
 
 impl std::fmt::Debug for AppCore {
@@ -155,7 +157,15 @@ impl AppCore {
             key_setup: ssh_keys::KeySetupShared::new(),
             launcher: Box::new(rd_platform::launch::SystemLauncher),
             launch_notifier: Mutex::new(None),
+            app_version: env!("CARGO_PKG_VERSION").to_owned(),
         }
+    }
+
+    /// Pretends to be another app version (tests of the database version guard).
+    #[must_use]
+    pub fn with_app_version(mut self, version: &str) -> Self {
+        version.clone_into(&mut self.app_version);
+        self
     }
 
     fn inner(&self) -> MutexGuard<'_, Inner> {
@@ -269,6 +279,17 @@ impl AppCore {
     fn open_at(&self, inner: &mut Inner, path: &Path) {
         self.close_inner(inner, false);
         inner.db_path = Some(path.to_path_buf());
+        // A newer app has used this file: refuse before the lock and before migrating, so it stays untouched.
+        // A file that can't be read here gets the usual error from the real open below.
+        if let Ok(Some(stored)) = rd_store::stored_app_version(path)
+            && rd_store::is_newer(&stored, &self.app_version)
+        {
+            inner.phase = Phase::NeedsUpdate {
+                database_version: stored,
+                app_version: self.app_version.clone(),
+            };
+            return;
+        }
         if let Some(parent) = path.parent()
             && let Err(e) = std::fs::create_dir_all(parent)
         {
@@ -302,6 +323,10 @@ impl AppCore {
                 return;
             }
         };
+        if !inner.read_only {
+            // Like the keyring writes, a failed stamp doesn't stop the open.
+            let _ = db.record_app_version(&self.app_version);
+        }
         if !initialized {
             inner.db = Some(db);
             inner.phase = Phase::Locked { needs_setup: true };

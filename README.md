@@ -71,6 +71,9 @@ It needs a reasonably recent distro (Ubuntu 22.04, Debian 12, Fedora 36 or newer
 The app keeps itself up to date. It checks once a day (or whenever you click *Check for Updates…*), and
 when there's a new version it downloads it, installs it and restarts. No installer to click through.
 
+If you share your database file between computers, keep the app on all of them up to date: once a newer
+version has opened the file, an older one won't touch it and asks you to update first.
+
 Want new features before they're released? The
 [beta-latest](https://github.com/LovaszCC/RemoteDesktop/releases/tag/beta-latest) build is updated with
 every change. It's less tested, and for now you have to install new beta builds by hand.

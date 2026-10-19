@@ -64,6 +64,7 @@ fn invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + 
         commands::session::lock,
         commands::session::change_password,
         commands::session::running_count,
+        commands::session::app_quit,
         commands::database::open_database,
         commands::database::create_database,
         commands::database::reopen_database,

@@ -220,6 +220,7 @@ export function createApi(invoke: Invoke = tauriBridge.invoke) {
     lock: () => call<AppStatusDto>('lock'),
     changePassword: (current: string, next: string) => call<void>('change_password', { current, new: next }),
     runningCount: () => call<number>('running_count'),
+    appQuit: () => call<void>('app_quit'),
 
     // Database
     openDatabase: (path: string) => call<AppStatusDto>('open_database', { path }),

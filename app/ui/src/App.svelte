@@ -63,7 +63,9 @@
 </script>
 
 <RootView />
-{#if settingsWindow.isOpen && app.phase?.kind !== 'lockConflict'}<SettingsView />{/if}
+{#if settingsWindow.isOpen && app.phase?.kind !== 'lockConflict' && app.phase?.kind !== 'needsUpdate'}
+  <SettingsView />
+{/if}
 <ToastHost />
 <ContextMenuHost />
 <AskpassDialog />
