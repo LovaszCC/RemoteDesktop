@@ -3,6 +3,7 @@
   import KeyRound from '@lucide/svelte/icons/key-round';
   import Pencil from '@lucide/svelte/icons/pencil';
   import Play from '@lucide/svelte/icons/play';
+  import Columns2 from '@lucide/svelte/icons/columns-2';
   import Star from '@lucide/svelte/icons/star';
   import UserRoundKey from '@lucide/svelte/icons/user-round-key';
   import Button from '../components/Button.svelte';
@@ -23,6 +24,8 @@
 
   const credential = $derived(deps.library.credential(connection.credentialId));
   const fields = $derived(connectionFields(connection));
+  // Listed when the connection is open in more than one tab (with one, a click can go there directly).
+  const openTabs = $derived(deps.connectionTabs.openTabs(connection.id));
   const MODES: MikrotikMode[] = ['winbox', 'ssh'];
 
   $effect(() => {
@@ -111,6 +114,22 @@
     {/each}
   </div>
 
+  {#if openTabs.length > 1}
+    <section>
+      <h2>{t('Open tabs')}</h2>
+      <div class="open-tabs">
+        {#each openTabs as tab (tab.id)}
+          <Button variant="link" onclick={() => deps.tabs.select(tab.id)}>
+            {#if tab.split}<Columns2 size={13} />{:else}<ConnectionIcon
+                type={tab.type}
+                size={13}
+              />{/if}{tab.title}
+          </Button>
+        {/each}
+      </div>
+    </section>
+  {/if}
+
   {#if connection.type === 'ssh'}
     <PortForwardSection {connection} />
   {/if}
@@ -134,6 +153,12 @@
   }
   .star:hover:not(:disabled) {
     background: var(--bg-hover);
+  }
+  .open-tabs {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
   }
   .star.on {
     color: var(--label-yellow);

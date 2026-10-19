@@ -198,5 +198,6 @@
   "Clicking an entry with an open connection shows": "Nyitott kapcsolatú elemre kattintva",
   "Its tab": "A kapcsolat füle",
   "With more than one open tab, or only in a split view, Details is shown.": "Ha több füle van nyitva, vagy csak split nézetben fut, a Részletek jelenik meg.",
-  "Unknown setting value.": "Ismeretlen beállítási érték."
+  "Unknown setting value.": "Ismeretlen beállítási érték.",
+  "Open tabs": "Nyitott fülek"
 }

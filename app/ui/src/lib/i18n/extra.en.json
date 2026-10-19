@@ -198,5 +198,6 @@
   "Clicking an entry with an open connection shows": "Clicking an entry with an open connection shows",
   "Its tab": "Its tab",
   "With more than one open tab, or only in a split view, Details is shown.": "With more than one open tab, or only in a split view, Details is shown.",
-  "Unknown setting value.": "Unknown setting value."
+  "Unknown setting value.": "Unknown setting value.",
+  "Open tabs": "Open tabs"
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { RdpSessionState } from '../rdp/model';
 import { createConnectionTabs, type ConnectionTabsDeps } from './connectionTabs.svelte';
 import type { TerminalSessionState } from './model';
+import type { SplitState } from './split';
 
 type Ssh = { connectionId: string; running?: boolean; pane?: boolean };
 type Rdp = { connectionId: string; status?: RdpSessionState['status']['kind'] };
@@ -11,10 +12,13 @@ function setup({
   ids = [],
   ssh = {},
   rdp = {},
+  splits = {},
 }: {
   ids?: string[];
   ssh?: Record<string, Ssh>;
   rdp?: Record<string, Rdp>;
+  /** Split tab id → its panes' connection ids. */
+  splits?: Record<string, string[]>;
 }) {
   const sshStates = Object.fromEntries(
     Object.entries(ssh).map(([id, s]) => [
@@ -29,7 +33,21 @@ function setup({
     ]),
   ) as unknown as Record<string, RdpSessionState>;
   const deps: ConnectionTabsDeps = {
-    tabs: { ids },
+    tabs: {
+      ids,
+      session: (id) =>
+        ids.includes(id) ? { id, title: `T-${id}`, type: rdp[id] ? 'rdp' : 'ssh', color: null } : undefined,
+      displayTitle: (session) => session.title,
+    },
+    splits: {
+      get: (id) =>
+        id !== null && splits[id]
+          ? ({
+              id,
+              panes: splits[id].map((connectionId, i) => ({ id: `${id}-${i}`, connectionId })),
+            } as unknown as SplitState)
+          : undefined,
+    },
     sessions: {
       states: sshStates,
       has: (id) => id in sshStates,
@@ -109,5 +127,22 @@ describe('connectionTabs.tabForSelection', () => {
   it('shows Details when the connection is only open in a split view', () => {
     const split = setup({ ids: ['SPLIT'], ssh: { P1: { connectionId: 'a', pane: true } } });
     expect(split.tabForSelection(['c:a'], 'tab')).toBeNull();
+  });
+});
+
+describe('connectionTabs.openTabs', () => {
+  it('lists the connection’s own tabs and the split views it is in, in tab order', () => {
+    const tabs = setup({
+      ids: ['S1', 'SPLIT', 'X', 'R1', 'OTHER-SPLIT'],
+      ssh: { S1: { connectionId: 'a' }, X: { connectionId: 'b' } },
+      rdp: { R1: { connectionId: 'a', status: 'disconnected' } },
+      splits: { SPLIT: ['b', 'a'], 'OTHER-SPLIT': ['b', 'c'] },
+    });
+    expect(tabs.openTabs('a')).toEqual([
+      { id: 'S1', title: 'T-S1', type: 'ssh', split: false },
+      { id: 'SPLIT', title: 'T-SPLIT', type: 'ssh', split: true },
+      { id: 'R1', title: 'T-R1', type: 'rdp', split: false },
+    ]);
+    expect(tabs.openTabs('none')).toEqual([]);
   });
 });

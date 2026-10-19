@@ -37,6 +37,24 @@ function linkedLibrary(): LibraryDto {
   return library;
 }
 
+describe('DetailView open tabs', () => {
+  const tab = (id: string, title: string, split = false) => ({ id, title, type: 'ssh' as const, split });
+
+  it('lists the tabs a connection is open in when there are several, and goes to one', () => {
+    const view = render(['c:c1'], {
+      openTabs: { c1: [tab('S1', 'box'), tab('S2', 'box (2)'), tab('SP', 'Split', true)] },
+    });
+    expect(text()).toContain('Open tabs');
+    buttonByText('box (2)').click();
+    expect(view.selected).toEqual(['S2']);
+  });
+
+  it('hides the list with a single tab', () => {
+    render(['c:c1'], { openTabs: { c1: [tab('S1', 'box')] } });
+    expect(text()).not.toContain('Open tabs');
+  });
+});
+
 describe('DetailView', () => {
   it('shows a calm placeholder without a selection', () => {
     render([]);

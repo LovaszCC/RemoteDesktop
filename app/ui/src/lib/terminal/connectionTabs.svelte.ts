@@ -7,19 +7,30 @@
 import { rdpSessions as defaultRdp, type RdpSessionsStore } from '../rdp/sessions.svelte';
 import { parseTag } from '../stores/library.svelte';
 import { tabs as defaultTabs, type TabsStore } from '../tabs.svelte';
-import type { SelectionShows } from '../types';
+import type { ConnectionType, SelectionShows } from '../types';
 import { sessions as defaultSessions, type SessionsStore } from './sessions.svelte';
+import { splits as defaultSplits, type SplitsStore } from './splits.svelte';
+
+/** A tab the connection is open in, for the Details page's list. */
+export interface OpenTab {
+  id: string;
+  title: string;
+  type: ConnectionType;
+  split: boolean;
+}
 
 export interface ConnectionTabsDeps {
-  tabs: Pick<TabsStore, 'ids'>;
+  tabs: Pick<TabsStore, 'ids' | 'session' | 'displayTitle'>;
   sessions: Pick<SessionsStore, 'states' | 'has' | 'isPane' | 'state'>;
   rdpSessions: Pick<RdpSessionsStore, 'states' | 'has' | 'state'>;
+  splits: Pick<SplitsStore, 'get'>;
 }
 
 export function createConnectionTabs(deps: Partial<ConnectionTabsDeps> = {}) {
   const tabs = deps.tabs ?? defaultTabs;
   const sessions = deps.sessions ?? defaultSessions;
   const rdpSessions = deps.rdpSessions ?? defaultRdp;
+  const splits = deps.splits ?? defaultSplits;
 
   const connectionOf = (id: string): string | undefined =>
     sessions.has(id) && !sessions.isPane(id)
@@ -41,6 +52,16 @@ export function createConnectionTabs(deps: Partial<ConnectionTabsDeps> = {}) {
     /** The connection's own (non-split) tabs, in tab order, live or ended. */
     plainTabs(connectionId: string): string[] {
       return tabs.ids.filter((id) => connectionOf(id) === connectionId);
+    },
+    /** Every tab the connection is open in, its own tabs and split views, in tab order. */
+    openTabs(connectionId: string): OpenTab[] {
+      return tabs.ids.flatMap((id) => {
+        const split = splits.get(id);
+        const inSplit = split?.panes.some((p) => p.connectionId === connectionId) ?? false;
+        if (!inSplit && connectionOf(id) !== connectionId) return [];
+        const session = tabs.session(id);
+        return session ? [{ id, title: tabs.displayTitle(session), type: session.type, split: inSplit }] : [];
+      });
     },
     /**
      * The tab a sidebar selection shows: with `tab`, the only plain tab of a single selected connection;

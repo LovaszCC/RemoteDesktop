@@ -113,7 +113,8 @@ And a few things that make everyday work nicer:
 - **🟢 See what's open.** A green dot in the sidebar marks every entry with a live session, and several
   tabs of the same server line up next to each other (`web01`, `web01 (2)`). If you'd rather jump straight
   back into a session, set *Settings → Sidebar* so a click on an open entry brings its tab forward instead
-  of its details.
+  of its details. When a server is open in several tabs, its details page lists them so you can jump to
+  any of them.
 - **📡 Split view with broadcast.** Open up to four terminals side by side, and type into all of them at
   once — handy for configuring several switches the same way.
 - **📋 Copy next output.** Press the shortcut, run a command, and its output lands on your clipboard as
