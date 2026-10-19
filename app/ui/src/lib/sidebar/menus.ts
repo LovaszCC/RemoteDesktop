@@ -4,7 +4,7 @@
 
 import { t } from '../i18n/index.svelte';
 import type { MenuItem } from '../components/menu.svelte';
-import { parseTag } from '../stores/library.svelte';
+import { connectionOfTag, parseTag } from '../stores/library.svelte';
 import { LABEL_COLORS, type ConnectionDto, type ImportKind, type LibraryDto, type Platform } from '../types';
 import { MAX_PANES } from '../terminal/split';
 import type { SidebarActions } from './actions.svelte';
@@ -30,6 +30,7 @@ export type MenuActions = Pick<
   | 'duplicate'
   | 'setFavorite'
   | 'deleteConnection'
+  | 'deleteEntry'
   | 'copyPassword'
   | 'copyHost'
   | 'openFiles'
@@ -149,7 +150,12 @@ export function moveMenu(
   };
 }
 
-function connectionMenu(ctx: MenuContext, connection: ConnectionDto): MenuItem[] {
+/**
+ * The menu of an entry row (`e:`, `fav:`: its default connection; Delete removes the whole entry) or of a
+ * child row (`c:`: that connection; Delete removes only it).
+ */
+function connectionMenu(ctx: MenuContext, connection: ConnectionDto, tag: string): MenuItem[] {
+  const isChild = parseTag(tag)?.kind === 'connection';
   const { actions, readOnly, library } = ctx;
   const items: MenuItem[] = [];
   if (connection.type === 'mikrotik') {
@@ -204,12 +210,17 @@ function connectionMenu(ctx: MenuContext, connection: ConnectionDto): MenuItem[]
   if (!readOnly) {
     items.push(
       { label: t('Edit…'), action: () => actions.editConnection(connection.id) },
-      { label: t('Duplicate'), action: () => void actions.duplicate(connection.id) },
+      { label: t('Duplicate'), action: () => void actions.duplicate(connection.entryId) },
       {
         label: connection.isFavorite ? t('Remove from favorites') : t('Add to favorites'),
         action: () => void actions.setFavorite(connection.id, !connection.isFavorite),
       },
-      moveMenu(library, connection.folderId, null, (to) => void actions.move([`c:${connection.id}`], to)),
+      moveMenu(
+        library,
+        connection.folderId,
+        null,
+        (to) => void actions.move([`e:${connection.entryId}`], to),
+      ),
       separator,
     );
   }
@@ -221,22 +232,24 @@ function connectionMenu(ctx: MenuContext, connection: ConnectionDto): MenuItem[]
     items.push(separator, {
       label: t('Delete'),
       destructive: true,
-      action: () => void actions.deleteConnection(connection.id),
+      action: () =>
+        void (isChild ? actions.deleteConnection(connection.id) : actions.deleteEntry(connection.entryId)),
     });
   }
   return items;
 }
 
-/** The menu of one row (`f:`, `c:`, `fav:`, `k:` or `s:`); empty when the item is gone. */
+/** The menu of one row (`f:`, `e:`, `c:`, `fav:`, `k:` or `s:`); empty when the item is gone. */
 export function itemMenu(ctx: MenuContext, tag: string): MenuItem[] {
   const parsed = parseTag(tag);
   if (!parsed) return [];
   const { library, actions, readOnly } = ctx;
   switch (parsed.kind) {
-    case 'connection':
-    case 'favorite': {
-      const connection = library.connections.find((c) => c.id === parsed.id);
-      return connection ? tidy(connectionMenu(ctx, connection)) : [];
+    case 'entry':
+    case 'favorite':
+    case 'connection': {
+      const connection = connectionOfTag(library, tag);
+      return connection ? tidy(connectionMenu(ctx, connection, tag)) : [];
     }
     case 'folder': {
       const folder = library.folders.find((f) => f.id === parsed.id);

@@ -11,9 +11,10 @@ import type {
   AskpassPromptDto,
   ClearAction,
   ConflictChoice,
-  ConnectionDraft,
+  ConnectionSave,
   CredentialInput,
   DeleteCountsDto,
+  EntryDraft,
   FilesConflictDto,
   FilesDoneDto,
   FilesHostKeyDto,
@@ -31,9 +32,11 @@ import type {
   KeyShortcut,
   LaunchNoticeDto,
   LaunchOutcomeDto,
+  LegacyConnectionDraft,
   LibraryDto,
   ListingDto,
   LockChoice,
+  MergeResultDto,
   MoveResultDto,
   PickMode,
   PortForwardDraft,
@@ -250,9 +253,13 @@ export function createApi(invoke: Invoke = tauriBridge.invoke) {
       call<string[]>('matching', { connectionIds, query }),
 
     // Library saves
+    /** Saves an entry with exactly `connections` in their order; returns the entry id. */
+    saveEntry: (id: string | null, entry: EntryDraft, connections: ConnectionSave[]) =>
+      call<string>('save_entry', { id, entry, connections }),
+    /** The pre-entries editor: one connection with its entry's shared fields; returns the connection id. */
     saveConnection: (
       id: string | null,
-      draft: ConnectionDraft,
+      draft: LegacyConnectionDraft,
       password: SecretUpdate = null,
       passphrase: SecretUpdate = null,
     ) => call<string>('save_connection', { id, draft, password, passphrase }),
@@ -268,8 +275,8 @@ export function createApi(invoke: Invoke = tauriBridge.invoke) {
     deleteItems: (tags: string[]) => call<DeleteCountsDto>('delete_items', { tags }),
     moveItems: (tags: string[], targetFolderId: string | null) =>
       call<MoveResultDto>('move_items', { tags, targetFolderId }),
-    setFavorite: (connectionId: string, isFavorite: boolean) =>
-      call<void>('set_favorite', { connectionId, isFavorite }),
+    /** Stars or unstars the entry behind `tag` (`e:`, `fav:` or `c:`). */
+    setFavorite: (tag: string, isFavorite: boolean) => call<void>('set_favorite', { tag, isFavorite }),
     setCredential: (credentialId: string | null, target: { tags?: string[]; connectionIds?: string[] }) =>
       call<number>('set_credential', {
         credentialId,
@@ -278,6 +285,11 @@ export function createApi(invoke: Invoke = tauriBridge.invoke) {
       }),
     duplicateConnection: (id: string, copySuffix: string) =>
       call<string>('duplicate_connection', { id, copySuffix }),
+    /** Duplicates an entry with all its connections; returns the new entry id. */
+    duplicateEntry: (id: string, copySuffix: string) => call<string>('duplicate_entry', { id, copySuffix }),
+    /** Moves the `sources` entries' connections into `target` and deletes the emptied entries. */
+    mergeEntries: (target: string, sources: string[]) =>
+      call<MergeResultDto>('merge_entries', { target, sources }),
 
     // Saved splits
     saveSavedSplit: (id: string | null, name: string, connectionIds: string[]) =>

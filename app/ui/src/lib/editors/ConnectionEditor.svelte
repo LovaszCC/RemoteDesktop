@@ -99,7 +99,7 @@
     try {
       const savedId = await deps.api.saveConnection(editedId, draft, password, passphrase);
       onclose();
-      if (isNew) deps.library.select(`c:${savedId}`);
+      if (isNew) deps.library.selectConnection(savedId);
     } catch (error) {
       const field = errorField(toCommandError(error).code);
       if (field) errors = { [field]: errorMessage(error) };

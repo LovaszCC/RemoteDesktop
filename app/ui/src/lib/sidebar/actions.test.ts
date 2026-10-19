@@ -7,17 +7,17 @@ import { createLibraryStore } from '../stores/library.svelte';
 import { createSettingsStore } from '../stores/settings.svelte';
 import { createToastStore } from '../stores/toast.svelte';
 import { fakeBridge } from '../testing/bridge';
-import { settingsDto, sidebarLibrary } from '../testing/fixtures';
+import { multiEntryLibrary, settingsDto, sidebarLibrary } from '../testing/fixtures';
 import type { LaunchOutcomeDto } from '../types';
 import { createSidebarActions } from './actions.svelte';
 
-function setup(replies: Parameters<typeof fakeBridge>[0] = {}) {
+function setup(replies: Parameters<typeof fakeBridge>[0] = {}, data = sidebarLibrary()) {
   const bridge = fakeBridge({
     settings_set: (args?: Record<string, unknown>) => settingsDto(args?.patch as object),
     ...replies,
   });
   const library = createLibraryStore(bridge);
-  library.replace(sidebarLibrary());
+  library.replace(data);
   const deps = {
     api: createApi(bridge.invoke),
     library,
@@ -38,9 +38,9 @@ const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 describe('sidebar actions', () => {
   it('toasts when a folder cycle was refused', async () => {
     const { actions, toast, bridge } = setup({ move_items: { moved: 1, cycleRefused: 1 } });
-    await actions.move(['f:f1', 'c:c1'], 'f2');
+    await actions.move(['f:f1', 'e:c1'], 'f2');
     expect(bridge.invoke).toHaveBeenCalledWith('move_items', {
-      tags: ['f:f1', 'c:c1'],
+      tags: ['f:f1', 'e:c1'],
       targetFolderId: 'f2',
     });
     expect(toast.current?.message).toBe("A folder can't be moved into itself");
@@ -52,7 +52,7 @@ describe('sidebar actions', () => {
         throw { code: 'readOnly', message: 'x', detail: null };
       },
     });
-    await actions.move(['c:c1'], null);
+    await actions.move(['e:c1'], null);
     expect(alerts.current).toBe('The database is open read-only because another computer is using it.');
   });
 
@@ -61,7 +61,7 @@ describe('sidebar actions', () => {
     await actions.setCredential('k1', ['f:f1']);
     expect(toast.current?.message).toBe('Linked credential set — 3 connections');
     toast.clear();
-    await actions.setCredential(null, ['c:c1']);
+    await actions.setCredential(null, ['e:c1']);
     expect(toast.current?.message).toBe('Linked credential removed — 3 connections');
   });
 
@@ -69,19 +69,19 @@ describe('sidebar actions', () => {
     const { actions, dialogs, library, bridge } = setup({
       delete_items: { connections: 1, folders: 1, credentials: 0, splits: 0 },
     });
-    library.setSelection(['c:c1', 'f:f3', 's:s1']);
+    library.setSelection(['e:c1', 'f:f3', 's:s1']);
     const done = actions.deleteItems(library.selection);
     expect(dialogs.current?.title).toBe('Delete 2 items?');
     expect(dialogs.current?.kind === 'confirm' && dialogs.current.destructive).toBe(true);
     dialogs.accept();
     await done;
     expect(library.selection).toEqual([]);
-    expect(bridge.invoke).toHaveBeenCalledWith('delete_items', { tags: ['c:c1', 'f:f3'] });
+    expect(bridge.invoke).toHaveBeenCalledWith('delete_items', { tags: ['e:c1', 'f:f3'] });
   });
 
   it('a cancelled bulk delete deletes nothing', async () => {
     const { actions, dialogs, bridge } = setup();
-    const done = actions.deleteItems(['c:c1']);
+    const done = actions.deleteItems(['e:c1']);
     dialogs.cancel();
     await done;
     expect(bridge.invoke).not.toHaveBeenCalled();
@@ -118,10 +118,40 @@ describe('sidebar actions', () => {
     expect(toast.current?.message).toBe('No saved password');
   });
 
-  it('duplicates with the localised suffix', async () => {
-    const { actions, bridge } = setup({ duplicate_connection: 'new' });
-    await actions.duplicate('c1');
-    expect(bridge.invoke).toHaveBeenCalledWith('duplicate_connection', { id: 'c1', copySuffix: ' (copy)' });
+  it('duplicates the entry with the localised suffix', async () => {
+    const { actions, bridge } = setup({ duplicate_entry: 'new' });
+    await actions.duplicate('e1');
+    expect(bridge.invoke).toHaveBeenCalledWith('duplicate_entry', { id: 'e1', copySuffix: ' (copy)' });
+  });
+
+  it('stars the entry of a connection', async () => {
+    const { actions, bridge } = setup({ set_favorite: null });
+    await actions.setFavorite('h1', true);
+    expect(bridge.invoke).toHaveBeenCalledWith('set_favorite', { tag: 'c:h1', isFavorite: true });
+  });
+
+  it('primary_action_on_an_entry_connects_its_default', async () => {
+    const data = multiEntryLibrary();
+    data.entries = data.entries.map((e) => (e.id === 'e1' ? { ...e, defaultConnectionId: 'h2' } : e));
+    const { actions, sessions, rdpSessions } = setup({}, data);
+    actions.primaryAction('e:e1');
+    expect(rdpSessions.open).toHaveBeenCalledWith(expect.objectContaining({ id: 'h2' }));
+    actions.primaryAction('c:h1');
+    expect(sessions.open).toHaveBeenCalledWith(expect.objectContaining({ id: 'h1' }));
+  });
+
+  it('expands entries like folders, in the same setting', async () => {
+    const { actions, bridge } = setup({}, multiEntryLibrary());
+    await actions.setExpanded('e1');
+    expect(bridge.invoke).toHaveBeenCalledWith('settings_set', { patch: { expandedFolders: ['e1'] } });
+  });
+
+  it('new items go into the folder of the selected entry or child connection', () => {
+    const { actions, library } = setup();
+    library.select('e:c3');
+    expect(actions.selectedFolderId()).toBe('f2');
+    library.select('fav:c2');
+    expect(actions.selectedFolderId()).toBe('f1');
   });
 
   it('saves a split under the prompted name', async () => {
@@ -215,7 +245,7 @@ describe('sidebar actions', () => {
     expect(toast.current?.message).toBe('Opened: portal · password, then username on the clipboard');
     outcome = { kind: 'launched' };
     toast.clear();
-    actions.primaryAction('c:c5');
+    actions.primaryAction('e:c5');
     await flush();
     expect(toast.current?.message).toBe('Connecting: portal');
   });
@@ -286,7 +316,7 @@ describe('sidebar actions', () => {
 
   it('opens editors in the selected folder', () => {
     const { actions, editor, library } = setup();
-    library.select('c:c3');
+    library.select('e:c3');
     actions.newConnection('rdp');
     expect(editor.connection).toEqual({ mode: 'new', type: 'rdp', folderId: 'f2' });
     library.select('f:f1');

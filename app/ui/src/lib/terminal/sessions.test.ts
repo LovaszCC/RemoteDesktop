@@ -6,8 +6,9 @@ import { createAlertStore } from '../stores/alert.svelte';
 import { createToastStore } from '../stores/toast.svelte';
 import { TabsStore } from '../tabs.svelte';
 import { fakeBridge } from '../testing/bridge';
+import { entry } from '../testing/fixtures';
 import { buttonByText, click, settle, text } from '../testing/views';
-import type { ClearAction, SshEvent, SshEventDto } from '../types';
+import type { ClearAction, SshEvent, SshEventDto, EntryDto } from '../types';
 import { createSessionsStore, toBytes, type OutputChannel } from './sessions.svelte';
 import type { TerminalHandle, TerminalOptions } from './xterm';
 
@@ -36,7 +37,7 @@ function fakeTerminal() {
 
 const connection = { id: 'c1', name: 'web01', type: 'ssh' as const, color: 'red' as const };
 
-function setup(replies: Parameters<typeof fakeBridge>[0] = {}) {
+function setup(replies: Parameters<typeof fakeBridge>[0] = {}, entries: EntryDto[] = []) {
   let n = 0;
   const bridge = fakeBridge({
     open_ssh_session: () => ({ sessionId: `S${++n}` }),
@@ -69,6 +70,7 @@ function setup(replies: Parameters<typeof fakeBridge>[0] = {}) {
       return channel;
     },
     platform: () => 'linux',
+    library: { entry: (id) => entries.find((e) => e.id === id) },
     shortcuts: () => [],
   });
   return { bridge, tabs, toast, alerts, terminal, channels, sessions };
@@ -77,6 +79,29 @@ function setup(replies: Parameters<typeof fakeBridge>[0] = {}) {
 const event = (e: SshEvent, sessionId = 'S1') => ({ sessionId, ...e }) as SshEventDto;
 
 describe('sessions store', () => {
+  it('a_multi_connection_entry_titles_tabs_with_the_label', async () => {
+    const home = { id: 'h1', entryId: 'e1', name: 'Home Server', displayLabel: 'SSH · root' };
+    const { sessions, tabs } = setup({}, [
+      entry('e1', [], { connectionIds: ['h1', 'h2'] }),
+      entry('e2', [], { connectionIds: ['x1'] }),
+    ]);
+    await sessions.open({ ...home, type: 'ssh', color: null });
+    await sessions.open({
+      id: 'x1',
+      entryId: 'e2',
+      name: 'Solo',
+      displayLabel: 'SSH',
+      type: 'ssh',
+      color: null,
+    });
+    await sessions.open({ ...home, id: 'h3', type: 'ssh', color: null });
+    expect(tabs.session('S1')).toMatchObject({ title: 'Home Server · SSH · root', group: 'e1' });
+    expect(tabs.session('S2')).toMatchObject({ title: 'Solo', group: 'e2' });
+    // Tabs of one entry sit together and are numbered across its connections.
+    expect(tabs.ids).toEqual(['S1', 'S3', 'S2']);
+    expect(tabs.session('S3')).toMatchObject({ group: 'e1', ordinal: 2 });
+  });
+
   it('opens a session in a new tab with the connection name and colour', async () => {
     const { sessions, tabs, bridge, channels, terminal } = setup();
     const id = await sessions.open(connection);

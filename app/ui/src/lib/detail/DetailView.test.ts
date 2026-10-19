@@ -221,7 +221,7 @@ describe('CredentialDetail', () => {
     });
 
     click(buttonByText('router'));
-    expect(store.selection).toEqual(['c:c4']);
+    expect(store.selection).toEqual(['e:c4']);
   });
 
   it('shows the empty state of an unused credential', async () => {

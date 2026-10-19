@@ -25,7 +25,7 @@
   const credential = $derived(deps.library.credential(connection.credentialId));
   const fields = $derived(connectionFields(connection));
   // Listed when the connection is open in more than one tab (with one, a click can go there directly).
-  const openTabs = $derived(deps.connectionTabs.openTabs(connection.id));
+  const openTabs = $derived(deps.connectionTabs.openTabs(connection.entryId));
   const MODES: MikrotikMode[] = ['winbox', 'ssh'];
 
   $effect(() => {

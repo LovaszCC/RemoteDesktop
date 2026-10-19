@@ -7,7 +7,7 @@ import { usesSSH } from '../sidebar/model';
 import { browserPickerOptions } from '../stores/browsers.svelte';
 import type {
   BrowserDto,
-  ConnectionDraft,
+  LegacyConnectionDraft,
   ConnectionDto,
   ConnectionType,
   CredentialDto,
@@ -140,7 +140,7 @@ export const DEFAULT_PORTS: Record<ConnectionType, number> = { rdp: 3389, ssh: 2
 
 /** What `save_connection` receives. */
 export interface ConnectionSave {
-  draft: ConnectionDraft;
+  draft: LegacyConnectionDraft;
   password: string | null;
   passphrase: string | null;
 }

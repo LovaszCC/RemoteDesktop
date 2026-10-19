@@ -82,16 +82,16 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
   }
 
   const actions = {
-    /** Expanded folder ids (the `expandedFolders` setting). */
+    /** Expanded folder and entry ids (the `expandedFolders` setting). */
     get expanded(): ReadonlySet<string> {
       // A snapshot: it is rebuilt from reactive state on every read.
       // eslint-disable-next-line svelte/prefer-svelte-reactivity
       return new Set(pendingExpansion ?? settings.settings?.expandedFolders ?? []);
     },
 
-    /** Opens, closes (or with `open` sets) a folder in the tree and saves the expansion. */
-    async setExpanded(folderId: string, open?: boolean) {
-      const next = toggledExpansion(actions.expanded, folderId, open);
+    /** Opens, closes (or with `open` sets) a folder or entry in the tree and saves the expansion. */
+    async setExpanded(id: string, open?: boolean) {
+      const next = toggledExpansion(actions.expanded, id, open);
       pendingExpansion = next;
       try {
         await settings.update({ expandedFolders: next });
@@ -102,14 +102,11 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
       }
     },
 
-    /** The folder new items go into: the selected folder, or the selected connection's folder. */
+    /** The folder new items go into: the selected folder, or the selected entry's (or connection's). */
     selectedFolderId(): string | null {
       const parsed = library.single ? parseTag(library.single) : null;
       if (parsed?.kind === 'folder') return parsed.id;
-      if (parsed?.kind === 'connection' || parsed?.kind === 'favorite') {
-        return library.connection(parsed.id)?.folderId ?? null;
-      }
-      return null;
+      return library.connectionForTag(library.single)?.folderId ?? null;
     },
 
     /**
@@ -178,9 +175,11 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
         case 'folder':
           void actions.setExpanded(parsed.id);
           break;
-        case 'connection':
+        case 'entry':
         case 'favorite':
-          void actions.connect(library.connection(parsed.id));
+        case 'connection':
+          // An entry connects its default connection, a child row its own.
+          void actions.connect(library.connectionForTag(tag));
           break;
         case 'split':
           actions.openSavedSplit(parsed.id);
@@ -189,9 +188,15 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
     },
 
     // Connections
-    duplicate: (id: string) => perform(() => api.duplicateConnection(id, t(' (copy)'))),
-    setFavorite: (id: string, isFavorite: boolean) => perform(() => api.setFavorite(id, isFavorite)),
+    /** Duplicates an entry with all its connections. */
+    duplicate: (entryId: string) => perform(() => api.duplicateEntry(entryId, t(' (copy)'))),
+    /** Stars or unstars the entry of a connection. */
+    setFavorite: (connectionId: string, isFavorite: boolean) =>
+      perform(() => api.setFavorite(`c:${connectionId}`, isFavorite)),
+    /** Deletes one connection (its entry too when it was the last). */
     deleteConnection: (id: string) => perform(() => api.deleteItems([`c:${id}`])),
+    /** Deletes an entry with all its connections. */
+    deleteEntry: (id: string) => perform(() => api.deleteItems([`e:${id}`])),
     async copyPassword(id: string) {
       try {
         await api.copyPassword(id);

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { setLocale } from '../i18n/index.svelte';
-import { connection, sidebarLibrary } from '../testing/fixtures';
+import { connection, multiEntryLibrary, sidebarLibrary } from '../testing/fixtures';
 import { EMPTY_LIBRARY } from '../types';
 import {
   buildSections,
@@ -42,9 +42,9 @@ describe('sidebar sections', () => {
       's:s2',
       'f:f1',
       'f:f3',
-      'c:c1',
-      'c:c5',
-      'c:c4',
+      'e:c1',
+      'e:c5',
+      'e:c4',
       'k:k1',
       'k:k2',
     ]);
@@ -62,34 +62,32 @@ describe('sidebar sections', () => {
     expect(tree.map((r) => [r.tag, r.depth])).toEqual([
       ['f:f1', 0],
       ['f:f2', 1],
-      ['c:c3', 2],
-      ['c:c2', 1],
+      ['e:c3', 2],
+      ['e:c2', 1],
       ['f:f3', 0],
-      ['c:c1', 0],
-      ['c:c5', 0],
-      ['c:c4', 0],
+      ['e:c1', 0],
+      ['e:c5', 0],
+      ['e:c4', 0],
     ]);
     const office = tree[0]!;
     expect(office.kind === 'folder' && office.expanded && office.hasChildren).toBe(true);
     const lab = tree.find((r) => r.tag === 'f:f3')!;
     expect(lab.kind === 'folder' && lab.hasChildren).toBe(false);
     // A collapsed parent hides an expanded child.
-    expect(visibleOrder(normal(['f2']))).not.toContain('c:c3');
+    expect(visibleOrder(normal(['f2']))).not.toContain('e:c3');
   });
 
   it('search mode shows Results with folder paths and Credentials only when any match', () => {
     const library = sidebarLibrary();
-    const results = { connections: ['c3', 'missing', 'c1'], credentials: [] };
+    const results = { entries: ['c3', 'missing', 'c1'], credentials: [] };
     let sections = buildSections({ library, query: 'x', results, expanded: new Set() });
     expect(sections.map((s) => s.title)).toEqual(['Results']);
-    expect(sections[0]!.rows).toEqual([
-      { kind: 'connection', tag: 'c:c3', id: 'c3', depth: 0, subtitle: 'Office / Servers' },
-      { kind: 'connection', tag: 'c:c1', id: 'c1', depth: 0, subtitle: '' },
-    ]);
+    expect(sections[0]!.rows.map((r) => r.tag)).toEqual(['e:c3', 'e:c1']);
+    expect(sections[0]!.rows[0]).toMatchObject({ kind: 'entry', subtitle: 'Office / Servers' });
     sections = buildSections({
       library,
       query: 'x',
-      results: { connections: [], credentials: ['k2'] },
+      results: { entries: [], credentials: ['k2'] },
       expanded: new Set(),
     });
     expect(sections.map((s) => s.title)).toEqual(['Results', 'Credentials']);
@@ -100,10 +98,68 @@ describe('sidebar sections', () => {
     const sections = buildSections({
       library: sidebarLibrary(),
       query: '   ',
-      results: { connections: ['c1'], credentials: ['k1'] },
+      results: { entries: ['c1'], credentials: ['k1'] },
       expanded: new Set(),
     });
     expect(sections).toEqual([{ id: 'results', title: 'Results', rows: [] }]);
+  });
+
+  it('entry_rows_expand_to_their_connections', () => {
+    const rows = (expanded: string[]) =>
+      buildSections({
+        library: multiEntryLibrary(),
+        query: '',
+        results: null,
+        expanded: new Set(expanded),
+      }).find((s) => s.id === 'connections')!.rows;
+    const collapsed = rows([]).find((r) => r.tag === 'e:e1')!;
+    expect(collapsed).toMatchObject({ kind: 'entry', expanded: false, hasChildren: true });
+    expect(rows([]).map((r) => r.tag)).not.toContain('c:h1');
+    const open = rows(['e1']);
+    const at = open.findIndex((r) => r.tag === 'e:e1');
+    expect(open[at]).toMatchObject({ kind: 'entry', expanded: true });
+    expect(open.slice(at + 1, at + 3)).toEqual([
+      { kind: 'connection', tag: 'c:h1', id: 'h1', depth: 1, label: 'SSH · root', isDefault: true },
+      { kind: 'connection', tag: 'c:h2', id: 'h2', depth: 1, label: 'Console', isDefault: false },
+    ]);
+    expect(open[at + 3]?.tag).toBe('e:c5');
+  });
+
+  it('single_connection_entry_has_no_chevron', () => {
+    const rows = normal(['c1']).find((s) => s.id === 'connections')!.rows;
+    expect(rows.find((r) => r.tag === 'e:c1')).toMatchObject({
+      kind: 'entry',
+      hasChildren: false,
+      expanded: false,
+    });
+    expect(rows.map((r) => r.tag)).not.toContain('c:c1');
+  });
+
+  it('search_results_are_entry_rows', () => {
+    const sections = buildSections({
+      library: multiEntryLibrary(),
+      query: 'root',
+      results: { entries: ['e1'], credentials: [] },
+      expanded: new Set(['e1']),
+    });
+    // Results never expand: a child row would repeat the tree's `c:` tag.
+    expect(sections[0]!.rows).toEqual([
+      {
+        kind: 'entry',
+        tag: 'e:e1',
+        id: 'e1',
+        depth: 0,
+        subtitle: '',
+        expanded: false,
+        hasChildren: false,
+      },
+    ]);
+  });
+
+  it('a favourite entry shows once under Favorites', () => {
+    const library = { ...multiEntryLibrary(), favorites: ['c1', 'e1'] };
+    const favorites = buildSections({ library, query: '', results: null, expanded: new Set(['e1']) })[0]!;
+    expect(favorites.rows.map((r) => r.tag)).toEqual(['fav:c1', 'fav:e1']);
   });
 
   it('knows when the library is empty', () => {
@@ -163,11 +219,11 @@ describe('drag and drop', () => {
     expect(payloadTags('c:1\nf:2\n')).toEqual(['c:1', 'f:2']);
   });
 
-  it('drags folders and connections only', () => {
+  it('drags folders and entries only', () => {
     const rows = visibleOrder(normal());
     const sections = normal().flatMap((s) => s.rows);
     expect(sections.filter(isDraggable).map((r) => r.tag)).toEqual(
-      rows.filter((tag) => /^(f|c|fav):/.test(tag)),
+      rows.filter((tag) => /^(f|e|fav):/.test(tag)),
     );
   });
 
@@ -181,9 +237,10 @@ describe('drag and drop', () => {
 });
 
 describe('selection helpers', () => {
-  it('maps tags to ids without repeats (a favourite is its connection)', () => {
-    expect(tagItems(['c:1', 'fav:1', 'f:2', 'k:3', 's:4', 'x:5'])).toEqual({
-      connectionIds: ['1'],
+  it('maps tags to ids without repeats (a favourite is its entry)', () => {
+    expect(tagItems(['e:1', 'fav:1', 'c:9', 'f:2', 'k:3', 's:4', 'x:5'])).toEqual({
+      entryIds: ['1'],
+      connectionIds: ['9'],
       folderIds: ['2'],
       credentialIds: ['3'],
       splitIds: ['4'],
@@ -198,24 +255,36 @@ describe('selection helpers', () => {
 
   it('finds SSH-capable connections in library order', () => {
     const library = sidebarLibrary();
-    expect(sshConnections(library, ['c:c4', 'fav:c1', 'c:c2', 'c:c5']).map((c) => c.id)).toEqual([
+    expect(sshConnections(library, ['e:c4', 'fav:c1', 'e:c2', 'e:c5']).map((c) => c.id)).toEqual([
       'c1',
       'c4',
     ]);
   });
 
+  it('an entry in a split uses its default SSH connection, else its first SSH one', () => {
+    const library = multiEntryLibrary();
+    expect(sshConnections(library, ['e:e1']).map((c) => c.id)).toEqual(['h1']);
+    const rdpDefault = {
+      ...library,
+      entries: library.entries.map((e) => (e.id === 'e1' ? { ...e, defaultConnectionId: 'h2' } : e)),
+    };
+    expect(sshConnections(rdpDefault, ['e:e1']).map((c) => c.id)).toEqual(['h1']);
+    expect(sshConnections(library, ['c:h2'])).toEqual([]);
+  });
+
   it('collects connections of selected folders with their subtrees', () => {
     const library = sidebarLibrary();
     expect([...subtreeFolderIds(library.folders, 'f1')].sort()).toEqual(['f1', 'f2']);
-    expect(connectionIdsForTags(library, ['f:f1', 'c:c1', 'fav:c1']).sort()).toEqual(['c1', 'c2', 'c3']);
+    expect(connectionIdsForTags(library, ['f:f1', 'e:c1', 'fav:c1']).sort()).toEqual(['c1', 'c2', 'c3']);
+    expect(connectionIdsForTags(multiEntryLibrary(), ['e:e1', 'c:h2'])).toEqual(['h1', 'h2']);
     expect(connectionIdsForTags(library, ['f:f3', 'k:k1'])).toEqual([]);
   });
 });
 
 describe('confirmation texts', () => {
   it('builds the bulk delete title and lines', () => {
-    const counts = deletionCounts(['c:1', 'fav:1', 'c:2', 'f:3', 'k:4', 's:5']);
-    expect(counts.tags).toEqual(['c:1', 'c:2', 'f:3', 'k:4']);
+    const counts = deletionCounts(['e:1', 'fav:1', 'c:2', 'f:3', 'k:4', 's:5']);
+    expect(counts.tags).toEqual(['e:1', 'c:2', 'f:3', 'k:4']);
     expect(bulkDeleteTitle(counts)).toBe('Delete 4 items?');
     expect(bulkDeleteMessage(counts)).toBe(
       [
@@ -225,7 +294,7 @@ describe('confirmation texts', () => {
         "This can't be undone.",
       ].join('\n'),
     );
-    expect(bulkDeleteMessage(deletionCounts(['c:1']))).toBe(
+    expect(bulkDeleteMessage(deletionCounts(['e:1']))).toBe(
       "Connections: 1, folders: 0, credentials: 0.\nThis can't be undone.",
     );
   });

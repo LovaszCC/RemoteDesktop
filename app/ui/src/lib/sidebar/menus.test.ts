@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { MenuItem } from '../components/menu.svelte';
-import { sidebarLibrary } from '../testing/fixtures';
+import { multiEntryLibrary, sidebarLibrary } from '../testing/fixtures';
 import {
   emptyAreaMenu,
   importMenu,
@@ -25,6 +25,7 @@ function fakeActions(): MenuActions {
     'duplicate',
     'setFavorite',
     'deleteConnection',
+    'deleteEntry',
     'copyPassword',
     'copyHost',
     'openFiles',
@@ -120,7 +121,7 @@ describe('sidebar menus', () => {
   });
 
   it('a MikroTik connection has a Connect per mode and the SSH items', () => {
-    expect(labels(itemMenu(context(), 'c:c4')).slice(0, 7)).toEqual([
+    expect(labels(itemMenu(context(), 'e:c4')).slice(0, 7)).toEqual([
       'Connect – WinBox',
       'Connect – SSH',
       'New embedded SSH session',
@@ -129,12 +130,12 @@ describe('sidebar menus', () => {
       'Open in Terminal',
       '-',
     ]);
-    expect(labels(itemMenu(context(), 'c:c4'))).toContain('Add to favorites');
+    expect(labels(itemMenu(context(), 'e:c4'))).toContain('Add to favorites');
   });
 
   it('the connect items pass the MikroTik mode and the SSH terminal', () => {
     const ctx = context();
-    const menu = itemMenu(ctx, 'c:c4');
+    const menu = itemMenu(ctx, 'e:c4');
     const connection = ctx.library.connections.find((c) => c.id === 'c4');
     find(menu, 'Connect – WinBox').action!();
     expect(ctx.actions.connect).toHaveBeenLastCalledWith(connection, { mode: 'winbox' });
@@ -149,7 +150,7 @@ describe('sidebar menus', () => {
   });
 
   it('a read-only connection keeps connect and copy only', () => {
-    expect(labels(itemMenu(context({ readOnly: true }), 'c:c5'))).toEqual([
+    expect(labels(itemMenu(context({ readOnly: true }), 'e:c5'))).toEqual([
       'Connect',
       '-',
       'Copy password',
@@ -159,12 +160,12 @@ describe('sidebar menus', () => {
 
   it('Move disables the current folder, or the root when already there', () => {
     const ctx = context();
-    const atRoot = find(itemMenu(ctx, 'c:c1'), 'Move').submenu!;
+    const atRoot = find(itemMenu(ctx, 'e:c1'), 'Move').submenu!;
     expect(labels(atRoot)).toEqual(['!(Root)', 'Lab', 'Office', '   Servers']);
-    const inOffice = find(itemMenu(ctx, 'c:c2'), 'Move').submenu!;
+    const inOffice = find(itemMenu(ctx, 'e:c2'), 'Move').submenu!;
     expect(labels(inOffice)).toEqual(['(Root)', 'Lab', '!Office', '   Servers']);
     find(inOffice, 'Lab').action!();
-    expect(ctx.actions.move).toHaveBeenCalledWith(['c:c2'], 'f3');
+    expect(ctx.actions.move).toHaveBeenCalledWith(['e:c2'], 'f3');
   });
 
   it('a folder: new items here, rename, colour with a check, move without its subtree, delete', () => {
@@ -212,7 +213,7 @@ describe('sidebar menus', () => {
 
   it('a multi-selection', () => {
     const ctx = context();
-    const tags = ['fav:c1', 'c:c3', 'c:c2'];
+    const tags = ['fav:c1', 'e:c3', 'e:c2'];
     const menu = multiMenu(ctx, tags);
     expect(labels(menu)).toEqual([
       'Open in split view (2)',
@@ -241,11 +242,11 @@ describe('sidebar menus', () => {
   });
 
   it('disables Save as split outside 2–4 SSH connections and Linked credential without connections', () => {
-    const one = multiMenu(context(), ['c:c1', 'c:c2']);
+    const one = multiMenu(context(), ['e:c1', 'e:c2']);
     expect(labels(one).slice(0, 2)).toEqual(['!Open in split view (1)', '!Save as split…']);
     const none = multiMenu(context(), ['f:f3', 'k:k1']);
     expect(labels(none)).toContain('!Linked credential');
-    expect(labels(multiMenu(context({ readOnly: true }), ['c:c1', 'c:c3']))).toEqual([
+    expect(labels(multiMenu(context({ readOnly: true }), ['e:c1', 'e:c3']))).toEqual([
       'Open in split view (2)',
     ]);
   });
@@ -272,17 +273,36 @@ describe('importMenu', () => {
   it('an SSH connection offers SSH key setup, disabled while it runs', () => {
     const ctx = context();
     const connection = ctx.library.connections.find((c) => c.id === 'c1');
-    const menu = itemMenu(ctx, 'c:c1');
+    const menu = itemMenu(ctx, 'e:c1');
     expect(labels(menu).slice(4, 7)).toEqual(['Open in Terminal', 'Set up SSH key login', '-']);
     find(menu, 'Set up SSH key login').action!();
     expect(ctx.actions.setupSshKey).toHaveBeenCalledWith(connection);
     expect(ctx.actions.settingUpKey).toHaveBeenCalledWith('c1');
     vi.mocked(ctx.actions.settingUpKey).mockReturnValue(true);
-    expect(labels(itemMenu(ctx, 'c:c1'))).toContain('!Set up SSH key login');
-    expect(labels(itemMenu(context({ readOnly: true }), 'c:c1'))).toContain('Set up SSH key login');
+    expect(labels(itemMenu(ctx, 'e:c1'))).toContain('!Set up SSH key login');
+    expect(labels(itemMenu(context({ readOnly: true }), 'e:c1'))).toContain('Set up SSH key login');
     // MikroTik, RDP and web connections don't get it.
-    for (const tag of ['c:c4', 'fav:c2', 'c:c5']) {
+    for (const tag of ['e:c4', 'fav:c2', 'e:c5']) {
       expect(labels(itemMenu(ctx, tag))).not.toContain('Set up SSH key login');
     }
+  });
+
+  it('an entry row acts on its default connection and deletes the entry, a child row only itself', () => {
+    const ctx = context({ library: multiEntryLibrary() });
+    const entry = itemMenu(ctx, 'e:e1');
+    find(entry, 'Connect').action?.();
+    expect(ctx.actions.connect).toHaveBeenCalledWith(expect.objectContaining({ id: 'h1' }));
+    find(entry, 'Duplicate').action?.();
+    expect(ctx.actions.duplicate).toHaveBeenCalledWith('e1');
+    find(entry, 'Delete').action?.();
+    expect(ctx.actions.deleteEntry).toHaveBeenCalledWith('e1');
+    const child = itemMenu(ctx, 'c:h2');
+    expect(labels(child)).toContain('Open in Windows App');
+    find(child, 'Delete').action?.();
+    expect(ctx.actions.deleteConnection).toHaveBeenCalledWith('h2');
+    const move = find(child, 'Move');
+    const root = move.submenu?.[0];
+    if (root && root.kind !== 'separator') root.action?.();
+    expect(ctx.actions.move).toHaveBeenCalledWith(['e:e1'], null);
   });
 });

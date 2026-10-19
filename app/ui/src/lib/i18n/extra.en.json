@@ -202,5 +202,6 @@
   "Open tabs": "Open tabs",
   "Update required": "Update required",
   "This database was last used with RemoteDesktop %@. This is version %@: update the app to open it.": "This database was last used with RemoteDesktop %@. This is version %@: update the app to open it.",
-  "Check for updates": "Check for updates"
+  "Check for updates": "Check for updates",
+  "Default connection": "Default connection"
 }

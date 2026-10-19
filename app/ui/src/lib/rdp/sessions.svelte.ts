@@ -9,6 +9,7 @@ import { errorMessage } from '../errors';
 import { t } from '../i18n/index.svelte';
 import { alerts as defaultAlerts, type AlertStore } from '../stores/alert.svelte';
 import { dialogs as defaultDialogs, type DialogStore } from '../stores/dialogs.svelte';
+import { library as defaultLibrary, tabTitle, type LibraryStore } from '../stores/library.svelte';
 import { toast as defaultToast, type ToastStore } from '../stores/toast.svelte';
 import { tabs as defaultTabs, type TabsStore } from '../tabs.svelte';
 import type { ConnectionDto, RdpEventDto, RdpInput } from '../types';
@@ -39,7 +40,13 @@ export interface RdpSessionsDeps {
   createChannel: () => FrameChannel;
   /** The size of a view not laid out yet. */
   defaultSize: () => RdpSize;
+  /** The entries, for tab titles and groups. */
+  library: Pick<LibraryStore, 'entry'>;
 }
+
+/** What opening needs of a connection; `entryId`/`displayLabel` name and group the tab per entry. */
+export type SessionConnection = Pick<ConnectionDto, 'id' | 'name' | 'type' | 'color'> &
+  Partial<Pick<ConnectionDto, 'entryId' | 'displayLabel'>>;
 
 /** Events kept for a session whose `open_rdp_session` hasn't answered yet. */
 const MAX_PENDING = 64;
@@ -54,6 +61,7 @@ export function createRdpSessionsStore(deps: Partial<RdpSessionsDeps> = {}) {
   const createSurface = deps.createSurface ?? createCanvasSurface;
   const createChannel = deps.createChannel ?? (() => new Channel<ArrayBuffer>() as unknown as FrameChannel);
   const defaultSize = deps.defaultSize ?? (() => initialViewSize(window));
+  const library = deps.library ?? defaultLibrary;
 
   let states = $state<Record<string, RdpSessionState>>({});
   // Not state: surfaces, sizes and queued events don't render (`states` does).
@@ -136,7 +144,7 @@ export function createRdpSessionsStore(deps: Partial<RdpSessionsDeps> = {}) {
     handleEvent,
 
     /** Opens an embedded session for `connection` in a new tab; rejects with the `CommandError`. */
-    async open(connection: Pick<ConnectionDto, 'id' | 'name' | 'type' | 'color'>): Promise<string> {
+    async open(connection: SessionConnection): Promise<string> {
       const surface = createSurface();
       const channel = createChannel();
       let sessionId: string | null = null;
@@ -157,13 +165,15 @@ export function createRdpSessionsStore(deps: Partial<RdpSessionsDeps> = {}) {
       }
       const id = sessionId;
       surfaces.set(id, surface);
-      states = { ...states, [id]: newRdpState(id, connection.id, connection.name) };
+      const title = tabTitle(connection, library.entry(connection.entryId));
+      states = { ...states, [id]: newRdpState(id, connection.id, title) };
       tabs.openSession({
         id,
-        title: connection.name,
+        title,
         type: connection.type,
         color: connection.color,
-        group: connection.id,
+        // An entry's tabs sit together and are numbered.
+        group: connection.entryId ?? connection.id,
       });
       for (; unacked > 0; unacked -= 1) ack(id);
       const queued = pending.get(id) ?? [];

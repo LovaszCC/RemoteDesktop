@@ -9,8 +9,8 @@ import { createLibraryStore } from '../stores/library.svelte';
 import { createSettingsStore } from '../stores/settings.svelte';
 import { createToastStore } from '../stores/toast.svelte';
 import { fakeBridge } from '../testing/bridge';
-import { settingsDto, sidebarLibrary } from '../testing/fixtures';
-import { EMPTY_LIBRARY, type Platform } from '../types';
+import { multiEntryLibrary, settingsDto, sidebarLibrary } from '../testing/fixtures';
+import { EMPTY_LIBRARY, type ConnectionDto, type Platform } from '../types';
 import { createForwardStore } from '../forwards/forwards.svelte';
 import { TabsStore } from '../tabs.svelte';
 import { createSessionsStore, type SessionsStore } from '../terminal/sessions.svelte';
@@ -32,12 +32,14 @@ function render({
   forwards = createForwardStore(fakeBridge()),
   sessions = undefined as SessionsStore | undefined,
   live = [] as string[],
+  library = sidebarLibrary(),
+  rdpSessions = undefined as { open: (connection: ConnectionDto) => Promise<string> } | undefined,
 } = {}) {
   const bridge = fakeBridge({
     settings_set: (args?: Record<string, unknown>) => settingsDto(args?.patch as object),
   });
   const store = createLibraryStore({ ...bridge, searchDelay: 0 });
-  store.replace(sidebarLibrary());
+  store.replace(library);
   const toast = createToastStore();
   const actions = createSidebarActions({
     api: createApi(bridge.invoke),
@@ -48,6 +50,7 @@ function render({
     editor: createEditorStore(),
     dialogs: createDialogStore(),
     ...(sessions ? { sessions } : {}),
+    ...(rdpSessions ? { rdpSessions } : {}),
   });
   component = mount(Sidebar, {
     target: document.body,
@@ -91,9 +94,9 @@ describe('Sidebar', () => {
       's:s2',
       'f:f1',
       'f:f3',
-      'c:c1',
-      'c:c5',
-      'c:c4',
+      'e:c1',
+      'e:c5',
+      'e:c4',
       'k:k1',
       'k:k2',
     ]);
@@ -103,7 +106,7 @@ describe('Sidebar', () => {
     expect(row('k:k2').querySelector('.count')).toBeNull();
     expect(row('fav:c2').querySelector('.swatch')?.getAttribute('title')).toBe('Blue');
     expect(row('fav:c2').querySelector('.star')).not.toBeNull();
-    expect(row('c:c1').title).toBe('SSH · c1.example.test');
+    expect(row('e:c1').title).toBe('SSH · c1.example.test');
   });
 
   it('shows the empty state for an empty library', () => {
@@ -122,16 +125,16 @@ describe('Sidebar', () => {
     expect(store.selection).toEqual(['fav:c2', 'f:f1']);
     click('f:f1', { ctrlKey: true });
     expect(store.selection).toEqual(['fav:c2', 'f:f1']);
-    click('c:c5', { shiftKey: true });
-    expect(store.selection).toEqual(['f:f1', 'f:f3', 'c:c1', 'c:c5']);
-    expect(row('c:c1').getAttribute('aria-selected')).toBe('true');
+    click('e:c5', { shiftKey: true });
+    expect(store.selection).toEqual(['f:f1', 'f:f3', 'e:c1', 'e:c5']);
+    expect(row('e:c1').getAttribute('aria-selected')).toBe('true');
   });
 
   it('toggles with Ctrl on Windows', () => {
     const { store } = render({ platform: 'windows' });
-    click('c:c1');
-    click('c:c4', { ctrlKey: true });
-    expect(store.selection).toEqual(['c:c1', 'c:c4']);
+    click('e:c1');
+    click('e:c4', { ctrlKey: true });
+    expect(store.selection).toEqual(['e:c1', 'e:c4']);
   });
 
   it('moves with the arrow keys and opens folders with → and Return', async () => {
@@ -152,8 +155,8 @@ describe('Sidebar', () => {
 
   it('double-click runs the primary action', () => {
     const { bridge } = render();
-    click('c:c4');
-    row('c:c4').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    click('e:c4');
+    row('e:c4').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     expect(bridge.invoke).toHaveBeenCalledWith('connect_winbox', { connectionId: 'c4' });
   });
 
@@ -165,9 +168,9 @@ describe('Sidebar', () => {
       '-',
       'Delete credential',
     ]);
-    store.setSelection(['c:c1', 'c:c4']);
+    store.setSelection(['e:c1', 'e:c4']);
     flushSync();
-    row('c:c4').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    row('e:c4').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
     const first = contextMenu.open?.items[0];
     expect(first?.kind !== 'separator' && first?.label).toBe('Open in split view (2)');
     document.querySelector('.sidebar-list')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
@@ -177,12 +180,12 @@ describe('Sidebar', () => {
 
   it('renders search results with folder paths', async () => {
     const { store } = render();
-    store.results = { connections: ['c3'], credentials: ['k2'] };
+    store.results = { entries: ['c3'], credentials: ['k2'] };
     store.query = 'db';
     flushSync();
     expect(headers()).toEqual(['Results', 'Credentials']);
-    expect(rowTags()).toEqual(['c:c3', 'k:k2']);
-    expect(row('c:c3').querySelector('.subtitle')?.textContent).toBe('Office / Servers');
+    expect(rowTags()).toEqual(['e:c3', 'k:k2']);
+    expect(row('e:c3').querySelector('.subtitle')?.textContent).toBe('Office / Servers');
   });
 });
 
@@ -231,7 +234,7 @@ describe('Local Terminal entry', () => {
   it('opens a local terminal tab on double-click and Enter', async () => {
     const { tabs, bridge, store, actions } = withSessions();
     const primary = vi.spyOn(actions, 'primaryAction');
-    store.select('c:c1');
+    store.select('e:c1');
     entry().dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     await vi.waitFor(() => expect(tabs.session('L1')?.title).toBe('Local Terminal'));
     expect(bridge.invoke).toHaveBeenCalledWith('open_local_terminal', expect.objectContaining({ cols: 80 }));
@@ -259,9 +262,9 @@ describe('open session dot', () => {
 
   it('marks connections with a live embedded session, favourites too', () => {
     render({ live: ['c1'] });
-    expect(dot(row('c:c1'))).toBeTruthy();
+    expect(dot(row('e:c1'))).toBeTruthy();
     for (const tag of rowTags()) {
-      if (tag !== 'c:c1' && tag !== 'fav:c1') expect(dot(row(tag!)), tag).toBeNull();
+      if (tag !== 'e:c1' && tag !== 'fav:c1') expect(dot(row(tag!)), tag).toBeNull();
     }
   });
 
@@ -279,7 +282,7 @@ describe('port forward indicator', () => {
   it('marks SSH connections with a starting or active forward', () => {
     const forwards = createForwardStore(fakeBridge());
     render({ forwards });
-    const indicator = () => row('c:c1').querySelector('[aria-label="Port forward active"]');
+    const indicator = () => row('e:c1').querySelector('[aria-label="Port forward active"]');
     expect(indicator()).toBeNull();
     forwards.apply({ id: 'p1', connectionId: 'c1', state: 'starting' });
     flushSync();
@@ -290,5 +293,71 @@ describe('port forward indicator', () => {
     forwards.apply({ id: 'p1', connectionId: 'c1', state: 'failed', code: 'timeout', error: 'late' });
     flushSync();
     expect(indicator()).toBeNull();
+  });
+});
+
+describe('entries with several connections', () => {
+  const chevron = (tag: string) => row(tag).querySelector<HTMLButtonElement>('.disclosure')!;
+
+  it('expands an entry with a chevron to its connections, the default marked', async () => {
+    render({ library: multiEntryLibrary() });
+    expect(chevron('e:e1')).toBeTruthy();
+    // A one-connection entry looks as before: no chevron.
+    expect(row('e:c1').querySelector('.disclosure')).toBeNull();
+    expect(rowTags()).not.toContain('c:h1');
+    chevron('e:e1').click();
+    flushSync();
+    await vi.waitFor(() => expect(rowTags()).toContain('c:h1'));
+    const tags = rowTags();
+    expect(tags.slice(tags.indexOf('e:e1'), tags.indexOf('e:e1') + 3)).toEqual(['e:e1', 'c:h1', 'c:h2']);
+    expect(row('c:h1').textContent).toContain('SSH · root');
+    expect(row('c:h2').textContent).toContain('Console');
+    expect(row('c:h1').querySelector('[aria-label="Default connection"]')).toBeTruthy();
+    expect(row('c:h2').querySelector('[aria-label="Default connection"]')).toBeNull();
+  });
+
+  it('double_click_on_a_child_connects_that_connection', async () => {
+    const rdpSessions = { open: vi.fn(async () => 'R1') };
+    const { actions } = render({ library: multiEntryLibrary(), rdpSessions });
+    await actions.setExpanded('e1', true);
+    flushSync();
+    row('c:h2').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await vi.waitFor(() =>
+      expect(rdpSessions.open).toHaveBeenCalledWith(expect.objectContaining({ id: 'h2' })),
+    );
+  });
+
+  it('double-click on the entry connects its default connection', async () => {
+    const rdpSessions = { open: vi.fn(async () => 'R1') };
+    const library = multiEntryLibrary();
+    library.entries = library.entries.map((e) => (e.id === 'e1' ? { ...e, defaultConnectionId: 'h2' } : e));
+    render({ library, rdpSessions });
+    row('e:e1').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await vi.waitFor(() =>
+      expect(rdpSessions.open).toHaveBeenCalledWith(expect.objectContaining({ id: 'h2' })),
+    );
+  });
+
+  it('opens and closes an entry with → and ←', async () => {
+    const { store, actions } = render({ library: multiEntryLibrary() });
+    click('e:e1');
+    key('ArrowRight');
+    expect([...actions.expanded]).toEqual(['e1']);
+    flushSync();
+    expect(rowTags()).toContain('c:h2');
+    key('ArrowLeft');
+    expect([...actions.expanded]).toEqual([]);
+    expect(store.selection).toEqual(['e:e1']);
+  });
+
+  it('shows the dot on the entry when a child is live, and on each live child', async () => {
+    const dot = (tag: string) => row(tag).querySelector('[aria-label="Open session"]');
+    const { actions } = render({ library: multiEntryLibrary(), live: ['h2'] });
+    expect(dot('e:e1')).toBeTruthy();
+    await actions.setExpanded('e1', true);
+    flushSync();
+    expect(dot('c:h2')).toBeTruthy();
+    expect(dot('c:h1')).toBeNull();
+    expect(dot('e:c1')).toBeNull();
   });
 });

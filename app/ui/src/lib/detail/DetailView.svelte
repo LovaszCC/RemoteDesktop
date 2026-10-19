@@ -14,9 +14,8 @@
   const store = deps.library;
 
   const parsed = $derived(store.single ? parseTag(store.single) : null);
-  const connection = $derived(
-    parsed?.kind === 'connection' || parsed?.kind === 'favorite' ? store.connection(parsed.id) : undefined,
-  );
+  // An entry row shows its default connection, a child row its own (until the entry details).
+  const connection = $derived(store.connectionForTag(store.single));
   const folder = $derived(parsed?.kind === 'folder' ? store.folder(parsed.id) : undefined);
   const credential = $derived(parsed?.kind === 'credential' ? store.credential(parsed.id) : undefined);
   const split = $derived(parsed?.kind === 'split' ? store.split(parsed.id) : undefined);

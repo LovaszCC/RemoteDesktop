@@ -135,6 +135,9 @@ describe('command runner', () => {
     const { deps, run } = setup({ primary: 'c:1' });
     run('connect');
     expect(deps.actions.primaryAction).toHaveBeenCalledWith('c:1');
+    const entry = setup({ primary: 'e:2' });
+    entry.run('connect');
+    expect(entry.deps.actions.primaryAction).toHaveBeenCalledWith('e:2');
     const folder = setup({ primary: 'f:1' });
     folder.run('connect');
     expect(folder.deps.actions.primaryAction).not.toHaveBeenCalled();
@@ -204,6 +207,8 @@ describe('command runner', () => {
     selected.run('openFiles');
     expect(selected.deps.actions.openFiles).toHaveBeenCalledWith('1', { sessionId: undefined });
     expect(filesTarget(selected.deps)).toEqual({ connectionId: '1' });
+    expect(filesTarget(setup({ primary: 'e:2' }).deps)).toEqual({ connectionId: '2' });
+    expect(filesTarget(setup({ primary: 'fav:3' }).deps)).toEqual({ connectionId: '3' });
 
     const rdp = setup({ primary: 'c:3' });
     rdp.deps.library.library.connections[2]!.type = 'rdp';

@@ -1,12 +1,13 @@
 // The library as Rust sends it (`library-changed` replaces it whole), the sidebar selection and the
-// search. Selection entries are sidebar tags: `f:<folder>`, `c:<connection>`, `fav:<connection>`,
-// `k:<credential>`, `s:<saved split>` (rd-core `SidebarTag`).
+// search. Selection entries are sidebar tags: `f:<folder>`, `e:<entry>`, `c:<connection>` (a child row of
+// an entry), `fav:<entry>`, `k:<credential>`, `s:<saved split>` (rd-core `SidebarTag`).
 
 import { onLibraryChanged, type Api, type Listen, type Unlisten } from '../api';
 import {
   EMPTY_LIBRARY,
   type ConnectionDto,
   type CredentialDto,
+  type EntryDto,
   type FolderDto,
   type LibraryDto,
   type SavedSplitDto,
@@ -15,10 +16,11 @@ import {
 import { indexById, unique } from '../collections';
 import { resolveDeps, type StoreDeps } from './deps';
 
-export type TagKind = 'folder' | 'connection' | 'favorite' | 'credential' | 'split';
+export type TagKind = 'folder' | 'entry' | 'connection' | 'favorite' | 'credential' | 'split';
 
 const PREFIXES: [string, TagKind][] = [
   ['f:', 'folder'],
+  ['e:', 'entry'],
   ['c:', 'connection'],
   ['fav:', 'favorite'],
   ['k:', 'credential'],
@@ -39,6 +41,36 @@ export function makeTag(kind: TagKind, id: string): string {
   return prefix + id;
 }
 
+/** Whether `tag` stands for an entry: an entry row (`e:`) or a favourite (`fav:`). */
+export function isEntryKind(kind: TagKind | undefined): kind is 'entry' | 'favorite' {
+  return kind === 'entry' || kind === 'favorite';
+}
+
+/**
+ * The connection a row tag acts on: an entry's (`e:`, `fav:`) default connection, or the child row's
+ * (`c:`) connection; `undefined` for other tags or a missing item.
+ */
+export function connectionOfTag(library: LibraryDto, tag: string): ConnectionDto | undefined {
+  const parsed = parseTag(tag);
+  if (!parsed) return undefined;
+  if (parsed.kind === 'connection') return library.connections.find((c) => c.id === parsed.id);
+  if (!isEntryKind(parsed.kind)) return undefined;
+  const entry = library.entries.find((e) => e.id === parsed.id);
+  const id = entry?.defaultConnectionId ?? entry?.connectionIds[0];
+  return id ? library.connections.find((c) => c.id === id) : undefined;
+}
+
+/** What a session's tab is called: `<entry> · <label>` for an entry with 2+ connections, else the name. */
+export function tabTitle(
+  connection: Pick<ConnectionDto, 'name'> & Partial<Pick<ConnectionDto, 'displayLabel'>>,
+  entry: Pick<EntryDto, 'connectionIds'> | undefined,
+): string {
+  const several = (entry?.connectionIds.length ?? 0) > 1;
+  return several && connection.displayLabel
+    ? `${connection.name} · ${connection.displayLabel}`
+    : connection.name;
+}
+
 export interface LibraryStoreOptions extends StoreDeps {
   /** Search debounce in ms. */
   searchDelay?: number;
@@ -56,6 +88,7 @@ export class LibraryStore {
   /** Search hits; `null` when the query is empty (the sidebar shows the tree). */
   results = $state<SearchResultDto | null>(null);
 
+  readonly entriesById = $derived(indexById(this.library.entries));
   readonly connectionsById = $derived(indexById(this.library.connections));
   readonly credentialsById = $derived(indexById(this.library.credentials));
   readonly foldersById = $derived(indexById(this.library.folders));
@@ -95,16 +128,48 @@ export class LibraryStore {
     clearTimeout(this.#searchTimer);
   }
 
-  /** Takes a new library, drops selected tags whose item is gone and refreshes the search. */
+  /**
+   * Takes a new library, drops selected tags whose item is gone and refreshes the search. A selected
+   * connection (`c:`) of a one-connection entry becomes its entry row (`e:`): it has no row of its own.
+   */
   replace(library: LibraryDto) {
     this.library = library;
-    const kept = this.selection.filter((tag) => this.exists(tag));
-    if (kept.length !== this.selection.length) this.selection = kept;
-    if (this.anchor && !this.exists(this.anchor)) this.anchor = null;
+    const kept = unique(this.selection.filter((tag) => this.exists(tag)).map((tag) => this.rowTag(tag)));
+    if (kept.join('\n') !== this.selection.join('\n')) this.selection = kept;
+    if (this.anchor) this.anchor = this.exists(this.anchor) ? this.rowTag(this.anchor) : null;
     if (this.isSearching) void this.runSearch();
   }
 
+  /** The tag of the row showing `tag`: `e:<entry>` for a connection of a one-connection entry. */
+  rowTag(tag: string): string {
+    const parsed = parseTag(tag);
+    if (parsed?.kind !== 'connection') return tag;
+    const entry = this.entry(this.connection(parsed.id)?.entryId);
+    return entry && entry.connectionIds.length === 1 ? `e:${entry.id}` : tag;
+  }
+
+  /** Selects a connection's row: its entry's when the entry has only it. */
+  selectConnection(id: string) {
+    this.select(this.rowTag(`c:${id}`));
+  }
+
   // Lookups
+
+  entry(id: string | null | undefined): EntryDto | undefined {
+    return id ? this.entriesById.get(id) : undefined;
+  }
+  /** The entry's connections in order. */
+  connectionsOf(entryId: string | null | undefined): ConnectionDto[] {
+    return (this.entry(entryId)?.connectionIds ?? []).flatMap((id) => this.connection(id) ?? []);
+  }
+  /** The connection a row tag acts on (see `connectionOfTag`). */
+  connectionForTag(tag: string | null | undefined): ConnectionDto | undefined {
+    const parsed = tag ? parseTag(tag) : null;
+    if (parsed?.kind === 'connection') return this.connection(parsed.id);
+    if (!isEntryKind(parsed?.kind)) return undefined;
+    const entry = this.entry(parsed.id);
+    return this.connection(entry?.defaultConnectionId ?? entry?.connectionIds[0]);
+  }
 
   connection(id: string | null | undefined): ConnectionDto | undefined {
     return id ? this.connectionsById.get(id) : undefined;
@@ -126,8 +191,10 @@ export class LibraryStore {
     switch (parsed.kind) {
       case 'folder':
         return this.foldersById.has(parsed.id);
-      case 'connection':
+      case 'entry':
       case 'favorite':
+        return this.entriesById.has(parsed.id);
+      case 'connection':
         return this.connectionsById.has(parsed.id);
       case 'credential':
         return this.credentialsById.has(parsed.id);
@@ -179,15 +246,10 @@ export class LibraryStore {
     this.anchor = null;
   }
 
-  /** The connections behind the selection (`c:` and `fav:`), without duplicates. */
+  /** The connections behind the selection (an entry's default, a child row's own), without duplicates. */
   get selectedConnections(): ConnectionDto[] {
-    const ids = unique(
-      this.selection
-        .map(parseTag)
-        .filter((p) => p?.kind === 'connection' || p?.kind === 'favorite')
-        .map((p) => p!.id),
-    );
-    return ids.map((id) => this.connection(id)).filter((c): c is ConnectionDto => c !== undefined);
+    const connections = this.selection.flatMap((tag) => this.connectionForTag(tag) ?? []);
+    return unique(connections.map((c) => c.id)).map((id) => this.connection(id)!);
   }
 
   // Search
@@ -217,7 +279,7 @@ export class LibraryStore {
       const results = await this.#api.search(query);
       if (seq === this.#searchSeq) this.results = results;
     } catch {
-      if (seq === this.#searchSeq) this.results = { connections: [], credentials: [] };
+      if (seq === this.#searchSeq) this.results = { entries: [], credentials: [] };
     }
   }
 }
