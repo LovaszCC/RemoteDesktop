@@ -26,6 +26,7 @@ sha2.workspace = true
 sysinfo.workspace = true
 zeroize.workspace = true
 rusqlite.workspace = true
+semver.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]

@@ -2,6 +2,7 @@
 //!
 //! The database file stays readable by the Swift app: same schema, same migration ids, same encodings.
 
+mod app_version;
 mod database;
 mod error;
 #[cfg(test)]
@@ -15,6 +16,7 @@ mod repository;
 mod rows;
 mod vault;
 
+pub use app_version::{APP_VERSION_KEY, is_newer, stored_app_version};
 pub use database::Database;
 pub use error::StoreError;
 pub use import::{ImportBatch, ImportCounts};
