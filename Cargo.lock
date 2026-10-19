@@ -4404,11 +4404,12 @@ checksum = "20675572f6f24e9e76ef639bc5552774ed45f1c30e2951e1e99c59888861c539"
 
 [[package]]
 name = "rd-app"
-version = "0.1.0"
+version = "1.6.5"
 dependencies = [
  "base64 0.22.1",
  "dirs",
  "hostname",
+ "plist",
  "rd-core",
  "rd-platform",
  "rd-rdp",
@@ -4434,7 +4435,7 @@ dependencies = [
 
 [[package]]
 name = "rd-core"
-version = "0.1.0"
+version = "1.6.5"
 dependencies = [
  "quick-xml",
  "serde",
@@ -4446,14 +4447,14 @@ dependencies = [
 
 [[package]]
 name = "rd-freerdp"
-version = "0.1.0"
+version = "1.6.5"
 dependencies = [
  "cc",
 ]
 
 [[package]]
 name = "rd-platform"
-version = "0.1.0"
+version = "1.6.5"
 dependencies = [
  "arboard",
  "dirs",
@@ -4463,6 +4464,7 @@ dependencies = [
  "objc2-core-foundation",
  "objc2-foundation",
  "open",
+ "plist",
  "rd-core",
  "serde",
  "serde_json",
@@ -4476,7 +4478,7 @@ dependencies = [
 
 [[package]]
 name = "rd-rdp"
-version = "0.1.0"
+version = "1.6.5"
 dependencies = [
  "base64 0.22.1",
  "png 0.18.1",
@@ -4494,7 +4496,7 @@ dependencies = [
 
 [[package]]
 name = "rd-ssh"
-version = "0.1.0"
+version = "1.6.5"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -4526,7 +4528,7 @@ dependencies = [
 
 [[package]]
 name = "rd-store"
-version = "0.1.0"
+version = "1.6.5"
 dependencies = [
  "aes-gcm 0.11.1",
  "getrandom 0.4.3",
@@ -4548,7 +4550,7 @@ dependencies = [
 
 [[package]]
 name = "rd-update"
-version = "0.1.0"
+version = "1.6.5"
 dependencies = [
  "rd-core",
  "rd-platform",

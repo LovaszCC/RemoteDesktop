@@ -198,6 +198,8 @@ export interface AppStatusDto {
   readOnly: boolean;
   rememberMasterKey: boolean;
   platform: Platform;
+  /** First launch after the Swift app: show the welcome banner. */
+  handoverNotice: boolean;
 }
 
 export type Language = 'en' | 'hu';

@@ -7,6 +7,7 @@
   import { settingsWindow } from '../stores/settingsWindow.svelte';
   import AppShell from '../components/AppShell.svelte';
   import Banner from '../components/Banner.svelte';
+  import HandoverBanner from './HandoverBanner.svelte';
   import DialogHost from '../components/DialogHost.svelte';
   import IconButton from '../components/IconButton.svelte';
   import { showContextMenu } from '../components/menu.svelte';
@@ -142,6 +143,7 @@
         message={t('The database is open read-only because another computer is using it.')}
       />
     {/if}
+    <HandoverBanner />
     {#if tabs.hasSessions}<TabBar />{/if}
     {#if activeColor}<div class="session-color" style:background="var(--label-{activeColor})"></div>{/if}
   {/snippet}

@@ -8,6 +8,7 @@ pub mod launch;
 pub mod macos;
 pub mod rdp;
 pub mod settings;
+pub mod swift_defaults;
 pub mod web;
 pub mod winbox;
 

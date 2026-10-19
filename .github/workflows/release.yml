@@ -244,6 +244,8 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           dmg=$(ls dist/*.dmg)
+          # The handover checksum the Swift updater verifies.
+          (cd dist && shasum -a 256 -c "$(basename "$dmg").sha256")
           mount=$(hdiutil attach -nobrowse -readonly "$dmg" | awk -F'\t' '/\/Volumes\//{print $NF}')
           app=$(ls -d "$mount"/*.app)
           exe="$app/Contents/MacOS/$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$app/Contents/Info.plist")"

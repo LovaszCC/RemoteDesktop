@@ -15,6 +15,7 @@ export function status(overrides: Partial<AppStatusDto> = {}): AppStatusDto {
     readOnly: false,
     rememberMasterKey: true,
     platform: 'macos',
+    handoverNotice: false,
     ...overrides,
   };
 }

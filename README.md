@@ -36,8 +36,9 @@
 ## 🚀 Install
 
 Download the file for your system from the
-[beta-latest](https://github.com/LovaszCC/RemoteDesktop/releases/tag/beta-latest) pre-release. It is
-rebuilt on every change to the `beta` branch.
+[latest release](https://github.com/LovaszCC/RemoteDesktop/releases/latest). Test builds of every change
+to the `beta` branch are in the
+[beta-latest](https://github.com/LovaszCC/RemoteDesktop/releases/tag/beta-latest) pre-release.
 
 ### 🍎 macOS (Apple Silicon)
 
@@ -78,10 +79,21 @@ key needs a Secret Service keyring (GNOME Keyring or KWallet).
 
 ### 🔄 Updates
 
-Beta builds don't update themselves yet: download the newest one from
-[beta-latest](https://github.com/LovaszCC/RemoteDesktop/releases/tag/beta-latest) and install it over the
-old one. The in-app updater (*Settings → Updates*, *Check for Updates…*) switches on with the first signed
-release; every update is verified with the project's minisign key before it runs.
+From 1.6.5 on, the app updates itself (*Settings → Updates*, *Check for Updates…*, or the daily check at
+launch): it downloads the new release, verifies it with the project's minisign key, installs it in place
+and restarts. On macOS the app in *Applications* is replaced directly, no DMG to open. Beta builds from
+[beta-latest](https://github.com/LovaszCC/RemoteDesktop/releases/tag/beta-latest) don't update themselves
+yet: install the newest one over the old one.
+
+### 🔁 Coming from the Swift app (1.6.4 or older)
+
+1.6.5 is the first release of this rewrite, and it replaces the macOS-only Swift app. In the Swift app,
+*Check for Updates…* → *Download* opens the 1.6.5 DMG: drag **RemoteDesktop** over the old app in
+*Applications* (one last manual step; later updates install themselves). The first launch picks up
+everything from the Swift app: the same database and remembered master key, and its settings (database
+file, language, keyboard shortcuts, external terminal, update check, expanded folders). A banner welcomes
+you and, if needed, asks for the Accessibility permission again. The Swift app's settings are left as they
+were, so reinstalling it still works.
 
 > [!IMPORTANT]
 > macOS: after every update, grant the Accessibility permission again (*System Settings → Privacy &
