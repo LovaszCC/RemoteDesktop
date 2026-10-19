@@ -732,20 +732,26 @@ mod tests {
         let script = "printf 'P> '; while read -r line; do \
                       if [ \"$line\" = size ]; then stty size; else echo \"got:$line\"; fi; printf 'P> '; done";
         let session = SshSession::spawn(sh(script, "u"), sink.clone()).unwrap();
-        let wait_output = |needle: &str| {
+        // Waits until `needle` has appeared `times` times in the output.
+        let wait_output = |needle: &str, times: usize| {
             let output = sink
                 .output_changed
                 .wait_timeout_while(lock(&sink.output), Duration::from_secs(10), |o| {
-                    !String::from_utf8_lossy(o).contains(needle)
+                    String::from_utf8_lossy(o).matches(needle).count() < times
                 })
                 .unwrap()
                 .0;
-            assert!(String::from_utf8_lossy(&output).contains(needle), "{needle}");
+            assert!(
+                String::from_utf8_lossy(&output).matches(needle).count() >= times,
+                "{needle}"
+            );
         };
-        wait_output("P> ");
+        wait_output("P> ", 1);
         session.resize(100, 30).unwrap();
         session.write(b"size\r").unwrap();
-        wait_output("30 100");
+        wait_output("30 100", 1);
+        // The prompt after `stty size` must be out before recording starts, or it lands in the recording.
+        wait_output("P> ", 2);
 
         assert_eq!(session.toggle_recording(), Phase::Armed);
         session.write(b"hello\r").unwrap();
