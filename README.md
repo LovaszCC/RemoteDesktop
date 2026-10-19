@@ -9,7 +9,7 @@
 *A fast, lightweight alternative to Devolutions Remote Desktop Manager.*<br>
 *Opens instantly · everything behind one master password.*
 
-[![Release](https://img.shields.io/github/v/release/LovaszCC/RemoteDesktop?style=for-the-badge&logo=github&color=2563eb&label=release)](https://github.com/LovaszCC/RemoteDesktop/releases/latest)
+[![Release](https://img.shields.io/github/v/release/LovaszCC/RemoteDesktop?style=for-the-badge&logo=github&color=2563eb&label=release&cacheSeconds=3600)](https://github.com/LovaszCC/RemoteDesktop/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)](LICENSE)
 <br>
 ![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon-000000?style=for-the-badge&logo=apple&logoColor=white)
