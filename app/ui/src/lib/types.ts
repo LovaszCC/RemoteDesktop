@@ -190,7 +190,9 @@ export type Phase =
   | { kind: 'noDatabase'; code: NoDatabaseCode; error: string }
   | { kind: 'lockConflict'; holder: LockHolderDto }
   | { kind: 'locked'; needsSetup: boolean }
-  | { kind: 'unlocked'; readOnly: boolean };
+  | { kind: 'unlocked'; readOnly: boolean }
+  /** A newer app version has used the database: update first. */
+  | { kind: 'needsUpdate'; databaseVersion: string; appVersion: string };
 
 export interface AppStatusDto {
   phase: Phase;

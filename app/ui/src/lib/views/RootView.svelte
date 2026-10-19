@@ -4,6 +4,7 @@
   import ErrorView from './ErrorView.svelte';
   import LockConflictDialog from './LockConflictDialog.svelte';
   import MainView from './MainView.svelte';
+  import NeedsUpdateView from './NeedsUpdateView.svelte';
   import UnlockView from './UnlockView.svelte';
 
   import { settingsWindow } from '../stores/settingsWindow.svelte';
@@ -22,6 +23,8 @@
   <MainView />
 {:else if phase.kind === 'noDatabase'}
   <ErrorView {phase} onsettings={openSettings} />
+{:else if phase.kind === 'needsUpdate'}
+  <NeedsUpdateView {phase} />
 {:else if phase.kind === 'lockConflict'}
   <div class="backdrop-screen"></div>
   <LockConflictDialog holder={phase.holder} />
