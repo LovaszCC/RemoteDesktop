@@ -7,7 +7,7 @@
 
 use rusqlite::{Connection, Transaction, params};
 
-use rd_core::draft::split_stored_web_url;
+use rd_core::draft::{split_stored_web_url, web_url};
 
 use crate::StoreError;
 
@@ -126,12 +126,8 @@ fn split_web_urls(tx: &Transaction<'_>) -> Result<(), StoreError> {
         .prepare("SELECT id, host, port FROM connection WHERE type = 'web'")?
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
         .collect::<Result<_, _>>()?;
-    for (id, host, port) in rows {
-        // The stored value was the whole URL; one that doesn't parse stays the host as typed.
-        let (scheme, host, port, path) = match split_stored_web_url(&host) {
-            Some(parts) => (parts.scheme, parts.host, parts.port.map(i64::from), parts.path),
-            None => ("https".to_owned(), host, port, String::new()),
-        };
+    for (id, stored, port) in rows {
+        let (scheme, host, port, path) = upgraded_web_url(&stored, port);
         tx.execute(
             "UPDATE connection SET host = ?1, port = ?2, webScheme = ?3, webPath = ?4 WHERE id = ?5",
             params![host, port, scheme, path, id],
@@ -142,6 +138,67 @@ fn split_web_urls(tx: &Transaction<'_>) -> Result<(), StoreError> {
         )?;
     }
     Ok(())
+}
+
+/// The stored URL of a web connection as scheme, host, port and path, so that the URL rebuilt from them
+/// opens what the old build opened ([`legacy_web_url`]). A URL the split can't reproduce (an empty port
+/// `host:`, port 0 or above 65535, a doubled slash in the path) keeps its scheme, with the rest as the host.
+/// A value the old build couldn't open either stays the host as typed, with its port.
+fn upgraded_web_url(stored: &str, port: Option<i64>) -> (String, String, Option<i64>, String) {
+    let Some(old) = legacy_web_url(stored) else {
+        return ("https".to_owned(), stored.to_owned(), port, String::new());
+    };
+    if let Some(parts) = split_stored_web_url(stored)
+        && let Some(url) = web_url(&parts.scheme, &parts.host, parts.port, &parts.path)
+        && same_web_url(&url, &old)
+    {
+        return (parts.scheme, parts.host, parts.port.map(i64::from), parts.path);
+    }
+    let (scheme, rest) = old.split_once("://").unwrap_or(("https", &old));
+    (scheme.to_owned(), rest.to_owned(), None, String::new())
+}
+
+/// Whether a rebuilt URL opens the same page as the old one: equal, or equal but for the bare `/` path the
+/// rebuilt URL leaves out (`https://host/` is `https://host`).
+pub(crate) fn same_web_url(rebuilt: &str, old: &str) -> bool {
+    rebuilt == old || old.strip_suffix('/') == Some(rebuilt)
+}
+
+/// The URL the builds before `v14-entries` opened for a web connection's stored value (the Swift
+/// `WebLaunch.url(from:)`): trimmed, `https://` added when there is no `://`, a valid scheme and a host
+/// required, and a port of digits only. `None` for a value they refused.
+pub(crate) fn legacy_web_url(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() || trimmed.chars().any(|c| c.is_whitespace() || c.is_control()) {
+        return None;
+    }
+    let with_scheme = if trimmed.contains("://") {
+        trimmed.to_owned()
+    } else {
+        format!("https://{trimmed}")
+    };
+    let (scheme, rest) = with_scheme.split_once("://")?;
+    let mut scheme_chars = scheme.chars();
+    if !scheme_chars.next().is_some_and(|c| c.is_ascii_alphabetic())
+        || !scheme_chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'))
+    {
+        return None;
+    }
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    let host_port = authority.rsplit_once('@').map_or(authority, |(_, h)| h);
+    let (host, port) = if let Some(bracketed) = host_port.strip_prefix('[') {
+        let (host, after) = bracketed.split_once(']')?;
+        (host, after.strip_prefix(':'))
+    } else {
+        match host_port.split_once(':') {
+            Some((host, port)) => (host, Some(port)),
+            None => (host_port, None),
+        }
+    };
+    if host.is_empty() || port.is_some_and(|p| !p.chars().all(|c| c.is_ascii_digit())) {
+        return None;
+    }
+    Some(with_scheme)
 }
 
 /// Migration ids in the order they apply: the Swift app's, then this app's own.
@@ -326,18 +383,11 @@ mod tests {
     /// id, host, port, webScheme, webPath, entry host.
     type WebRow = (String, String, Option<i64>, String, String, String);
 
-    #[test]
-    fn v14_splits_web_urls() {
+    /// Inserts v13 connection rows (id, type, host, port), migrates and reads them back.
+    fn migrated_web_rows(input: &[(&str, &str, &str, Option<i64>)]) -> Vec<WebRow> {
         let mut conn = Connection::open_in_memory().unwrap();
         migrate_up_to(&mut conn, "v13-saved-split").unwrap();
-        for (id, kind, host, port) in [
-            ("A", "web", "https://192.168.1.10:8443/admin?x=1", None),
-            ("B", "web", "smb://homeserver.local/share", None),
-            ("C", "web", "router.example.com", None),
-            ("D", "web", "not a url", Some(99)),
-            ("E", "ssh", "https://kept.example.com/x", None),
-            ("F", "web", "https://user:pass@host.example.com/", None),
-        ] {
+        for (id, kind, host, port) in input {
             conn.execute(
                 "INSERT INTO connection (id, type, name, host, port, createdAt, updatedAt) \
                  VALUES (?1, ?2, 'n', ?3, ?4, '2025-01-01 00:00:00.000', '2025-01-01 00:00:00.000')",
@@ -346,72 +396,83 @@ mod tests {
             .unwrap();
         }
         migrate(&mut conn).unwrap();
-        let rows: Vec<WebRow> = conn
-            .prepare(
-                "SELECT c.id, c.host, c.port, c.webScheme, c.webPath, e.host \
-                 FROM connection c JOIN entry e ON e.id = c.entryId ORDER BY c.id",
-            )
-            .unwrap()
-            .query_map([], |r| {
-                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?))
-            })
-            .unwrap()
-            .collect::<Result<_, _>>()
-            .unwrap();
-        let text = |s: &str| s.to_owned();
+        conn.prepare(
+            "SELECT c.id, c.host, c.port, c.webScheme, c.webPath, e.host \
+             FROM connection c JOIN entry e ON e.id = c.entryId ORDER BY c.id",
+        )
+        .unwrap()
+        .query_map([], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?))
+        })
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap()
+    }
+
+    fn web_row(id: &str, host: &str, port: Option<i64>, scheme: &str, path: &str) -> WebRow {
+        (
+            id.into(),
+            host.into(),
+            port,
+            scheme.into(),
+            path.into(),
+            host.into(),
+        )
+    }
+
+    #[test]
+    fn v14_splits_web_urls() {
+        let rows = migrated_web_rows(&[
+            ("A", "web", "https://192.168.1.10:8443/admin?x=1", None),
+            ("B", "web", "smb://homeserver.local/share", None),
+            ("C", "web", "router.example.com", None),
+            ("D", "web", "not a url", Some(99)),
+            ("E", "ssh", "https://kept.example.com/x", None),
+            ("F", "web", "https://user:pass@host.example.com/", None),
+        ]);
         assert_eq!(
             rows,
             vec![
-                (
-                    text("A"),
-                    text("192.168.1.10"),
-                    Some(8443),
-                    text("https"),
-                    text("/admin?x=1"),
-                    text("192.168.1.10")
-                ),
-                (
-                    text("B"),
-                    text("homeserver.local"),
-                    None,
-                    text("smb"),
-                    text("/share"),
-                    text("homeserver.local")
-                ),
-                (
-                    text("C"),
-                    text("router.example.com"),
-                    None,
-                    text("https"),
-                    String::new(),
-                    text("router.example.com")
-                ),
-                (
-                    text("D"),
-                    text("not a url"),
-                    Some(99),
-                    text("https"),
-                    String::new(),
-                    text("not a url")
-                ),
-                (
-                    text("E"),
-                    text("https://kept.example.com/x"),
-                    None,
-                    text("https"),
-                    String::new(),
-                    text("https://kept.example.com/x")
-                ),
-                (
-                    text("F"),
-                    text("user:pass@host.example.com"),
-                    None,
-                    text("https"),
-                    text("/"),
-                    text("user:pass@host.example.com")
-                ),
+                web_row("A", "192.168.1.10", Some(8443), "https", "/admin?x=1"),
+                web_row("B", "homeserver.local", None, "smb", "/share"),
+                web_row("C", "router.example.com", None, "https", ""),
+                web_row("D", "not a url", Some(99), "https", ""),
+                web_row("E", "https://kept.example.com/x", None, "https", ""),
+                web_row("F", "user:pass@host.example.com", None, "https", "/"),
             ]
         );
+    }
+
+    #[test]
+    fn v14_keeps_every_url_the_old_build_opened() {
+        let input = [
+            ("A", "web", "https://192.168.1.10:8443/admin?x=1", None),
+            ("B", "web", "smb://homeserver.local/share", None),
+            ("C", "web", "router.example.com", None),
+            ("F", "web", "https://user:pass@host.example.com/", None),
+            ("G", "web", "https://host.example.com:/x", None),
+            ("H", "web", "http://10.0.0.1:0", Some(80)),
+            ("I", "web", "nas.local:70000/a", None),
+            ("J", "web", "smb://h//share", None),
+        ];
+        let rows = migrated_web_rows(&input);
+        // What the split can't reproduce keeps its scheme, with the rest as the host.
+        assert_eq!(
+            rows[4..],
+            [
+                web_row("G", "host.example.com:/x", None, "https", ""),
+                web_row("H", "10.0.0.1:0", None, "http", ""),
+                web_row("I", "nas.local:70000/a", None, "https", ""),
+                web_row("J", "h//share", None, "smb", ""),
+            ]
+        );
+        for ((id, _, stored, _), (_, host, port, scheme, path, _)) in input.iter().zip(&rows) {
+            let port = port.map(|p| u16::try_from(p).unwrap());
+            let rebuilt = web_url(scheme, host, port, path).unwrap();
+            let legacy = legacy_web_url(stored).unwrap();
+            assert!(same_web_url(&rebuilt, &legacy), "{id}: {rebuilt} vs {legacy}");
+        }
+        assert_eq!(legacy_web_url("not a url"), None);
     }
 
     #[test]

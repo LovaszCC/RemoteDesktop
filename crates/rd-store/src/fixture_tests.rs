@@ -141,6 +141,16 @@ fn swift_library_upgrades_to_entries() {
             url.to_owned()
         };
         assert_eq!(entry.host, host, "{id}");
+        if row["type"] == "web" {
+            // The rebuilt URL opens what the Swift app opened.
+            let c = &library.connections_of(id)[0];
+            let rebuilt = rd_core::draft::web_url(&c.web_scheme, &c.host, c.port, &c.web_path).unwrap();
+            let old = crate::migrations::legacy_web_url(url).unwrap();
+            assert!(
+                crate::migrations::same_web_url(&rebuilt, &old),
+                "{id}: {rebuilt} vs {old}"
+            );
+        }
         assert_eq!(entry.folder_id.as_deref(), row["folderId"].as_str(), "{id}");
         assert_eq!(entry.notes, row["notes"].as_str().unwrap(), "{id}");
         assert_eq!(
