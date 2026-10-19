@@ -94,6 +94,8 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
     /** Opens, closes (or with `open` sets) a folder or entry in the tree and saves the expansion. */
     async setExpanded(id: string, open?: boolean) {
       const next = toggledExpansion(actions.expanded, id, open);
+      // A collapsed entry hides its child rows: their selection moves to the entry row.
+      if (!next.includes(id) && library.entry(id)) library.collapseEntrySelection(id);
       pendingExpansion = next;
       try {
         await settings.update({ expandedFolders: next });
@@ -156,13 +158,11 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
     newCredential() {
       editor.openCredentialEditor();
     },
-    /** Edits the entry of connection `id` (General tab). */
-    editConnection(id: string) {
-      actions.editEntry(library.connection(id)?.entryId ?? id);
-    },
-    /** Edits an entry, on the `connectionId` tab when given. */
+    /** Edits an entry, on the `connectionId` tab when given (else General); nothing for an unknown id. */
     editEntry(id: string, connectionId?: string) {
-      editor.openEntryEditor({ id, connectionId });
+      if (!library.entry(id)) return;
+      const tab = connectionId && library.connection(connectionId)?.entryId === id ? connectionId : undefined;
+      editor.openEntryEditor({ id, connectionId: tab });
     },
     editCredential(id: string) {
       editor.openCredentialEditor(id);
@@ -219,8 +219,20 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
       perform(() => api.setFavorite(`c:${connectionId}`, isFavorite)),
     /** Deletes one connection (its entry too when it was the last). */
     deleteConnection: (id: string) => perform(() => api.deleteItems([`c:${id}`])),
-    /** Deletes an entry with all its connections. */
-    deleteEntry: (id: string) => perform(() => api.deleteItems([`e:${id}`])),
+    /** Deletes an entry with all its connections, after a confirmation when it has several. */
+    async deleteEntry(id: string) {
+      const entry = library.entry(id);
+      if (entry && entry.connectionIds.length > 1) {
+        const ok = await dialogs.confirm({
+          title: t('Delete “%@” and its %lld connections?', entry.name, entry.connectionIds.length),
+          message: t("This can't be undone."),
+          confirmLabel: t('Delete'),
+          destructive: true,
+        });
+        if (!ok) return;
+      }
+      return perform(() => api.deleteItems([`e:${id}`]));
+    },
     async copyPassword(id: string) {
       try {
         await api.copyPassword(id);
@@ -303,7 +315,7 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
 
     /** "Delete N items…": confirms, clears the selection, then deletes. */
     async deleteItems(tags: string[]) {
-      const counts = deletionCounts(tags);
+      const counts = deletionCounts(tags, library.library);
       if (counts.tags.length === 0) return;
       const ok = await dialogs.confirm({
         title: bulkDeleteTitle(counts),

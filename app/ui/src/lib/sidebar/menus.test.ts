@@ -19,7 +19,7 @@ function fakeActions(): MenuActions {
     'newConnection',
     'newFolder',
     'newCredential',
-    'editConnection',
+    'editEntry',
     'editCredential',
     'renameFolder',
     'duplicate',
@@ -329,8 +329,14 @@ describe('importMenu', () => {
     expect(ctx.actions.connect).toHaveBeenCalledWith(expect.objectContaining({ id: 'h2' }));
     find(menu, 'Merge…').action!();
     expect(ctx.actions.merge).toHaveBeenCalledWith('e1');
+    // The entry row edits the entry on General; a child row or a one-connection entry on its tab.
     find(menu, 'Edit…').action!();
-    expect(ctx.actions.editConnection).toHaveBeenCalledWith('h1');
+    expect(ctx.actions.editEntry).toHaveBeenCalledWith('e1');
+    find(itemMenu(ctx, 'c:h2'), 'Edit…').action!();
+    expect(ctx.actions.editEntry).toHaveBeenLastCalledWith('e1', 'h2');
+    const single = context();
+    find(itemMenu(single, 'e:c1'), 'Edit…').action!();
+    expect(single.actions.editEntry).toHaveBeenCalledWith('c1', 'c1');
     expect(labels(itemMenu(context({ library: multiEntryLibrary(), readOnly: true }), 'fav:e1'))).toEqual([
       'Connect',
       '-',

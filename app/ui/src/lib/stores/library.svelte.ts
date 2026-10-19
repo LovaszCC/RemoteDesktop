@@ -241,6 +241,18 @@ export class LibraryStore {
     if (this.anchor && !this.selection.includes(this.anchor)) this.anchor = this.selection[0] ?? null;
   }
 
+  /** Entry `entryId` collapsed: its selected child rows (`c:`) become the entry row (`e:`). */
+  collapseEntrySelection(entryId: string) {
+    const child = (tag: string | null) => {
+      const parsed = tag ? parseTag(tag) : null;
+      return parsed?.kind === 'connection' && this.connection(parsed.id)?.entryId === entryId;
+    };
+    if (this.selection.some(child)) {
+      this.selection = unique(this.selection.map((tag) => (child(tag) ? `e:${entryId}` : tag)));
+    }
+    if (child(this.anchor)) this.anchor = `e:${entryId}`;
+  }
+
   clearSelection() {
     this.selection = [];
     this.anchor = null;

@@ -229,6 +229,20 @@ describe('EntryDetail', () => {
     expect(groups[1]!.textContent).toContain('3389');
   });
 
+  it('Edit opens the selected connection’s tab, General for an entry row, its tab for one connection', () => {
+    const { editor, store } = render(['c:h2'], { library: multiEntryLibrary() });
+    click(buttonByText('Edit'));
+    expect(editor.entry).toEqual({ mode: 'edit', id: 'e1', connectionId: 'h2' });
+    store.setSelection(['e:e1']);
+    flushSync();
+    click(buttonByText('Edit'));
+    expect(editor.entry).toEqual({ mode: 'edit', id: 'e1' });
+    store.setSelection(['e:c1']);
+    flushSync();
+    click(buttonByText('Edit'));
+    expect(editor.entry).toEqual({ mode: 'edit', id: 'c1', connectionId: 'c1' });
+  });
+
   it('offers Merge… unless read-only', () => {
     const { deps } = render(['e:e1'], { library: multiEntryLibrary() });
     click(buttonByText('Merge…'));

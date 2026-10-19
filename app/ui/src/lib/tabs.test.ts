@@ -192,6 +192,20 @@ describe('TabsStore', () => {
     expect(store.displayTitle(store.session('a3')!)).toBe('logs');
   });
 
+  it("numbers a group's tabs only among those with the same title", () => {
+    const store = new TabsStore();
+    const open = (id: string, title: string) =>
+      store.openSession({ id, title, type: 'ssh', color: null, group: 'e1' });
+    open('a1', 'Home · SSH');
+    open('b1', 'Home · Console');
+    open('a2', 'Home · SSH');
+    expect(store.sessions.map((s) => store.displayTitle(s))).toEqual([
+      'Home · SSH',
+      'Home · Console',
+      'Home · SSH (2)',
+    ]);
+  });
+
   it('keeps the group and number through a reconnect, but not when the tab becomes a split', () => {
     const store = new TabsStore();
     store.openSession({ id: 'a1', title: 'web', type: 'ssh', color: null, group: 'web' });

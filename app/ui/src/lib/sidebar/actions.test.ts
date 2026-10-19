@@ -345,18 +345,68 @@ describe('sidebar actions', () => {
     library.select('k:k1');
     actions.newFolder();
     expect(editor.folder).toEqual({ mode: 'new', parentId: null });
-    actions.editConnection('c1');
+    actions.editEntry('c1');
     expect(editor.entry).toEqual({ mode: 'edit', id: 'c1' });
     actions.renameFolder('f1');
     expect(editor.folder).toEqual({ mode: 'edit', id: 'f1' });
   });
 
-  it('edits the entry of a connection', () => {
+  it('edits an entry on a connection tab, and opens nothing for an unknown id', () => {
     const { actions, editor } = setup({}, multiEntryLibrary());
-    actions.editConnection('h2');
-    expect(editor.entry).toEqual({ mode: 'edit', id: 'e1' });
     actions.editEntry('e1', 'h2');
     expect(editor.entry).toEqual({ mode: 'edit', id: 'e1', connectionId: 'h2' });
+    // A connection of another entry is not a tab of this one.
+    actions.editEntry('e1', 'c1');
+    expect(editor.entry).toEqual({ mode: 'edit', id: 'e1' });
+    editor.closeEntryEditor();
+    actions.editEntry('gone');
+    actions.editEntry('h2');
+    expect(editor.entry).toBeNull();
+  });
+
+  it('confirms deleting an entry with several connections', async () => {
+    const { actions, dialogs, bridge } = setup(
+      { delete_items: { entries: 1, connections: 2, folders: 0, credentials: 0, splits: 0 } },
+      multiEntryLibrary(),
+    );
+    let done = actions.deleteEntry('e1');
+    expect(dialogs.current?.title).toBe('Delete “Home Server” and its 2 connections?');
+    expect(dialogs.current?.kind === 'confirm' && dialogs.current.destructive).toBe(true);
+    dialogs.cancel();
+    await done;
+    expect(bridge.invoke).not.toHaveBeenCalledWith('delete_items', expect.anything());
+    done = actions.deleteEntry('e1');
+    dialogs.accept();
+    await done;
+    expect(bridge.invoke).toHaveBeenCalledWith('delete_items', { tags: ['e:e1'] });
+    // A one-connection entry goes at once.
+    await actions.deleteEntry('c1');
+    expect(dialogs.current).toBeNull();
+    expect(bridge.invoke).toHaveBeenLastCalledWith('delete_items', { tags: ['e:c1'] });
+  });
+
+  it('counts every connection of an entry in the bulk delete text', async () => {
+    const { actions, dialogs } = setup({ delete_items: null }, multiEntryLibrary());
+    const done = actions.deleteItems(['e:e1', 'c:h2', 'e:c1']);
+    expect(dialogs.current?.title).toBe('Delete 3 items?');
+    expect(dialogs.current?.kind === 'confirm' && dialogs.current.message).toContain(
+      'Connections: 3, folders: 0, credentials: 0.',
+    );
+    dialogs.cancel();
+    await done;
+  });
+
+  it('moves a selected child row to its entry when the entry collapses', async () => {
+    const { actions, library } = setup({}, multiEntryLibrary());
+    await actions.setExpanded('e1', true);
+    library.setSelection(['c:h2', 'e:c1']);
+    library.anchor = 'c:h2';
+    await actions.setExpanded('e1', false);
+    expect(library.selection).toEqual(['e:e1', 'e:c1']);
+    expect(library.anchor).toBe('e:e1');
+    // Collapsing a folder leaves the selection alone.
+    await actions.setExpanded('f1', false);
+    expect(library.selection).toEqual(['e:e1', 'e:c1']);
   });
 
   it('sets a folder colour keeping its name', async () => {

@@ -382,6 +382,9 @@ export function connectionIdsForTags(library: LibraryDto, tags: readonly string[
 // Confirmation texts
 
 export interface DeletionCounts {
+  /** The selected rows deleted (an entry row counts once). */
+  items: number;
+  /** The connections deleted, every connection of a deleted entry included. */
   connections: number;
   folders: number;
   credentials: number;
@@ -389,12 +392,30 @@ export interface DeletionCounts {
 
 /**
  * The items a bulk delete removes (saved splits are not part of it, as in Swift): an entry row deletes
- * the entry with its connections, a child row only that connection.
+ * the entry with all its connections, a child row only that connection.
  */
-export function deletionCounts(tags: readonly string[]): DeletionCounts & { tags: string[] } {
+export function deletionCounts(
+  tags: readonly string[],
+  library: Pick<LibraryDto, 'entries' | 'connections'>,
+): DeletionCounts & { tags: string[] } {
   const items = tagItems(tags);
+  const entryIds = new Set(items.entryIds);
+  const ofEntries = items.entryIds.reduce(
+    (sum, id) => sum + Math.max(library.entries.find((e) => e.id === id)?.connectionIds.length ?? 1, 1),
+    0,
+  );
+  // A child row of an entry that is deleted anyway is already counted.
+  const children = items.connectionIds.filter((id) => {
+    const entryId = library.connections.find((c) => c.id === id)?.entryId;
+    return entryId === undefined || !entryIds.has(entryId);
+  });
   return {
-    connections: items.entryIds.length + items.connectionIds.length,
+    items:
+      items.entryIds.length +
+      items.connectionIds.length +
+      items.folderIds.length +
+      items.credentialIds.length,
+    connections: ofEntries + children.length,
     folders: items.folderIds.length,
     credentials: items.credentialIds.length,
     tags: [
@@ -407,7 +428,7 @@ export function deletionCounts(tags: readonly string[]): DeletionCounts & { tags
 }
 
 export function bulkDeleteTitle(counts: DeletionCounts): string {
-  return t('Delete %lld items?', counts.connections + counts.folders + counts.credentials);
+  return t('Delete %lld items?', counts.items);
 }
 
 /** The bulk delete message, one line per fact (Swift `bulkDeletionMessage`). */

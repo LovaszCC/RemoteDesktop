@@ -137,7 +137,10 @@
         <FolderOpen size={13} />{t('Files (SCP)…')}
       </Button>
     {/if}
-    <Button disabled={deps.readOnly} onclick={() => deps.actions.editConnection(selectedId ?? primary.id)}>
+    <Button
+      disabled={deps.readOnly}
+      onclick={() => deps.actions.editEntry(entry.id, selectedId ?? (single ? primary.id : undefined))}
+    >
       <Pencil size={13} />{t('Edit')}
     </Button>
     {#if !deps.readOnly}

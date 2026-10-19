@@ -283,7 +283,7 @@ describe('selection helpers', () => {
 
 describe('confirmation texts', () => {
   it('builds the bulk delete title and lines', () => {
-    const counts = deletionCounts(['e:1', 'fav:1', 'c:2', 'f:3', 'k:4', 's:5']);
+    const counts = deletionCounts(['e:1', 'fav:1', 'c:2', 'f:3', 'k:4', 's:5'], sidebarLibrary());
     expect(counts.tags).toEqual(['e:1', 'c:2', 'f:3', 'k:4']);
     expect(bulkDeleteTitle(counts)).toBe('Delete 4 items?');
     expect(bulkDeleteMessage(counts)).toBe(
@@ -294,9 +294,15 @@ describe('confirmation texts', () => {
         "This can't be undone.",
       ].join('\n'),
     );
-    expect(bulkDeleteMessage(deletionCounts(['e:1']))).toBe(
+    expect(bulkDeleteMessage(deletionCounts(['e:1'], sidebarLibrary()))).toBe(
       "Connections: 1, folders: 0, credentials: 0.\nThis can't be undone.",
     );
+  });
+
+  it('counts every connection of a deleted entry once', () => {
+    const counts = deletionCounts(['e:e1', 'c:h2', 'c:c1'], multiEntryLibrary());
+    expect([counts.items, counts.connections]).toEqual([3, 3]);
+    expect(deletionCounts(['c:h2'], multiEntryLibrary()).connections).toBe(1);
   });
 
   it('builds the credential delete message with plurals', () => {

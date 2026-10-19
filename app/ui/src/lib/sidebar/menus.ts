@@ -32,7 +32,7 @@ export type MenuActions = Pick<
   | 'newConnection'
   | 'newFolder'
   | 'newCredential'
-  | 'editConnection'
+  | 'editEntry'
   | 'editCredential'
   | 'renameFolder'
   | 'duplicate'
@@ -218,7 +218,7 @@ function connectionMenu(ctx: MenuContext, connection: ConnectionDto, tag: string
   items.push(separator);
   if (!readOnly) {
     items.push(
-      { label: t('Edit…'), action: () => actions.editConnection(connection.id) },
+      { label: t('Edit…'), action: () => actions.editEntry(connection.entryId, connection.id) },
       { label: t('Duplicate'), action: () => void actions.duplicate(connection.entryId) },
       ...(isChild ? [] : [{ label: t('Merge…'), action: () => actions.merge(connection.entryId) }]),
       {
@@ -265,7 +265,7 @@ function entryMenu(ctx: MenuContext, entry: EntryDto, connections: ConnectionDto
   if (!readOnly) {
     const editId = entry.defaultConnectionId ?? connections[0]!.id;
     items.push(
-      { label: t('Edit…'), action: () => actions.editConnection(editId) },
+      { label: t('Edit…'), action: () => actions.editEntry(entry.id) },
       { label: t('Duplicate'), action: () => void actions.duplicate(entry.id) },
       { label: t('Merge…'), action: () => actions.merge(entry.id) },
       {

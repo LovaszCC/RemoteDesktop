@@ -94,12 +94,14 @@ describe('sessions store', () => {
       type: 'ssh',
       color: null,
     });
-    await sessions.open({ ...home, id: 'h3', type: 'ssh', color: null });
+    await sessions.open({ ...home, id: 'h3', displayLabel: 'SSH · admin', type: 'ssh', color: null });
+    await sessions.open({ ...home, type: 'ssh', color: null });
     expect(tabs.session('S1')).toMatchObject({ title: 'Home Server · SSH · root', group: 'e1' });
     expect(tabs.session('S2')).toMatchObject({ title: 'Solo', group: 'e2' });
-    // Tabs of one entry sit together and are numbered across its connections.
-    expect(tabs.ids).toEqual(['S1', 'S3', 'S2']);
-    expect(tabs.session('S3')).toMatchObject({ group: 'e1', ordinal: 2 });
+    // Tabs of one entry sit together; only tabs with the same title are numbered.
+    expect(tabs.ids).toEqual(['S1', 'S3', 'S4', 'S2']);
+    expect(tabs.session('S3')).toMatchObject({ group: 'e1', ordinal: 1 });
+    expect(tabs.session('S4')).toMatchObject({ group: 'e1', ordinal: 2 });
   });
 
   it('opens a session in a new tab with the connection name and colour', async () => {
