@@ -7,9 +7,12 @@
   import Merge from '@lucide/svelte/icons/merge';
   import Pencil from '@lucide/svelte/icons/pencil';
   import Play from '@lucide/svelte/icons/play';
+  import Plus from '@lucide/svelte/icons/plus';
+  import Trash2 from '@lucide/svelte/icons/trash-2';
   import Star from '@lucide/svelte/icons/star';
   import UserRoundKey from '@lucide/svelte/icons/user-round-key';
   import Button from '../components/Button.svelte';
+  import IconButton from '../components/IconButton.svelte';
   import { showContextMenu } from '../components/menu.svelte';
   import { errorMessage } from '../errors';
   import { t } from '../i18n/index.svelte';
@@ -159,6 +162,12 @@
   <!-- Several connections sit side by side in one scrollable row, so what follows (port forwards, notes)
        stays in view. -->
   <div class="connection-groups" class:row={!single}>
+    {#if !single && !deps.readOnly}
+      <button type="button" class="add-card" onclick={() => deps.actions.addConnection(entry.id)}>
+        <Plus size={18} strokeWidth={1.75} />
+        <span>{t('Add connection')}</span>
+      </button>
+    {/if}
     {#each connections as connection (connection.id)}
       {@const fields = connectionFields(connection)}
       {@const credential = deps.library.credential(connection.credentialId)}
@@ -179,6 +188,22 @@
               {/if}
             </h3>
             <span class="caption">{subtitleOf(connection)}</span>
+            {#if !deps.readOnly}
+              <span class="card-actions">
+                {#if connection.id !== entry.defaultConnectionId}
+                  <IconButton
+                    icon={CircleCheck}
+                    label={t('Set as default')}
+                    onclick={() => void deps.actions.setDefaultConnection(entry.id, connection.id)}
+                  />
+                {/if}
+                <IconButton
+                  icon={Trash2}
+                  label={t('Delete connection')}
+                  onclick={() => void deps.actions.deleteConnection(connection.id)}
+                />
+              </span>
+            {/if}
           </div>
         {/if}
         <div class="grid">
@@ -304,9 +329,33 @@
     display: inline-flex;
     color: var(--accent);
   }
+  .card-actions {
+    display: inline-flex;
+    gap: 2px;
+    margin-left: auto;
+  }
+  .add-card {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-width: 160px;
+    padding: var(--space-3);
+    border: 1px dashed var(--separator);
+    border-radius: var(--radius);
+    background: none;
+    color: var(--fg-secondary);
+    font: inherit;
+  }
+  .add-card:hover {
+    background: var(--bg-hover);
+    color: var(--fg);
+  }
   .group-head {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: var(--space-2);
   }
 </style>

@@ -632,3 +632,48 @@ fn merge_with_no_sources_changes_nothing() {
     assert_eq!(core.library(), before);
     assert_eq!(core.merge_entries("missing", &[]).unwrap_err().code, "notFound");
 }
+
+#[test]
+fn set_default_connection_moves_the_default_within_the_entry() {
+    let env = Env::new();
+    let core = env.unlocked();
+    let id = core
+        .save_entry(
+            None,
+            &entry_draft("Home Server", "home.example.com"),
+            &[
+                default_save(None, ConnectionType::Ssh, "root"),
+                connection_save(None, ConnectionType::Rdp, "kiki"),
+            ],
+        )
+        .unwrap();
+    let library = core.library();
+    let rdp = entry(&library, &id).connection_ids[1].clone();
+    core.set_default_connection(&id, &rdp).unwrap();
+    assert_eq!(
+        entry(&core.library(), &id).default_connection_id.as_deref(),
+        Some(rdp.as_str())
+    );
+
+    // Another entry's connection, or an unknown entry, is refused and changes nothing.
+    let other = core
+        .save_entry(
+            None,
+            &entry_draft("db", "db.example.com"),
+            &[default_save(None, ConnectionType::Ssh, "u")],
+        )
+        .unwrap();
+    let foreign = entry(&core.library(), &other).connection_ids[0].clone();
+    assert_eq!(
+        core.set_default_connection(&id, &foreign).unwrap_err().code,
+        "notFound"
+    );
+    assert_eq!(
+        core.set_default_connection("missing", &rdp).unwrap_err().code,
+        "notFound"
+    );
+    assert_eq!(
+        entry(&core.library(), &id).default_connection_id.as_deref(),
+        Some(rdp.as_str())
+    );
+}

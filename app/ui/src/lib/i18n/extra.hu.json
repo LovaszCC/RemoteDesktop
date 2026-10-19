@@ -234,5 +234,9 @@
     "other": "Törlöd a(z) „%@” elemet és %lld kapcsolatát?"
   },
   "Edit entry": "Elem szerkesztése",
-  "New entry": "Új elem"
+  "New entry": "Új elem",
+  "Delete connection": "Kapcsolat törlése",
+  "Delete the connection “%@”?": "Törlöd a(z) „%@” kapcsolatot?",
+  "It is the entry’s only connection, so the entry is deleted too.": "Ez az elem egyetlen kapcsolata, ezért az elem is törlődik.",
+  "Delete “%@”?": "Törlöd: „%@”?"
 }

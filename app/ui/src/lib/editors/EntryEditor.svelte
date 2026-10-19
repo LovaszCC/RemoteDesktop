@@ -60,11 +60,13 @@
   );
   let selected = $state(
     untrack(() =>
-      request.mode === 'edit' &&
-      request.connectionId &&
-      form.connections.some((c) => c.key === request.connectionId)
-        ? request.connectionId
-        : GENERAL,
+      request.mode === 'edit' && request.addConnection
+        ? ADD
+        : request.mode === 'edit' &&
+            request.connectionId &&
+            form.connections.some((c) => c.key === request.connectionId)
+          ? request.connectionId
+          : GENERAL,
     ),
   );
   let errors = $state<{ name?: string; host?: string; port?: { key: string; message: string } }>({});

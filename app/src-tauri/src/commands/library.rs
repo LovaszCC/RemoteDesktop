@@ -146,6 +146,20 @@ pub async fn move_items(
     .await
 }
 
+/// Makes a connection its entry's default. Errors: `notFound`, `readOnly`, `locked`.
+#[tauri::command]
+pub async fn set_default_connection(
+    app: AppHandle,
+    core: State<'_, Core>,
+    entry_id: String,
+    connection_id: String,
+) -> Result<(), CommandError> {
+    write(&app, &core, move |c| {
+        c.set_default_connection(&entry_id, &connection_id)
+    })
+    .await
+}
+
 /// Stars or unstars the entry behind `tag` (`e:`, `fav:` or `c:`).
 #[tauri::command]
 pub async fn set_favorite(
