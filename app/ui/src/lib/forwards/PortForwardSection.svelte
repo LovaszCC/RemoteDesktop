@@ -1,7 +1,9 @@
 <script lang="ts">
-  // Swift `PortForwardSection` in the SSH connection detail: the saved forwards with their tunnel state
-  // (grey ring stopped, spinner starting, green dot active, red warning failed with the error), Copy
-  // address while running, Start / Stop, Edit / Delete (buttons and context menu), and New forward.
+  // Swift `PortForwardSection` in the entry detail: the saved forwards of all the entry's SSH connections
+  // with their tunnel state (grey ring stopped, spinner starting, green dot active, red warning failed with
+  // the error), Copy address while running, Start / Stop, Edit / Delete (buttons and context menu), and New
+  // forward. With several SSH connections each forward names its connection, and the editor offers a
+  // connection picker; a new forward starts on `defaultConnectionId`.
   import Copy from '@lucide/svelte/icons/copy';
   import Pencil from '@lucide/svelte/icons/pencil';
   import Play from '@lucide/svelte/icons/play';
@@ -21,9 +23,21 @@
   import { draftOf, failureText } from './model';
   import PortForwardEditor from './PortForwardEditor.svelte';
 
-  let { connection }: { connection: ConnectionDto } = $props();
+  let {
+    connections,
+    defaultConnectionId,
+  }: {
+    /** The entry's SSH connections, in their order. */
+    connections: ConnectionDto[];
+    /** Where a new forward goes: the entry's default connection when it is SSH, else the first SSH one. */
+    defaultConnectionId: string;
+  } = $props();
   const deps = viewDeps();
-  const forwards = $derived(forwardsOf(deps.library.library, connection.id));
+  const forwards = $derived(connections.flatMap((c) => forwardsOf(deps.library.library, c.id)));
+  const several = $derived(connections.length > 1);
+  const choices = $derived(connections.map((c) => ({ value: c.id, label: c.displayLabel })));
+  const labelOf = (connectionId: string) =>
+    connections.find((c) => c.id === connectionId)?.displayLabel ?? '';
   let editing = $state<PortForwardDraft | null>(null);
 
   const report = (error: unknown) => deps.alerts.show(errorMessage(error));
@@ -46,7 +60,7 @@
       {
         label: t('Edit…'),
         disabled: deps.readOnly,
-        action: () => (editing = draftOf(connection.id, forward)),
+        action: () => (editing = draftOf(forward.connectionId, forward)),
       },
       { label: t('Delete'), destructive: true, disabled: deps.readOnly, action: () => remove(forward) },
     ]);
@@ -56,7 +70,7 @@
 <section>
   <div class="section-head">
     <h2>{t('Port forwards')}</h2>
-    <Button disabled={deps.readOnly} onclick={() => (editing = draftOf(connection.id))}>
+    <Button disabled={deps.readOnly} onclick={() => (editing = draftOf(defaultConnectionId))}>
       <Plus size={13} />{t('New forward')}
     </Button>
   </div>
@@ -87,7 +101,10 @@
         {/if}
       </span>
       <span class="text">
-        <span class="name">{forwardName(forward)}</span>
+        <span class="name">
+          {forwardName(forward)}{#if several}<span class="via">{` · ${labelOf(forward.connectionId)}`}</span
+            >{/if}
+        </span>
         <span class="muted selectable">{address} → {forwardDestination(forward)}</span>
         {#if failure}<span class="error selectable" title={status?.state === 'failed' ? status.error : ''}
             >{failure}</span
@@ -108,7 +125,7 @@
           icon={Pencil}
           label={t('Edit…')}
           disabled={deps.readOnly}
-          onclick={() => (editing = draftOf(connection.id, forward))}
+          onclick={() => (editing = draftOf(forward.connectionId, forward))}
         />
         <IconButton
           icon={Trash2}
@@ -124,6 +141,7 @@
 {#if editing}
   <PortForwardEditor
     draft={editing}
+    connections={several ? choices : []}
     forwards={deps.forwards}
     onclose={() => (editing = null)}
     onstarterror={report}
@@ -131,6 +149,10 @@
 {/if}
 
 <style>
+  .via {
+    color: var(--fg-secondary);
+    font-weight: normal;
+  }
   .forward {
     display: flex;
     align-items: center;

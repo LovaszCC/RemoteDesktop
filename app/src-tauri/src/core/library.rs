@@ -574,6 +574,31 @@ impl AppCore {
         })
     }
 
+    /// Makes `connection_id` the default of `entry_id` (double-click, Enter and Connect use it).
+    ///
+    /// # Errors
+    /// `locked`, `readOnly`, `notFound` (no such entry, or the connection isn't one of its own) or
+    /// `database`.
+    pub fn set_default_connection(&self, entry_id: &str, connection_id: &str) -> Result<(), CommandError> {
+        let inner = self.inner();
+        let (db, _) = Self::writable(&inner)?;
+        let library = db.library()?;
+        let mut entry = library
+            .entry(entry_id)
+            .cloned()
+            .ok_or_else(|| CommandError::not_found(entry_id))?;
+        if !library
+            .connections_of(entry_id)
+            .iter()
+            .any(|c| c.id == connection_id)
+        {
+            return Err(CommandError::not_found(connection_id));
+        }
+        entry.default_connection_id = Some(connection_id.to_owned());
+        db.save_entry(&entry)?;
+        Ok(())
+    }
+
     /// Links (or with `None` unlinks) a credential to the connections behind `tags` (an entry counts with
     /// its default connection, a folder with every connection in its subtree) plus `connection_ids`.
     /// Returns how many connections changed.

@@ -164,6 +164,32 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
       const tab = connectionId && library.connection(connectionId)?.entryId === id ? connectionId : undefined;
       editor.openEntryEditor({ id, connectionId: tab });
     },
+    /** The entry editor on its "+" tab, to add a connection. */
+    addConnection(id: string) {
+      if (!library.entry(id)) return;
+      editor.openEntryEditor({ id, addConnection: true });
+    },
+    setDefaultConnection: (entryId: string, connectionId: string) =>
+      perform(() => api.setDefaultConnection(entryId, connectionId)),
+    /** Deletes one connection of an entry, after asking; the entry's last one takes the entry with it. */
+    async deleteConnection(connectionId: string) {
+      const connection = library.connection(connectionId);
+      const entry = connection && library.entry(connection.entryId);
+      if (!connection || !entry) return;
+      const last = entry.connectionIds.length <= 1;
+      const ok = await dialogs.confirm({
+        title: last
+          ? t('Delete “%@”?', entry.name)
+          : t('Delete the connection “%@”?', connection.displayLabel),
+        message: last
+          ? t('It is the entry’s only connection, so the entry is deleted too.')
+          : t("This can't be undone."),
+        confirmLabel: t('Delete'),
+        destructive: true,
+      });
+      if (!ok) return;
+      return perform(() => api.deleteItems([`c:${connectionId}`]));
+    },
     editCredential(id: string) {
       editor.openCredentialEditor(id);
     },
@@ -218,7 +244,6 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
     setFavorite: (connectionId: string, isFavorite: boolean) =>
       perform(() => api.setFavorite(`c:${connectionId}`, isFavorite)),
     /** Deletes one connection (its entry too when it was the last). */
-    deleteConnection: (id: string) => perform(() => api.deleteItems([`c:${id}`])),
     /** Deletes an entry with all its connections, after a confirmation when it has several. */
     async deleteEntry(id: string) {
       const entry = library.entry(id);

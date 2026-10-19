@@ -24,9 +24,11 @@
   const shownIds = $derived(rows.map((row) => row.entry.id));
 
   async function merge() {
+    // Read the props before closing: the host clears `targetId` when the sheet closes.
+    const target = targetId;
     const sources = [...picked];
     onclose();
-    await deps.actions.mergeEntries(targetId, sources);
+    await deps.actions.mergeEntries(target, sources);
   }
 </script>
 

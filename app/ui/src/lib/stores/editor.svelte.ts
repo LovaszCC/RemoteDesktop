@@ -6,7 +6,7 @@ import type { ConnectionType } from '../types';
 /** A new entry with one connection of `type`, or an existing entry (on a connection's tab). */
 export type EntryEditorRequest =
   | { mode: 'new'; type: ConnectionType; folderId: string | null }
-  | { mode: 'edit'; id: string; connectionId?: string };
+  | { mode: 'edit'; id: string; connectionId?: string; addConnection?: boolean };
 export type CredentialEditorRequest = { mode: 'new' } | { mode: 'edit'; id: string };
 export type FolderEditorRequest = { mode: 'new'; parentId: string | null } | { mode: 'edit'; id: string };
 
@@ -28,17 +28,21 @@ export function createEditorStore() {
     },
 
     /** `{type, folderId}` opens a new entry with one connection of that type; `{id}` edits an entry,
-     * on the `connectionId` tab when given (else General). */
+     * on the `connectionId` tab when given, on the "+" tab with `addConnection` (else General). */
     openEntryEditor(
       request:
         | { mode?: 'new'; type: ConnectionType; folderId?: string | null }
-        | { id: string; connectionId?: string },
+        | { id: string; connectionId?: string; addConnection?: boolean },
     ) {
       if (!('id' in request)) {
         entry = { mode: 'new', type: request.type, folderId: request.folderId ?? null };
       } else {
-        const { id, connectionId } = request;
-        entry = connectionId ? { mode: 'edit', id, connectionId } : { mode: 'edit', id };
+        const { id, connectionId, addConnection } = request;
+        entry = addConnection
+          ? { mode: 'edit', id, addConnection: true }
+          : connectionId
+            ? { mode: 'edit', id, connectionId }
+            : { mode: 'edit', id };
       }
     },
     /** No id: a new credential. */

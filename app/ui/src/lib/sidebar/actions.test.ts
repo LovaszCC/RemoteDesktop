@@ -385,6 +385,38 @@ describe('sidebar actions', () => {
     expect(bridge.invoke).toHaveBeenLastCalledWith('delete_items', { tags: ['e:c1'] });
   });
 
+  it('deletes one connection after asking; an entry’s last one says the entry goes too', async () => {
+    const { actions, bridge, dialogs } = setup({ delete_items: null }, multiEntryLibrary());
+    let done = actions.deleteConnection('h2');
+    expect(dialogs.current?.title).toBe('Delete the connection “Console”?');
+    dialogs.cancel();
+    await done;
+    expect(bridge.invoke).not.toHaveBeenCalledWith('delete_items', expect.anything());
+    done = actions.deleteConnection('h2');
+    dialogs.accept();
+    await done;
+    expect(bridge.invoke).toHaveBeenCalledWith('delete_items', { tags: ['c:h2'] });
+    done = actions.deleteConnection('c1');
+    expect(dialogs.current?.kind === 'confirm' && dialogs.current.message).toBe(
+      'It is the entry’s only connection, so the entry is deleted too.',
+    );
+    dialogs.cancel();
+    await done;
+  });
+
+  it('sets the default connection and opens the editor to add one', async () => {
+    const { actions, bridge, editor } = setup({ set_default_connection: null }, multiEntryLibrary());
+    await actions.setDefaultConnection('e1', 'h2');
+    expect(bridge.invoke).toHaveBeenCalledWith('set_default_connection', {
+      entryId: 'e1',
+      connectionId: 'h2',
+    });
+    actions.addConnection('e1');
+    expect(editor.entry).toEqual({ mode: 'edit', id: 'e1', addConnection: true });
+    actions.addConnection('missing');
+    expect(editor.entry).toEqual({ mode: 'edit', id: 'e1', addConnection: true });
+  });
+
   it('counts every connection of an entry in the bulk delete text', async () => {
     const { actions, dialogs } = setup({ delete_items: null }, multiEntryLibrary());
     const done = actions.deleteItems(['e:e1', 'c:h2', 'e:c1']);

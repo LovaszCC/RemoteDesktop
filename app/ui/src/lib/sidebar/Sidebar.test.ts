@@ -302,8 +302,9 @@ describe('entries with several connections', () => {
   it('expands an entry with a chevron to its connections, the default marked', async () => {
     render({ library: multiEntryLibrary() });
     expect(chevron('e:e1')).toBeTruthy();
-    // A one-connection entry looks as before: no chevron.
-    expect(row('e:c1').querySelector('.disclosure')).toBeNull();
+    // A one-connection entry keeps the chevron's place, hidden, so all entries line up.
+    expect(row('e:c1').querySelector('.disclosure.hidden')).toBeTruthy();
+    expect(row('e:e1').querySelector('.disclosure.hidden')).toBeNull();
     expect(rowTags()).not.toContain('c:h1');
     chevron('e:e1').click();
     flushSync();
@@ -311,6 +312,8 @@ describe('entries with several connections', () => {
     const tags = rowTags();
     expect(tags.slice(tags.indexOf('e:e1'), tags.indexOf('e:e1') + 3)).toEqual(['e:e1', 'c:h1', 'c:h2']);
     expect(row('c:h1').textContent).toContain('SSH · root');
+    // One step inside the entry: the child keeps a (hidden) disclosure place before its icon.
+    expect(row('c:h1').querySelector('.disclosure.hidden')).toBeTruthy();
     expect(row('c:h2').textContent).toContain('Console');
     expect(row('c:h1').querySelector('[aria-label="Default connection"]')).toBeTruthy();
     expect(row('c:h2').querySelector('[aria-label="Default connection"]')).toBeNull();

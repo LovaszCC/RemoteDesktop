@@ -89,7 +89,7 @@ describe('buildConnectionSave', () => {
       domain: 'CORP',
       rdpAdminSession: true,
       label: 'Main',
-      showAsButton: true,
+      showAsButton: false,
     });
     expect(draft.sshKeyPath).toBe('');
     expect(draft.browserBundleId).toBeNull();

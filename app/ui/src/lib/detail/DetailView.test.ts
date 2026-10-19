@@ -227,6 +227,32 @@ describe('EntryDetail', () => {
     expect(groups[1]!.classList.contains('selected')).toBe(true);
     expect(groups[0]!.classList.contains('selected')).toBe(false);
     expect(groups[1]!.textContent).toContain('3389');
+    // Side by side in one scrollable row, so the sections below stay in view.
+    expect(document.querySelector('.connection-groups')!.classList.contains('row')).toBe(true);
+  });
+
+  it('cards offer Add connection first, Set as default and Delete', () => {
+    const { editor } = render(['e:e1'], { library: multiEntryLibrary() });
+    const row = document.querySelector('.connection-groups.row')!;
+    expect(row.firstElementChild!.textContent).toContain('Add connection');
+    const groups = [...document.querySelectorAll('.connection-group')];
+    // The default card has no "Set as default"; every card can be deleted.
+    expect(groups[0]!.querySelector('[aria-label="Set as default"]')).toBeNull();
+    expect(groups[1]!.querySelector('[aria-label="Set as default"]')).toBeTruthy();
+    expect(groups.every((g) => g.querySelector('[aria-label="Delete connection"]'))).toBe(true);
+    click(buttonByText('Add connection'));
+    expect(editor.entry).toEqual({ mode: 'edit', id: 'e1', addConnection: true });
+  });
+
+  it('hides the card actions and Add connection when read-only', () => {
+    render(['e:e1'], { library: multiEntryLibrary(), readOnly: true });
+    expect(document.querySelector('.add-card')).toBeNull();
+    expect(document.querySelector('[aria-label="Delete connection"]')).toBeNull();
+  });
+
+  it('a single connection keeps the plain stacked layout', () => {
+    render(['e:c1'], { library: multiEntryLibrary() });
+    expect(document.querySelector('.connection-groups')!.classList.contains('row')).toBe(false);
   });
 
   it('Edit opens the selected connection’s tab, General for an entry row, its tab for one connection', () => {

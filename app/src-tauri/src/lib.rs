@@ -87,6 +87,7 @@ fn invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + 
         commands::library::delete_items,
         commands::library::move_items,
         commands::library::set_favorite,
+        commands::library::set_default_connection,
         commands::library::set_credential,
         commands::library::save_saved_split,
         commands::library::rename_saved_split,

@@ -102,7 +102,7 @@ pub struct ConnectionDraft {
 }
 
 fn default_show_as_button() -> bool {
-    true
+    false
 }
 
 fn default_web_scheme() -> String {
@@ -708,7 +708,7 @@ mod tests {
         assert_eq!(parsed.rdp_client, RdpClient::WindowsApp);
         assert_eq!(parsed.mikrotik_mode, MikrotikMode::Winbox);
         assert_eq!(parsed.label, "x");
-        assert!(parsed.show_as_button);
+        assert!(!parsed.show_as_button, "off unless asked for");
         assert!(serde_json::from_str::<ConnectionDraft>(r#"{"label":"n"}"#).is_err());
     }
 }

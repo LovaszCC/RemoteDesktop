@@ -54,6 +54,16 @@ function key(element: Element, name: string) {
 const edit = (id: string) => ({ request: { mode: 'edit' as const, id }, onclose: () => {} });
 
 describe('EntryEditor', () => {
+  it('opens on the add tab when asked to add a connection', () => {
+    renderView(
+      EntryEditor,
+      { request: { mode: 'edit' as const, id: 'e1', addConnection: true }, onclose: () => {} },
+      { library: multiEntryLibrary() },
+    );
+    // The "+" tab (its accessible name is "Add connection").
+    expect(selectedTab()).toBe('+');
+  });
+
   it('editor_has_general_and_one_tab_per_connection', () => {
     renderView(EntryEditor, edit('e1'), { library: multiEntryLibrary() });
     expect(tabLabels()).toEqual(['General', 'SSH · root', 'Console', 'Add connection']);

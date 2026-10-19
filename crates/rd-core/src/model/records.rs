@@ -199,7 +199,7 @@ impl Connection {
             color: None,
             notes: String::new(),
             label: String::new(),
-            show_as_button: true,
+            show_as_button: false,
             sort_order: 0,
             web_scheme: "https".to_owned(),
             web_path: String::new(),
@@ -440,7 +440,7 @@ mod tests {
     fn new_connection_is_its_own_entry() {
         let connection = Connection::new(ConnectionType::Web, "w", "w.example.com");
         assert_eq!(connection.entry_id, connection.id);
-        assert!(connection.show_as_button);
+        assert!(!connection.show_as_button);
         assert_eq!(
             (
                 connection.label.as_str(),

@@ -132,22 +132,24 @@
     </span>
     <span class="name">{folder?.name ?? ''}</span>
   {:else if row.kind === 'entry' && entry}
-    {#if row.hasChildren}
-      <button
-        type="button"
-        class="disclosure"
-        class:open={row.expanded}
-        tabindex="-1"
-        aria-label={row.expanded ? t('Collapse') : t('Expand')}
-        onclick={(e) => {
-          e.stopPropagation();
-          ontoggle?.();
-        }}
-        ondblclick={(e) => e.stopPropagation()}
-      >
-        <ChevronRight size={12} strokeWidth={2} />
-      </button>
-    {/if}
+    <!-- Like folders, every entry keeps the disclosure's place (hidden without children), so entries line up
+         whether or not they have several connections. -->
+    <button
+      type="button"
+      class="disclosure"
+      class:open={row.expanded}
+      class:hidden={!row.hasChildren}
+      tabindex="-1"
+      aria-hidden={!row.hasChildren}
+      aria-label={row.expanded ? t('Collapse') : t('Expand')}
+      onclick={(e) => {
+        e.stopPropagation();
+        ontoggle?.();
+      }}
+      ondblclick={(e) => e.stopPropagation()}
+    >
+      <ChevronRight size={12} strokeWidth={2} />
+    </button>
     {#if connection}<ConnectionIcon type={connection.type} />{/if}
     <span class="text">
       <span class="title-line">
@@ -164,6 +166,8 @@
       <span class="star"><Star size={10} fill="currentColor" strokeWidth={0} /></span>
     {/if}
   {:else if row.kind === 'connection' && connection}
+    <!-- The disclosure's place, as on entry rows, so a connection sits one step inside its entry. -->
+    <span class="disclosure hidden" aria-hidden="true"></span>
     <ConnectionIcon type={connection.type} />
     <span class="text">
       <span class="title-line">

@@ -269,6 +269,9 @@ export function createApi(invoke: Invoke = tauriBridge.invoke) {
       call<MoveResultDto>('move_items', { tags, targetFolderId }),
     /** Stars or unstars the entry behind `tag` (`e:`, `fav:` or `c:`). */
     setFavorite: (tag: string, isFavorite: boolean) => call<void>('set_favorite', { tag, isFavorite }),
+    /** Makes a connection its entry's default. */
+    setDefaultConnection: (entryId: string, connectionId: string) =>
+      call<void>('set_default_connection', { entryId, connectionId }),
     setCredential: (credentialId: string | null, target: { tags?: string[]; connectionIds?: string[] }) =>
       call<number>('set_credential', {
         credentialId,

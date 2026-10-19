@@ -7,9 +7,12 @@
   import Merge from '@lucide/svelte/icons/merge';
   import Pencil from '@lucide/svelte/icons/pencil';
   import Play from '@lucide/svelte/icons/play';
+  import Plus from '@lucide/svelte/icons/plus';
+  import Trash2 from '@lucide/svelte/icons/trash-2';
   import Star from '@lucide/svelte/icons/star';
   import UserRoundKey from '@lucide/svelte/icons/user-round-key';
   import Button from '../components/Button.svelte';
+  import IconButton from '../components/IconButton.svelte';
   import { showContextMenu } from '../components/menu.svelte';
   import { errorMessage } from '../errors';
   import { t } from '../i18n/index.svelte';
@@ -44,6 +47,7 @@
 
   const primary = $derived(connections.find((c) => c.id === entry.defaultConnectionId) ?? connections[0]!);
   const single = $derived(connections.length === 1);
+  const sshConnections = $derived(connections.filter((c) => c.type === 'ssh'));
   const buttons = $derived(entryButtons(entry, connections));
   /** Files: the default connection when it uses SSH, else the first that does. */
   const filesConnection = $derived(
@@ -155,46 +159,72 @@
     {/if}
   </div>
 
-  {#each connections as connection (connection.id)}
-    {@const fields = connectionFields(connection)}
-    {@const credential = deps.library.credential(connection.credentialId)}
-    <div
-      class="connection-group"
-      class:grouped={!single}
-      class:selected={!single && connection.id === selectedId}
-    >
-      {#if !single}
-        <div class="group-head">
-          <h3>
-            <ConnectionIcon type={connection.type} size={13} />
-            <span>{connection.displayLabel}</span>
-            {#if connection.id === entry.defaultConnectionId}
-              <span class="default" title={t('Default connection')} aria-label={t('Default connection')}>
-                <CircleCheck size={12} strokeWidth={2} />
+  <!-- Several connections sit side by side in one scrollable row, so what follows (port forwards, notes)
+       stays in view. -->
+  <div class="connection-groups" class:row={!single}>
+    {#if !single && !deps.readOnly}
+      <button type="button" class="add-card" onclick={() => deps.actions.addConnection(entry.id)}>
+        <Plus size={18} strokeWidth={1.75} />
+        <span>{t('Add connection')}</span>
+      </button>
+    {/if}
+    {#each connections as connection (connection.id)}
+      {@const fields = connectionFields(connection)}
+      {@const credential = deps.library.credential(connection.credentialId)}
+      <div
+        class="connection-group"
+        class:grouped={!single}
+        class:selected={!single && connection.id === selectedId}
+      >
+        {#if !single}
+          <div class="group-head">
+            <h3>
+              <ConnectionIcon type={connection.type} size={13} />
+              <span>{connection.displayLabel}</span>
+              {#if connection.id === entry.defaultConnectionId}
+                <span class="default" title={t('Default connection')} aria-label={t('Default connection')}>
+                  <CircleCheck size={12} strokeWidth={2} />
+                </span>
+              {/if}
+            </h3>
+            <span class="caption">{subtitleOf(connection)}</span>
+            {#if !deps.readOnly}
+              <span class="card-actions">
+                {#if connection.id !== entry.defaultConnectionId}
+                  <IconButton
+                    icon={CircleCheck}
+                    label={t('Set as default')}
+                    onclick={() => void deps.actions.setDefaultConnection(entry.id, connection.id)}
+                  />
+                {/if}
+                <IconButton
+                  icon={Trash2}
+                  label={t('Delete connection')}
+                  onclick={() => void deps.actions.deleteConnection(connection.id)}
+                />
               </span>
             {/if}
-          </h3>
-          <span class="caption">{subtitleOf(connection)}</span>
-        </div>
-      {/if}
-      <div class="grid">
-        {#each fields.before as field (field.label)}
-          <FieldValue {field} oncopy={copy} />
-        {/each}
-        {#if credential}
-          <span class="label">{t('Credential')}</span>
-          <span class="value">
-            <Button variant="link" onclick={() => deps.library.select(`k:${credential.id}`)}>
-              <UserRoundKey size={13} />{credential.name}
-            </Button>
-          </span>
+          </div>
         {/if}
-        {#each fields.after as field (field.label)}
-          <FieldValue {field} oncopy={copy} />
-        {/each}
+        <div class="grid">
+          {#each fields.before as field (field.label)}
+            <FieldValue {field} oncopy={copy} />
+          {/each}
+          {#if credential}
+            <span class="label">{t('Credential')}</span>
+            <span class="value">
+              <Button variant="link" onclick={() => deps.library.select(`k:${credential.id}`)}>
+                <UserRoundKey size={13} />{credential.name}
+              </Button>
+            </span>
+          {/if}
+          {#each fields.after as field (field.label)}
+            <FieldValue {field} oncopy={copy} />
+          {/each}
+        </div>
       </div>
-    </div>
-  {/each}
+    {/each}
+  </div>
 
   {#if openTabs.length > 1}
     <section>
@@ -212,9 +242,13 @@
     </section>
   {/if}
 
-  {#each connections.filter((c) => c.type === 'ssh') as connection (connection.id)}
-    <PortForwardSection {connection} />
-  {/each}
+  {#if sshConnections.length > 0}
+    <PortForwardSection
+      connections={sshConnections}
+      defaultConnectionId={sshConnections.find((c) => c.id === entry.defaultConnectionId)?.id ??
+        sshConnections[0]!.id}
+    />
+  {/if}
 
   {#if entry.notes}
     <section>
@@ -261,6 +295,25 @@
     padding: var(--space-2) var(--space-3);
     border-radius: var(--radius);
   }
+  .connection-groups {
+    display: flex;
+    /* A scrolling row in the page's flex column would otherwise shrink and clip the cards. */
+    flex-shrink: 0;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .connection-groups.row {
+    flex-direction: row;
+    /* Every card as tall as the tallest one. */
+    align-items: stretch;
+    overflow-x: auto;
+    padding-bottom: var(--space-1);
+  }
+  .connection-groups.row .connection-group {
+    flex: 0 0 auto;
+    min-width: 260px;
+    border: 0.5px solid var(--separator);
+  }
   .connection-group.selected {
     background: var(--bg-selected);
   }
@@ -276,9 +329,33 @@
     display: inline-flex;
     color: var(--accent);
   }
+  .card-actions {
+    display: inline-flex;
+    gap: 2px;
+    margin-left: auto;
+  }
+  .add-card {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-width: 160px;
+    padding: var(--space-3);
+    border: 1px dashed var(--separator);
+    border-radius: var(--radius);
+    background: none;
+    color: var(--fg-secondary);
+    font: inherit;
+  }
+  .add-card:hover {
+    background: var(--bg-hover);
+    color: var(--fg);
+  }
   .group-head {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: var(--space-2);
   }
 </style>

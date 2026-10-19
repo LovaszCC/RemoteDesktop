@@ -234,5 +234,9 @@
     "other": "Delete “%@” and its %lld connections?"
   },
   "Edit entry": "Edit entry",
-  "New entry": "New entry"
+  "New entry": "New entry",
+  "Delete connection": "Delete connection",
+  "Delete the connection “%@”?": "Delete the connection “%@”?",
+  "It is the entry’s only connection, so the entry is deleted too.": "It is the entry’s only connection, so the entry is deleted too.",
+  "Delete “%@”?": "Delete “%@”?"
 }
