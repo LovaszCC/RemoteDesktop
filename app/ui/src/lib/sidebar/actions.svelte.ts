@@ -55,6 +55,8 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
   let pendingExpansion = $state<string[] | null>(null);
   /** Connections whose SSH key setup is running. */
   let keySetups = $state<string[]>([]);
+  /** The entry the merge sheet merges into, while it is open. */
+  let mergeTarget = $state<string | null>(null);
 
   async function perform<T>(work: () => Promise<T>): Promise<T | undefined> {
     try {
@@ -82,16 +84,18 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
   }
 
   const actions = {
-    /** Expanded folder ids (the `expandedFolders` setting). */
+    /** Expanded folder and entry ids (the `expandedFolders` setting). */
     get expanded(): ReadonlySet<string> {
       // A snapshot: it is rebuilt from reactive state on every read.
       // eslint-disable-next-line svelte/prefer-svelte-reactivity
       return new Set(pendingExpansion ?? settings.settings?.expandedFolders ?? []);
     },
 
-    /** Opens, closes (or with `open` sets) a folder in the tree and saves the expansion. */
-    async setExpanded(folderId: string, open?: boolean) {
-      const next = toggledExpansion(actions.expanded, folderId, open);
+    /** Opens, closes (or with `open` sets) a folder or entry in the tree and saves the expansion. */
+    async setExpanded(id: string, open?: boolean) {
+      const next = toggledExpansion(actions.expanded, id, open);
+      // A collapsed entry hides its child rows: their selection moves to the entry row.
+      if (!next.includes(id) && library.entry(id)) library.collapseEntrySelection(id);
       pendingExpansion = next;
       try {
         await settings.update({ expandedFolders: next });
@@ -102,14 +106,11 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
       }
     },
 
-    /** The folder new items go into: the selected folder, or the selected connection's folder. */
+    /** The folder new items go into: the selected folder, or the selected entry's (or connection's). */
     selectedFolderId(): string | null {
       const parsed = library.single ? parseTag(library.single) : null;
       if (parsed?.kind === 'folder') return parsed.id;
-      if (parsed?.kind === 'connection' || parsed?.kind === 'favorite') {
-        return library.connection(parsed.id)?.folderId ?? null;
-      }
-      return null;
+      return library.connectionForTag(library.single)?.folderId ?? null;
     },
 
     /**
@@ -149,7 +150,7 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
 
     // Editors
     newConnection(type: ConnectionType, folderId: string | null = actions.selectedFolderId()) {
-      editor.openConnectionEditor({ type, folderId });
+      editor.openEntryEditor({ type, folderId });
     },
     newFolder(parentId: string | null = actions.selectedFolderId()) {
       editor.openFolderEditor({ parentId });
@@ -157,8 +158,11 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
     newCredential() {
       editor.openCredentialEditor();
     },
-    editConnection(id: string) {
-      editor.openConnectionEditor({ id });
+    /** Edits an entry, on the `connectionId` tab when given (else General); nothing for an unknown id. */
+    editEntry(id: string, connectionId?: string) {
+      if (!library.entry(id)) return;
+      const tab = connectionId && library.connection(connectionId)?.entryId === id ? connectionId : undefined;
+      editor.openEntryEditor({ id, connectionId: tab });
     },
     editCredential(id: string) {
       editor.openCredentialEditor(id);
@@ -178,9 +182,11 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
         case 'folder':
           void actions.setExpanded(parsed.id);
           break;
-        case 'connection':
+        case 'entry':
         case 'favorite':
-          void actions.connect(library.connection(parsed.id));
+        case 'connection':
+          // An entry connects its default connection, a child row its own.
+          void actions.connect(library.connectionForTag(tag));
           break;
         case 'split':
           actions.openSavedSplit(parsed.id);
@@ -189,9 +195,44 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
     },
 
     // Connections
-    duplicate: (id: string) => perform(() => api.duplicateConnection(id, t(' (copy)'))),
-    setFavorite: (id: string, isFavorite: boolean) => perform(() => api.setFavorite(id, isFavorite)),
+    /** Duplicates an entry with all its connections. */
+    duplicate: (entryId: string) => perform(() => api.duplicateEntry(entryId, t(' (copy)'))),
+    /** The entry the open merge sheet merges into; `null` when it is closed. */
+    get mergeTarget(): string | null {
+      return mergeTarget;
+    },
+    /** "Merge…": opens the merge sheet for the entry. */
+    merge(targetId: string) {
+      mergeTarget = targetId;
+    },
+    closeMerge() {
+      mergeTarget = null;
+    },
+    /** Moves the connections of `sources` into `target` (the emptied entries go away). */
+    async mergeEntries(target: string, sources: string[]) {
+      const result = await perform(() => api.mergeEntries(target, sources));
+      if (result) toast.show(t('Merged — %lld connections moved', result.movedConnections));
+      return result;
+    },
+    /** Stars or unstars the entry of a connection. */
+    setFavorite: (connectionId: string, isFavorite: boolean) =>
+      perform(() => api.setFavorite(`c:${connectionId}`, isFavorite)),
+    /** Deletes one connection (its entry too when it was the last). */
     deleteConnection: (id: string) => perform(() => api.deleteItems([`c:${id}`])),
+    /** Deletes an entry with all its connections, after a confirmation when it has several. */
+    async deleteEntry(id: string) {
+      const entry = library.entry(id);
+      if (entry && entry.connectionIds.length > 1) {
+        const ok = await dialogs.confirm({
+          title: t('Delete “%@” and its %lld connections?', entry.name, entry.connectionIds.length),
+          message: t("This can't be undone."),
+          confirmLabel: t('Delete'),
+          destructive: true,
+        });
+        if (!ok) return;
+      }
+      return perform(() => api.deleteItems([`e:${id}`]));
+    },
     async copyPassword(id: string) {
       try {
         await api.copyPassword(id);
@@ -274,7 +315,7 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
 
     /** "Delete N items…": confirms, clears the selection, then deletes. */
     async deleteItems(tags: string[]) {
-      const counts = deletionCounts(tags);
+      const counts = deletionCounts(tags, library.library);
       if (counts.tags.length === 0) return;
       const ok = await dialogs.confirm({
         title: bulkDeleteTitle(counts),

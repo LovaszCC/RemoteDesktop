@@ -28,8 +28,24 @@ export interface ResolvedLoginDto {
   hasPassphrase: boolean;
 }
 
+/** One connection of an entry; the shared fields (name, host, folder, notes, colour, favourite) are the
+ * entry's, copied onto it. */
 export interface ConnectionDto {
   id: string;
+  /** The owning entry. */
+  entryId: string;
+  /** Optional label among the entry's connections; empty when unset. */
+  label: string;
+  /** The label, else `<TYPE> · <username>`, else `<TYPE>`. */
+  displayLabel: string;
+  /** Gets its own button on the entry's Details page. */
+  showAsButton: boolean;
+  /** Position among the entry's connections. */
+  sortOrder: number;
+  /** Web: the URL scheme. */
+  webScheme: string;
+  /** Web: the path after host and port; empty for none. */
+  webPath: string;
   folderId: string | null;
   credentialId: string | null;
   type: ConnectionType;
@@ -55,6 +71,24 @@ export interface ConnectionDto {
   folderPath: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+}
+
+/** A sidebar entry: the shared fields and its connections. */
+export interface EntryDto {
+  id: string;
+  folderId: string | null;
+  /** `Parent / Child`; empty at the root. */
+  folderPath: string;
+  name: string;
+  /** Host shared by every connection. */
+  host: string;
+  notes: string;
+  color: LabelColor | null;
+  isFavorite: boolean;
+  /** The connection double-click opens; `null` only for an entry without connections. */
+  defaultConnectionId: string | null;
+  /** Its connections in order. */
+  connectionIds: string[];
 }
 
 export interface CredentialDto {
@@ -144,7 +178,7 @@ export interface SavedSplitDto {
 }
 
 export type TreeNodeDto =
-  { kind: 'folder'; id: string; children: TreeNodeDto[] } | { kind: 'connection'; id: string };
+  { kind: 'folder'; id: string; children: TreeNodeDto[] } | { kind: 'entry'; id: string };
 
 export interface FlatFolderDto {
   id: string;
@@ -153,17 +187,20 @@ export interface FlatFolderDto {
 
 export interface LibraryDto {
   folders: FolderDto[];
+  entries: EntryDto[];
   connections: ConnectionDto[];
   credentials: CredentialDto[];
   portForwards: PortForwardDto[];
   savedSplits: SavedSplitDto[];
   tree: TreeNodeDto[];
+  /** Favourite entry ids. */
   favorites: string[];
   flattenedFolders: FlatFolderDto[];
 }
 
 export const EMPTY_LIBRARY: LibraryDto = Object.freeze({
   folders: [],
+  entries: [],
   connections: [],
   credentials: [],
   portForwards: [],
@@ -174,7 +211,8 @@ export const EMPTY_LIBRARY: LibraryDto = Object.freeze({
 }) as LibraryDto;
 
 export interface SearchResultDto {
-  connections: string[];
+  /** Matching entries. */
+  entries: string[];
   credentials: string[];
 }
 
@@ -184,7 +222,7 @@ export interface LockHolderDto {
   ageSeconds: number;
 }
 
-export type NoDatabaseCode = 'openFailed' | 'noPath' | 'lockCancelled';
+export type NoDatabaseCode = 'openFailed' | 'noPath' | 'lockCancelled' | 'readOnlyNeedsUpgrade';
 
 export type Phase =
   | { kind: 'noDatabase'; code: NoDatabaseCode; error: string }
@@ -276,25 +314,48 @@ export interface ShortcutDto {
   customized: boolean;
 }
 
-/** The connection editor's fields (`rd-core::draft::ConnectionDraft`); `port` is the typed text. */
+/** The entry editor's shared fields (`rd-core::draft::EntryDraft`). */
+export interface EntryDraft {
+  name: string;
+  host: string;
+  folderId?: string | null;
+  notes?: string;
+  color?: LabelColor | null;
+  isFavorite?: boolean;
+}
+
+/** One connection's own fields (`rd-core::draft::ConnectionDraft`); `port` is the typed text. */
 export interface ConnectionDraft {
   type: ConnectionType;
-  folderId?: string | null;
   credentialId?: string | null;
-  name?: string;
-  host?: string;
   port?: string;
   username?: string;
   domain?: string;
   sshKeyPath?: string;
-  notes?: string;
-  isFavorite?: boolean;
   rdpAdminSession?: boolean;
   rdpClient?: RdpClient;
   browserBundleId?: string | null;
   mikrotikMode?: MikrotikMode;
   sshTerminal?: SshTerminal;
-  color?: LabelColor | null;
+  webScheme?: string;
+  webPath?: string;
+  label?: string;
+  showAsButton?: boolean;
+}
+
+/** One connection of `save_entry`: no `id` creates it; secrets `null` keep, `""` clear, a value sets. */
+export interface ConnectionSave {
+  id?: string | null;
+  draft: ConnectionDraft;
+  password?: string | null;
+  passphrase?: string | null;
+  /** Becomes the entry's default (at most one per save). */
+  isDefault: boolean;
+}
+
+/** What `merge_entries` answers. */
+export interface MergeResultDto {
+  movedConnections: number;
 }
 
 export interface CredentialInput {
@@ -316,6 +377,9 @@ export interface FolderInput {
 }
 
 export interface DeleteCountsDto {
+  /** Entries deleted through their `e:` / `fav:` tags. */
+  entries: number;
+  /** Connections deleted, those of deleted entries included. */
   connections: number;
   folders: number;
   credentials: number;

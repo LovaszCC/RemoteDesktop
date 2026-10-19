@@ -14,6 +14,7 @@ import { Channel } from '@tauri-apps/api/core';
 import { createApi, onSshEvent, tauriBridge, type Api, type Listen, type Unlisten } from '../api';
 import { errorMessage } from '../errors';
 import { alerts as defaultAlerts, type AlertStore } from '../stores/alert.svelte';
+import { library as defaultLibrary, tabTitle, type LibraryStore } from '../stores/library.svelte';
 import { app } from '../stores/app.svelte';
 import { settings } from '../stores/settings.svelte';
 import { toast as defaultToast, type ToastStore } from '../stores/toast.svelte';
@@ -40,6 +41,8 @@ export interface SessionsDeps {
   createChannel: () => OutputChannel;
   platform: () => Platform;
   shortcuts: () => readonly ShortcutDto[];
+  /** The entries, for tab titles and groups. */
+  library: Pick<LibraryStore, 'entry'>;
 }
 
 /** The owner of pane sessions (the split store). */
@@ -83,6 +86,7 @@ export function createSessionsStore(deps: Partial<SessionsDeps> = {}) {
   const createChannel = deps.createChannel ?? (() => new Channel<ArrayBuffer>() as unknown as OutputChannel);
   const platform = deps.platform ?? (() => 'macos' as Platform);
   const shortcuts = deps.shortcuts ?? (() => []);
+  const library = deps.library ?? defaultLibrary;
 
   let states = $state<Record<string, TerminalSessionState>>({});
   // Not state: terminals and queued events don't render (`states` does).
@@ -253,7 +257,8 @@ export function createSessionsStore(deps: Partial<SessionsDeps> = {}) {
 
     /** Opens an embedded session for `connection` in a new tab; rejects with the `CommandError`. */
     async open(
-      connection: Pick<ConnectionDto, 'id' | 'name' | 'type' | 'color'>,
+      connection: Pick<ConnectionDto, 'id' | 'name' | 'type' | 'color'> &
+        Partial<Pick<ConnectionDto, 'entryId' | 'displayLabel'>>,
       options: OpenOptions = {},
     ): Promise<string> {
       const factory = await resolveFactory();
@@ -306,7 +311,7 @@ export function createSessionsStore(deps: Partial<SessionsDeps> = {}) {
               .filter((s) => isLocalTerminal(s.connectionId))
               .map((s) => s.connectionName),
           )
-        : connection.name;
+        : tabTitle(connection, library.entry(connection.entryId));
       handles.set(id, handle);
       states = { ...states, [id]: newSessionState(id, connection.id, name) };
       if (options.pane) panes.add(id);
@@ -316,8 +321,8 @@ export function createSessionsStore(deps: Partial<SessionsDeps> = {}) {
           title: name,
           type: connection.type,
           color: connection.color,
-          // Local terminals number themselves ("Local Terminal 2").
-          ...(local ? {} : { group: connection.id }),
+          // An entry's tabs sit together; local terminals number themselves ("Local Terminal 2").
+          ...(local ? {} : { group: connection.entryId ?? connection.id }),
         });
       const queued = pending.get(id) ?? [];
       pending.delete(id);

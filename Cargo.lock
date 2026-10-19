@@ -4416,6 +4416,7 @@ dependencies = [
  "rd-ssh",
  "rd-store",
  "rd-update",
+ "rusqlite",
  "secrecy",
  "serde",
  "serde_json",

@@ -142,8 +142,8 @@ fn rdp_connection(core: &AppCore, user: &str, password: Option<&str>) -> String 
     save(
         core,
         ConnectionType::Rdp,
-        |d| {
-            d.host = " dc.example.test ".into();
+        |e, d| {
+            e.host = " dc.example.test ".into();
             d.port = "3390".into();
             d.username = user.into();
             d.domain = "OTHER".into();
@@ -201,7 +201,7 @@ fn opening_errors() {
     let env = Env::new();
     let core = env.unlocked();
     fake_engine(&core);
-    let ssh = save(&core, ConnectionType::Ssh, |_| {}, None);
+    let ssh = save(&core, ConnectionType::Ssh, |_, _| {}, None);
     let sink = || -> Arc<dyn RdpSink> { Arc::new(Sink::default()) };
     assert_eq!(
         core.open_rdp_session(&ssh, 800, 600, |_| sink())

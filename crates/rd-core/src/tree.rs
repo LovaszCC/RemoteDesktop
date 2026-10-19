@@ -6,45 +6,45 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 
 use crate::library::Library;
-use crate::model::{Connection, Credential, Folder};
+use crate::model::{Connection, Credential, Entry, Folder};
 use crate::natural::natural_cmp;
 
-/// A sidebar node: a folder with its children, or a connection leaf.
+/// A sidebar node: a folder with its children, or an entry leaf.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TreeNode<'a> {
-    /// A folder; `children` lists its subfolders first, then its connections.
+    /// A folder; `children` lists its subfolders first, then its entries.
     Folder {
         /// The folder.
         folder: &'a Folder,
-        /// Subfolders, then connections.
+        /// Subfolders, then entries.
         children: Vec<TreeNode<'a>>,
     },
-    /// A connection.
-    Connection(&'a Connection),
+    /// An entry.
+    Entry(&'a Entry),
 }
 
 impl TreeNode<'_> {
-    /// The row's sidebar tag (`f:<id>` or `c:<id>`).
+    /// The row's sidebar tag (`f:<id>` or `e:<id>`).
     #[must_use]
     pub fn tag(&self) -> SidebarTag {
         match self {
             Self::Folder { folder, .. } => SidebarTag::Folder(folder.id.clone()),
-            Self::Connection(connection) => SidebarTag::Connection(connection.id.clone()),
+            Self::Entry(entry) => SidebarTag::Entry(entry.id.clone()),
         }
     }
 
-    /// A folder's children; `None` for a connection.
+    /// A folder's children; `None` for an entry.
     #[must_use]
     pub fn children(&self) -> Option<&[Self]> {
         match self {
             Self::Folder { children, .. } => Some(children),
-            Self::Connection(_) => None,
+            Self::Entry(_) => None,
         }
     }
 }
 
-/// The tree under the root: at each level folders by (sort order, lowercased name), then connections in
-/// natural name order. Connections whose folder no longer exists are listed at the root.
+/// The tree under the root: at each level folders by (sort order, lowercased name), then entries in
+/// natural name order. Entries whose folder no longer exists are listed at the root.
 #[must_use]
 pub fn build(library: &Library) -> Vec<TreeNode<'_>> {
     let mut folders_by_parent: HashMap<Option<&str>, Vec<&Folder>> = HashMap::new();
@@ -58,26 +58,21 @@ pub fn build(library: &Library) -> Vec<TreeNode<'_>> {
         folders.sort_by_cached_key(|f| (f.sort_order, f.name.to_lowercase()));
     }
     let known: HashSet<&str> = library.folders.iter().map(|f| f.id.as_str()).collect();
-    let mut connections_by_folder: HashMap<Option<&str>, Vec<&Connection>> = HashMap::new();
-    for connection in &library.connections {
-        let folder = connection.folder_id.as_deref().filter(|id| known.contains(id));
-        connections_by_folder.entry(folder).or_default().push(connection);
+    let mut entries_by_folder: HashMap<Option<&str>, Vec<&Entry>> = HashMap::new();
+    for entry in &library.entries {
+        let folder = entry.folder_id.as_deref().filter(|id| known.contains(id));
+        entries_by_folder.entry(folder).or_default().push(entry);
     }
-    for connections in connections_by_folder.values_mut() {
-        connections.sort_by(|a, b| natural_cmp(&a.name, &b.name));
+    for entries in entries_by_folder.values_mut() {
+        entries.sort_by(|a, b| natural_cmp(&a.name, &b.name));
     }
-    nodes(
-        None,
-        &folders_by_parent,
-        &connections_by_folder,
-        &mut HashSet::new(),
-    )
+    nodes(None, &folders_by_parent, &entries_by_folder, &mut HashSet::new())
 }
 
 fn nodes<'a>(
     parent: Option<&str>,
     folders: &HashMap<Option<&str>, Vec<&'a Folder>>,
-    connections: &HashMap<Option<&str>, Vec<&'a Connection>>,
+    entries: &HashMap<Option<&str>, Vec<&'a Entry>>,
     visited: &mut HashSet<&'a str>,
 ) -> Vec<TreeNode<'a>> {
     let mut result = Vec::new();
@@ -86,23 +81,23 @@ fn nodes<'a>(
         if !visited.insert(&folder.id) {
             continue;
         }
-        let children = nodes(Some(&folder.id), folders, connections, visited);
+        let children = nodes(Some(&folder.id), folders, entries, visited);
         result.push(TreeNode::Folder { folder, children });
     }
     result.extend(
-        connections
+        entries
             .get(&parent)
             .into_iter()
             .flatten()
-            .map(|&c| TreeNode::Connection(c)),
+            .map(|&e| TreeNode::Entry(e)),
     );
     result
 }
 
-/// Favorite connections in natural name order.
+/// Favorite entries in natural name order, each once however many connections it has.
 #[must_use]
-pub fn favorites(library: &Library) -> Vec<&Connection> {
-    let mut result: Vec<&Connection> = library.connections.iter().filter(|c| c.is_favorite).collect();
+pub fn favorites(library: &Library) -> Vec<&Entry> {
+    let mut result: Vec<&Entry> = library.entries.iter().filter(|e| e.is_favorite).collect();
     result.sort_by(|a, b| natural_cmp(&a.name, &b.name));
     result
 }
@@ -115,28 +110,26 @@ fn terms(query: &str) -> Vec<String> {
         .collect()
 }
 
-/// The sidebar search: every whitespace-separated term must occur in the name, host, user, notes or folder
-/// path (case-insensitive). An empty query finds nothing. Results are in natural name order.
+/// The sidebar search: every whitespace-separated term must occur in the entry's name, host, notes or
+/// folder path, or in the user name or label of one of its connections (case-insensitive). An empty query
+/// finds nothing. Results are entries in natural name order.
 #[must_use]
-pub fn search<'a>(library: &'a Library, query: &str) -> Vec<&'a Connection> {
+pub fn search<'a>(library: &'a Library, query: &str) -> Vec<&'a Entry> {
     let terms = terms(query);
     if terms.is_empty() {
         return Vec::new();
     }
     let paths = FolderPaths::new(library);
-    let mut result: Vec<&Connection> = library
-        .connections
+    let mut result: Vec<&Entry> = library
+        .entries
         .iter()
-        .filter(|c| {
-            let haystack = [
-                c.name.as_str(),
-                &c.host,
-                &c.username,
-                &c.notes,
-                &paths.path(c.folder_id.as_deref()),
-            ]
-            .join(" ")
-            .to_lowercase();
+        .filter(|e| {
+            let path = paths.path(e.folder_id.as_deref());
+            let mut fields = vec![e.name.as_str(), &e.host, &e.notes, &path];
+            for connection in library.connections.iter().filter(|c| c.entry_id == e.id) {
+                fields.extend([connection.username.as_str(), &connection.label]);
+            }
+            let haystack = fields.join(" ").to_lowercase();
             terms.iter().all(|t| haystack.contains(t.as_str()))
         })
         .collect();
@@ -280,9 +273,11 @@ impl<'a> FolderPaths<'a> {
 pub enum SidebarTag {
     /// `f:<id>`, a folder.
     Folder(String),
-    /// `c:<id>`, a connection in the tree or in the search results.
+    /// `e:<id>`, an entry in the tree or in the search results.
+    Entry(String),
+    /// `c:<id>`, one connection of an entry.
     Connection(String),
-    /// `fav:<id>`, the Favorites row of a connection.
+    /// `fav:<id>`, the Favorites row of an entry.
     Favorite(String),
     /// `k:<id>`, a credential.
     Credential(String),
@@ -291,12 +286,14 @@ pub enum SidebarTag {
 }
 
 impl SidebarTag {
-    /// Parses `f:`, `c:`, `fav:`, `k:` or `s:` followed by an id; anything else is `None`.
+    /// Parses `f:`, `e:`, `c:`, `fav:`, `k:` or `s:` followed by an id; anything else is `None`.
     #[must_use]
     pub fn parse(tag: &str) -> Option<Self> {
         // `fav:` before `f:` is not needed (`fav:` doesn't start with `f:`), but keep the Swift order.
         if let Some(id) = tag.strip_prefix("f:") {
             Some(Self::Folder(id.to_owned()))
+        } else if let Some(id) = tag.strip_prefix("e:") {
+            Some(Self::Entry(id.to_owned()))
         } else if let Some(id) = tag.strip_prefix("c:") {
             Some(Self::Connection(id.to_owned()))
         } else if let Some(id) = tag.strip_prefix("fav:") {
@@ -313,6 +310,7 @@ impl SidebarTag {
     pub fn id(&self) -> &str {
         match self {
             Self::Folder(id)
+            | Self::Entry(id)
             | Self::Connection(id)
             | Self::Favorite(id)
             | Self::Credential(id)
@@ -325,6 +323,7 @@ impl fmt::Display for SidebarTag {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let prefix = match self {
             Self::Folder(_) => "f:",
+            Self::Entry(_) => "e:",
             Self::Connection(_) => "c:",
             Self::Favorite(_) => "fav:",
             Self::Credential(_) => "k:",
@@ -362,7 +361,9 @@ pub fn tags_from_payloads(payloads: &[String]) -> Vec<String> {
 /// The ids behind a set of sidebar tags, each list de-duplicated in tag order.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SidebarItems {
-    /// From `c:` and `fav:` tags (a favorite row is its connection).
+    /// From `e:` and `fav:` tags (a favorite row is its entry).
+    pub entry_ids: Vec<String>,
+    /// From `c:` tags.
     pub connection_ids: Vec<String>,
     /// From `f:` tags.
     pub folder_ids: Vec<String>,
@@ -370,38 +371,44 @@ pub struct SidebarItems {
     pub credential_ids: Vec<String>,
 }
 
-/// Sorts tags into connection, folder and credential ids. Split and unknown tags are ignored.
+/// Sorts tags into entry, connection, folder and credential ids. Split and unknown tags are ignored.
 #[must_use]
 pub fn sidebar_items<S: AsRef<str>>(tags: &[S]) -> SidebarItems {
     let mut items = SidebarItems::default();
     for tag in tags {
         match SidebarTag::parse(tag.as_ref()) {
             Some(SidebarTag::Folder(id)) => items.folder_ids.push(id),
-            Some(SidebarTag::Connection(id) | SidebarTag::Favorite(id)) => items.connection_ids.push(id),
+            Some(SidebarTag::Entry(id) | SidebarTag::Favorite(id)) => items.entry_ids.push(id),
+            Some(SidebarTag::Connection(id)) => items.connection_ids.push(id),
             Some(SidebarTag::Credential(id)) => items.credential_ids.push(id),
             Some(SidebarTag::Split(_)) | None => {}
         }
     }
+    unique(&mut items.entry_ids);
     unique(&mut items.connection_ids);
     unique(&mut items.folder_ids);
     unique(&mut items.credential_ids);
     items
 }
 
-/// What a drop moves: connection and folder ids. Credentials have no place in the tree.
+/// What a drop moves: entries (a connection row stands for its entry) and folders. Credentials have no
+/// place in the tree.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Movable {
-    /// Connections to move.
+    /// Entries to move.
+    pub entry_ids: Vec<String>,
+    /// Connections whose entries move.
     pub connection_ids: Vec<String>,
     /// Folders to move.
     pub folder_ids: Vec<String>,
 }
 
-/// The connections and folders behind dropped tags (see [`sidebar_items`]).
+/// The entries, connections and folders behind dropped tags (see [`sidebar_items`]).
 #[must_use]
 pub fn movable<S: AsRef<str>>(tags: &[S]) -> Movable {
     let items = sidebar_items(tags);
     Movable {
+        entry_ids: items.entry_ids,
         connection_ids: items.connection_ids,
         folder_ids: items.folder_ids,
     }
@@ -436,8 +443,19 @@ mod tests {
     ) -> Connection {
         let mut c = Connection::new(kind, name, host);
         c.id = id.into();
+        c.entry_id = id.into();
         c.folder_id = folder.map(Into::into);
         c
+    }
+
+    /// Gives every connection without an entry its own one.
+    fn with_entries(mut library: Library) -> Library {
+        for connection in &library.connections {
+            if library.entry(&connection.entry_id).is_none() {
+                library.entries.push(Entry::for_connection(connection));
+            }
+        }
+        library
     }
 
     /// `LibraryTreeTests` fixture.
@@ -451,7 +469,7 @@ mod tests {
         c4.is_favorite = true;
         let mut c5 = connection("5", Some("prod"), ConnectionType::Rdp, "dc01", "dc");
         c5.notes = "domain controller".into();
-        Library {
+        with_entries(Library {
             folders: vec![
                 folder("arch", None, "Archive", 1),
                 folder("web", Some("prod"), "Web", 0),
@@ -459,7 +477,7 @@ mod tests {
             ],
             connections: vec![c1, c2, c3, c4, c5],
             ..Library::default()
-        }
+        })
     }
 
     fn tags(nodes: &[TreeNode<'_>]) -> Vec<String> {
@@ -470,35 +488,56 @@ mod tests {
         connections.iter().map(|c| c.id.clone()).collect()
     }
 
+    fn entry_ids(entries: &[&Entry]) -> Vec<String> {
+        entries.iter().map(|e| e.id.clone()).collect()
+    }
+
     #[test]
     fn builds_nested_tree_folders_first() {
         let library = library();
         let tree = build(&library);
-        assert_eq!(tags(&tree), ["f:prod", "f:arch", "c:3", "c:4"]);
+        assert_eq!(tags(&tree), ["f:prod", "f:arch", "e:3", "e:4"]);
 
         let prod = tree[0].children().unwrap();
-        assert_eq!(tags(prod), ["f:web", "c:5"]);
-        assert_eq!(tags(prod[0].children().unwrap()), ["c:2", "c:1"]);
+        assert_eq!(tags(prod), ["f:web", "e:5"]);
+        assert_eq!(tags(prod[0].children().unwrap()), ["e:2", "e:1"]);
         assert_eq!(tree[1].children(), Some(&[][..]));
         assert_eq!(tree[2].children(), None);
     }
 
     #[test]
     fn tree_connections_use_natural_order() {
-        let library = Library {
+        let library = with_entries(Library {
             connections: vec![
                 connection("a", None, ConnectionType::Ssh, "srv10", "h"),
                 connection("b", None, ConnectionType::Ssh, "srv9", "h"),
                 connection("c", None, ConnectionType::Ssh, "Srv1", "h"),
             ],
             ..Library::default()
-        };
-        assert_eq!(tags(&build(&library)), ["c:c", "c:b", "c:a"]);
+        });
+        assert_eq!(tags(&build(&library)), ["e:c", "e:b", "e:a"]);
+    }
+
+    #[test]
+    fn favorites_list_entries_once() {
+        let mut library = library();
+        let mut entry = Entry::new("box", "box.example.com");
+        entry.id = "E".into();
+        entry.is_favorite = true;
+        for id in ["E1", "E2"] {
+            let mut c = connection(id, None, ConnectionType::Ssh, "box", "box.example.com");
+            c.entry_id = "E".into();
+            entry.overlay(&mut c);
+            library.connections.push(c);
+        }
+        library.entries.push(entry);
+        let ids: Vec<_> = favorites(&library).iter().map(|e| e.id.clone()).collect();
+        assert_eq!(ids, ["E", "4", "1"]);
     }
 
     #[test]
     fn favorites_sorted_by_name() {
-        assert_eq!(ids(&favorites(&library())), ["4", "1"]);
+        assert_eq!(entry_ids(&favorites(&library())), ["4", "1"]);
     }
 
     #[test]
@@ -506,10 +545,13 @@ mod tests {
         let library = library();
         assert!(search(&library, "").is_empty());
         assert!(search(&library, "   ").is_empty());
-        assert_eq!(ids(&search(&library, "WEB")), ["2", "1"]);
-        assert_eq!(ids(&search(&library, "prod web01")), ["2"]);
-        assert_eq!(ids(&search(&library, "bob")), ["3"]);
-        assert_eq!(ids(&search(&library, "controller")), ["5"]);
+        assert_eq!(entry_ids(&search(&library, "WEB")), ["2", "1"]);
+        assert_eq!(entry_ids(&search(&library, "prod web01")), ["2"]);
+        assert_eq!(entry_ids(&search(&library, "bob")), ["3"]);
+        assert_eq!(entry_ids(&search(&library, "controller")), ["5"]);
+        let mut labelled = library.clone();
+        labelled.connections[2].label = "Console".into();
+        assert_eq!(entry_ids(&search(&labelled, "laptop console")), ["3"]);
         assert!(search(&library, "nomatch").is_empty());
     }
 
@@ -620,10 +662,11 @@ mod tests {
 
     #[test]
     fn tags_parse_and_format() {
-        for raw in ["f:1", "c:2", "fav:3", "k:4", "s:5"] {
+        for raw in ["f:1", "e:6", "c:2", "fav:3", "k:4", "s:5"] {
             assert_eq!(SidebarTag::parse(raw).unwrap().to_string(), raw);
         }
         assert_eq!(SidebarTag::parse("fav:9"), Some(SidebarTag::Favorite("9".into())));
+        assert_eq!(SidebarTag::parse("e:9"), Some(SidebarTag::Entry("9".into())));
         assert_eq!(SidebarTag::parse("f:9").unwrap().id(), "9");
         assert_eq!(SidebarTag::parse("junk"), None);
         assert_eq!(SidebarTag::parse("x:3"), None);
@@ -648,15 +691,17 @@ mod tests {
 
     #[test]
     fn movable_maps_favorites_and_ignores_credentials() {
-        let items = movable(&["c:1", "fav:1", "fav:2", "f:9", "k:5", "f:9", "junk"]);
-        assert_eq!(items.connection_ids, ["1", "2"]);
+        let items = movable(&["e:1", "fav:1", "fav:2", "c:7", "f:9", "k:5", "f:9", "junk"]);
+        assert_eq!(items.entry_ids, ["1", "2"]);
+        assert_eq!(items.connection_ids, ["7"]);
         assert_eq!(items.folder_ids, ["9"]);
     }
 
     #[test]
     fn items_include_credentials() {
-        let items = sidebar_items(&["k:5", "c:1", "fav:1", "f:9", "k:5", "x:3", "s:4"]);
+        let items = sidebar_items(&["k:5", "c:1", "fav:1", "e:2", "f:9", "k:5", "x:3", "s:4"]);
         assert_eq!(items.connection_ids, ["1"]);
+        assert_eq!(items.entry_ids, ["1", "2"]);
         assert_eq!(items.folder_ids, ["9"]);
         assert_eq!(items.credential_ids, ["5"]);
     }

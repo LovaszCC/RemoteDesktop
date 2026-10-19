@@ -114,7 +114,7 @@
       }
       case 'ArrowLeft':
       case 'ArrowRight': {
-        if (row?.kind !== 'folder') return;
+        if (row?.kind !== 'folder' && !(row?.kind === 'entry' && row.hasChildren)) return;
         const open = event.key === 'ArrowRight';
         if (row.expanded !== open) void actions.setExpanded(row.id, open);
         break;
@@ -288,13 +288,16 @@
           <h3 class="header">{t(section.title)}</h3>
         {/if}
         {#each section.rows as row (row.tag)}
-          {@const connection = row.kind === 'connection' ? store.connection(row.id) : undefined}
+          {@const entry = row.kind === 'entry' ? store.entry(row.id) : undefined}
+          {@const connection = store.connectionForTag(row.tag)}
+          {@const connections = entry ? store.connectionsOf(entry.id) : connection ? [connection] : []}
           {@const split = row.kind === 'split' ? store.split(row.id) : undefined}
           <SidebarRowView
             {row}
+            {entry}
             {connection}
-            forwardRunning={connection?.type === 'ssh' && forwards.hasRunning(connection.id)}
-            sessionOpen={connection !== undefined && connectionTabs.isLive(connection.id)}
+            forwardRunning={connections.some((c) => c.type === 'ssh' && forwards.hasRunning(c.id))}
+            sessionOpen={connections.some((c) => connectionTabs.isLive(c.id))}
             folder={row.kind === 'folder' ? store.folder(row.id) : undefined}
             credential={row.kind === 'credential' ? store.credential(row.id) : undefined}
             {split}
@@ -305,7 +308,9 @@
             onpointer={(e) => click(row, e)}
             onactivate={() => activate(row.tag)}
             onmenu={(e) => openMenu(e, row.tag)}
-            ontoggle={row.kind === 'folder' ? () => void actions.setExpanded(row.id) : undefined}
+            ontoggle={row.kind === 'folder' || row.kind === 'entry'
+              ? () => void actions.setExpanded(row.id)
+              : undefined}
             ondragstart={(e) => dragStart(row, e)}
             ondragover={(e) => dragOver(row, e)}
             ondragleave={(e) => dragLeave(row.tag, e)}

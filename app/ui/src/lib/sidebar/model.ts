@@ -4,11 +4,12 @@
 
 import { t, tn } from '../i18n/index.svelte';
 import { unique } from '../collections';
-import { parseTag } from '../stores/library.svelte';
+import { connectionOfTag, isEntryKind, parseTag } from '../stores/library.svelte';
 import type {
   Platform,
   ConnectionDto,
   ConnectionType,
+  EntryDto,
   FolderDto,
   LabelColor,
   LibraryDto,
@@ -19,7 +20,18 @@ import type {
 export type SectionId = 'results' | 'favorites' | 'splits' | 'connections' | 'credentials';
 
 export type SidebarRow =
-  | { kind: 'connection'; tag: string; id: string; depth: number; subtitle: string | null }
+  /** An entry (`e:` in the tree and results, `fav:` under Favorites); 2+ connections expand in the tree. */
+  | {
+      kind: 'entry';
+      tag: string;
+      id: string;
+      depth: number;
+      subtitle: string | null;
+      expanded: boolean;
+      hasChildren: boolean;
+    }
+  /** A connection of an expanded entry (`c:`): its display label, the default marked. */
+  | { kind: 'connection'; tag: string; id: string; depth: number; label: string; isDefault: boolean }
   | { kind: 'folder'; tag: string; id: string; depth: number; expanded: boolean; hasChildren: boolean }
   | { kind: 'credential'; tag: string; id: string; depth: 0 }
   | { kind: 'split'; tag: string; id: string; depth: 0 };
@@ -89,11 +101,41 @@ export function splitCaption(names: readonly string[]): string {
   return names.length === 0 ? t('no connections') : names.join(' + ');
 }
 
-function treeRows(nodes: readonly TreeNodeDto[], expanded: ReadonlySet<string>, depth: number): SidebarRow[] {
+/** An entry row; only the tree (`expanded` given) lets an entry with 2+ connections expand. */
+function entryRow(
+  entry: EntryDto,
+  prefix: 'e:' | 'fav:',
+  depth: number,
+  subtitle: string | null,
+  expanded?: ReadonlySet<string>,
+): SidebarRow {
+  const hasChildren = expanded !== undefined && entry.connectionIds.length > 1;
+  return {
+    kind: 'entry',
+    tag: prefix + entry.id,
+    id: entry.id,
+    depth,
+    subtitle,
+    expanded: hasChildren && expanded.has(entry.id),
+    hasChildren,
+  };
+}
+
+function treeRows(
+  nodes: readonly TreeNodeDto[],
+  library: LibraryDto,
+  entries: ReadonlyMap<string, EntryDto>,
+  expanded: ReadonlySet<string>,
+  depth: number,
+): SidebarRow[] {
   const rows: SidebarRow[] = [];
   for (const node of nodes) {
-    if (node.kind === 'connection') {
-      rows.push({ kind: 'connection', tag: `c:${node.id}`, id: node.id, depth, subtitle: null });
+    if (node.kind === 'entry') {
+      const entry = entries.get(node.id);
+      if (!entry) continue;
+      const row = entryRow(entry, 'e:', depth, null, expanded);
+      rows.push(row);
+      if (row.kind === 'entry' && row.expanded) rows.push(...childRows(library, entry, depth + 1));
       continue;
     }
     const open = expanded.has(node.id);
@@ -105,9 +147,27 @@ function treeRows(nodes: readonly TreeNodeDto[], expanded: ReadonlySet<string>, 
       expanded: open,
       hasChildren: node.children.length > 0,
     });
-    if (open) rows.push(...treeRows(node.children, expanded, depth + 1));
+    if (open) rows.push(...treeRows(node.children, library, entries, expanded, depth + 1));
   }
   return rows;
+}
+
+/** The child rows of an expanded entry, in its connection order. */
+function childRows(library: LibraryDto, entry: EntryDto, depth: number): SidebarRow[] {
+  return entry.connectionIds.flatMap((id) => {
+    const connection = library.connections.find((c) => c.id === id);
+    if (!connection) return [];
+    return [
+      {
+        kind: 'connection' as const,
+        tag: `c:${id}`,
+        id,
+        depth,
+        label: connection.displayLabel,
+        isDefault: id === entry.defaultConnectionId,
+      },
+    ];
+  });
 }
 
 const credentialRow = (id: string): SidebarRow => ({ kind: 'credential', tag: `k:${id}`, id, depth: 0 });
@@ -118,26 +178,17 @@ const credentialRow = (id: string): SidebarRow => ({ kind: 'credential', tag: `k
  * collapsed folders hide their children) and "Credentials" (always).
  */
 export function buildSections({ library, query, results, expanded }: SectionInput): SidebarSection[] {
+  const entries = new Map(library.entries.map((e) => [e.id, e]));
+  const rowsOf = (ids: readonly string[], prefix: 'e:' | 'fav:', subtitles: boolean) =>
+    ids.flatMap((id) => {
+      const entry = entries.get(id);
+      return entry ? [entryRow(entry, prefix, 0, subtitles ? entry.folderPath : null)] : [];
+    });
   if (query !== '') {
-    const byId = new Map(library.connections.map((c) => [c.id, c]));
     const hits =
-      query.trim() === ''
-        ? { connections: [], credentials: [] }
-        : (results ?? { connections: [], credentials: [] });
+      query.trim() === '' ? { entries: [], credentials: [] } : (results ?? { entries: [], credentials: [] });
     const sections: SidebarSection[] = [
-      {
-        id: 'results',
-        title: 'Results',
-        rows: hits.connections
-          .filter((id) => byId.has(id))
-          .map((id) => ({
-            kind: 'connection',
-            tag: `c:${id}`,
-            id,
-            depth: 0,
-            subtitle: byId.get(id)!.folderPath,
-          })),
-      },
+      { id: 'results', title: 'Results', rows: rowsOf(hits.entries, 'e:', true) },
     ];
     if (hits.credentials.length > 0) {
       sections.push({ id: 'credentials', title: 'Credentials', rows: hits.credentials.map(credentialRow) });
@@ -146,17 +197,7 @@ export function buildSections({ library, query, results, expanded }: SectionInpu
   }
   const sections: SidebarSection[] = [];
   if (library.favorites.length > 0) {
-    sections.push({
-      id: 'favorites',
-      title: 'Favorites',
-      rows: library.favorites.map((id) => ({
-        kind: 'connection',
-        tag: `fav:${id}`,
-        id,
-        depth: 0,
-        subtitle: null,
-      })),
-    });
+    sections.push({ id: 'favorites', title: 'Favorites', rows: rowsOf(library.favorites, 'fav:', false) });
   }
   if (library.savedSplits.length > 0) {
     sections.push({
@@ -165,7 +206,11 @@ export function buildSections({ library, query, results, expanded }: SectionInpu
       rows: library.savedSplits.map((s) => ({ kind: 'split', tag: `s:${s.id}`, id: s.id, depth: 0 })),
     });
   }
-  sections.push({ id: 'connections', title: 'Connections', rows: treeRows(library.tree, expanded, 0) });
+  sections.push({
+    id: 'connections',
+    title: 'Connections',
+    rows: treeRows(library.tree, library, entries, expanded, 0),
+  });
   sections.push({
     id: 'credentials',
     title: 'Credentials',
@@ -184,7 +229,7 @@ export function isLibraryEmpty(library: LibraryDto, query: string): boolean {
   return (
     query === '' &&
     library.folders.length === 0 &&
-    library.connections.length === 0 &&
+    library.entries.length === 0 &&
     library.credentials.length === 0
   );
 }
@@ -201,7 +246,7 @@ export function stepSelection(
   return order[Math.min(order.length - 1, Math.max(0, at + delta))] ?? null;
 }
 
-/** Expanded folder ids as the `expandedFolders` setting stores them: sorted. */
+/** Expanded folder and entry ids as the `expandedFolders` setting stores them: sorted. */
 export function toggledExpansion(expanded: ReadonlySet<string>, folderId: string, open?: boolean): string[] {
   const next = new Set(expanded);
   const shouldOpen = open ?? !next.has(folderId);
@@ -228,9 +273,9 @@ export function payloadTags(payload: string): string[] {
   return payload.split('\n').filter((tag) => tag !== '');
 }
 
-/** Which rows can be dragged into folders: folders and connections (tree, favourites, results). */
+/** Which rows can be dragged into folders: folders and entries (tree, favourites, results). */
 export function isDraggable(row: SidebarRow): boolean {
-  return row.kind === 'folder' || row.kind === 'connection';
+  return row.kind === 'folder' || row.kind === 'entry';
 }
 
 /** The saved split ids after moving `moved` before (or after) `target`. */
@@ -248,8 +293,9 @@ export function reorderedIds(
 
 // Selection helpers
 
-/** The ids behind tags, de-duplicated; a favourite row is its connection (Swift `SidebarDrag.items`). */
+/** The ids behind tags, de-duplicated; a favourite row is its entry (Swift `SidebarDrag.items`). */
 export function tagItems(tags: readonly string[]) {
+  const entries: string[] = [];
   const connections: string[] = [];
   const folders: string[] = [];
   const credentials: string[] = [];
@@ -257,12 +303,14 @@ export function tagItems(tags: readonly string[]) {
   for (const tag of tags) {
     const parsed = parseTag(tag);
     if (!parsed) continue;
-    if (parsed.kind === 'connection' || parsed.kind === 'favorite') connections.push(parsed.id);
+    if (isEntryKind(parsed.kind)) entries.push(parsed.id);
+    else if (parsed.kind === 'connection') connections.push(parsed.id);
     else if (parsed.kind === 'folder') folders.push(parsed.id);
     else if (parsed.kind === 'credential') credentials.push(parsed.id);
     else splits.push(parsed.id);
   }
   return {
+    entryIds: unique(entries),
     connectionIds: unique(connections),
     folderIds: unique(folders),
     credentialIds: unique(credentials),
@@ -276,10 +324,26 @@ export function menuTags(clicked: string | null, selection: readonly string[]): 
   return selection.includes(clicked) ? [...selection] : [clicked];
 }
 
-/** The SSH-capable connections of `tags` in library order (Swift `sshConnections(forTags:)`). */
+/**
+ * The SSH-capable connections of `tags` in library order (Swift `sshConnections(forTags:)`): a child row's
+ * own, an entry's default when it uses SSH, else the entry's first that does.
+ */
 export function sshConnections(library: LibraryDto, tags: readonly string[]): ConnectionDto[] {
-  const ids = new Set(tagItems(tags).connectionIds);
-  return library.connections.filter((c) => ids.has(c.id) && usesSSH(c.type));
+  const byId = new Map(library.connections.map((c) => [c.id, c]));
+  const ids = new Set<string>();
+  for (const tag of tags) {
+    const parsed = parseTag(tag);
+    if (parsed?.kind === 'connection') {
+      if (byId.get(parsed.id) && usesSSH(byId.get(parsed.id)!.type)) ids.add(parsed.id);
+    } else if (isEntryKind(parsed?.kind)) {
+      const entry = library.entries.find((e) => e.id === parsed!.id);
+      if (!entry) continue;
+      const candidates = [entry.defaultConnectionId, ...entry.connectionIds];
+      const id = candidates.find((c) => c !== null && byId.has(c) && usesSSH(byId.get(c)!.type));
+      if (id) ids.add(id);
+    }
+  }
+  return library.connections.filter((c) => ids.has(c.id));
 }
 
 /** `folderId` and every folder below it. */
@@ -299,34 +363,63 @@ export function subtreeFolderIds(folders: readonly FolderDto[], folderId: string
 }
 
 /**
- * The connections a "Linked credential" choice changes: the selected ones plus those in the selected
- * folders' subtrees, without repeats (Swift `Library.connectionIds(forTags:)`).
+ * The connections a "Linked credential" choice changes: the selected ones (an entry's default) plus those
+ * in the selected folders' subtrees, without repeats (Swift `Library.connectionIds(forTags:)`).
  */
 export function connectionIdsForTags(library: LibraryDto, tags: readonly string[]): string[] {
   const items = tagItems(tags);
   const folders = new Set<string>();
   for (const id of items.folderIds) for (const f of subtreeFolderIds(library.folders, id)) folders.add(f);
   const inFolders = library.connections.filter((c) => c.folderId && folders.has(c.folderId)).map((c) => c.id);
-  const known = new Set(library.connections.map((c) => c.id));
-  return unique([...items.connectionIds.filter((id) => known.has(id)), ...inFolders]);
+  const picked = tags.flatMap((tag) => {
+    const parsed = parseTag(tag);
+    if (parsed?.kind !== 'connection' && !isEntryKind(parsed?.kind)) return [];
+    return connectionOfTag(library, tag)?.id ?? [];
+  });
+  return unique([...picked, ...inFolders]);
 }
 
 // Confirmation texts
 
 export interface DeletionCounts {
+  /** The selected rows deleted (an entry row counts once). */
+  items: number;
+  /** The connections deleted, every connection of a deleted entry included. */
   connections: number;
   folders: number;
   credentials: number;
 }
 
-/** The items a bulk delete removes (saved splits are not part of it, as in Swift). */
-export function deletionCounts(tags: readonly string[]): DeletionCounts & { tags: string[] } {
+/**
+ * The items a bulk delete removes (saved splits are not part of it, as in Swift): an entry row deletes
+ * the entry with all its connections, a child row only that connection.
+ */
+export function deletionCounts(
+  tags: readonly string[],
+  library: Pick<LibraryDto, 'entries' | 'connections'>,
+): DeletionCounts & { tags: string[] } {
   const items = tagItems(tags);
+  const entryIds = new Set(items.entryIds);
+  const ofEntries = items.entryIds.reduce(
+    (sum, id) => sum + Math.max(library.entries.find((e) => e.id === id)?.connectionIds.length ?? 1, 1),
+    0,
+  );
+  // A child row of an entry that is deleted anyway is already counted.
+  const children = items.connectionIds.filter((id) => {
+    const entryId = library.connections.find((c) => c.id === id)?.entryId;
+    return entryId === undefined || !entryIds.has(entryId);
+  });
   return {
-    connections: items.connectionIds.length,
+    items:
+      items.entryIds.length +
+      items.connectionIds.length +
+      items.folderIds.length +
+      items.credentialIds.length,
+    connections: ofEntries + children.length,
     folders: items.folderIds.length,
     credentials: items.credentialIds.length,
     tags: [
+      ...items.entryIds.map((id) => `e:${id}`),
       ...items.connectionIds.map((id) => `c:${id}`),
       ...items.folderIds.map((id) => `f:${id}`),
       ...items.credentialIds.map((id) => `k:${id}`),
@@ -335,7 +428,7 @@ export function deletionCounts(tags: readonly string[]): DeletionCounts & { tags
 }
 
 export function bulkDeleteTitle(counts: DeletionCounts): string {
-  return t('Delete %lld items?', counts.connections + counts.folders + counts.credentials);
+  return t('Delete %lld items?', counts.items);
 }
 
 /** The bulk delete message, one line per fact (Swift `bulkDeletionMessage`). */

@@ -45,6 +45,7 @@ tauri-plugin-single-instance.workspace = true
 
 [dev-dependencies]
 plist.workspace = true
+rusqlite.workspace = true
 tempfile.workspace = true
 
 [lints]

@@ -15,7 +15,7 @@ use super::forwards::Paths;
 use super::ssh_keys::{
     KeyOwner, generate_key_pair, install_command, key_comment, key_file_stem, key_owner, validate_public_key,
 };
-use super::tests::Env;
+use super::tests::{Env, entry_draft, save_single};
 use super::*;
 
 fn public_line(comment: &str) -> String {
@@ -181,10 +181,8 @@ fn closed_port() -> u16 {
         .port()
 }
 
-fn ssh_draft(name: &str, host: &str, port: u16) -> ConnectionDraft {
-    let mut draft = ConnectionDraft::new(ConnectionType::Ssh, None);
-    draft.name = name.into();
-    draft.host = host.into();
+fn ssh_draft(port: u16) -> ConnectionDraft {
+    let mut draft = ConnectionDraft::new(ConnectionType::Ssh);
     draft.port = port.to_string();
     draft.username = "tester".into();
     draft
@@ -211,10 +209,16 @@ fn refusals() {
     core.create_vault("master", true).unwrap();
     assert_eq!(setup(&core, "missing").unwrap_err().code, "notFound");
     let rdp = {
-        let mut draft = ConnectionDraft::new(ConnectionType::Rdp, None);
-        draft.name = "dc".into();
-        draft.host = "dc.example.com".into();
-        core.save_connection(None, &draft, None, None).unwrap()
+        let draft = ConnectionDraft::new(ConnectionType::Rdp);
+        save_single(
+            &core,
+            None,
+            &entry_draft("dc", "dc.example.com"),
+            draft,
+            None,
+            None,
+        )
+        .unwrap()
     };
     assert_eq!(setup(&core, &rdp).unwrap_err().code, "notSsh");
     // An unknown request id is not a key setup prompt.
@@ -230,9 +234,8 @@ fn a_missing_key_is_generated_and_saved_on_its_owner() {
     let port = closed_port();
 
     // Own login: the connection gets the key, even though the upload then fails.
-    let own = core
-        .save_connection(None, &ssh_draft("Web 1", "127.0.0.1", port), Some("pw"), None)
-        .unwrap();
+    let web1 = entry_draft("Web 1", "127.0.0.1");
+    let own = save_single(&core, None, &web1, ssh_draft(port), Some("pw"), None).unwrap();
     assert_eq!(setup(&core, &own).unwrap_err().code, "connectFailed");
     let library = core.library();
     let saved = library.connections.iter().find(|c| c.id == own).unwrap();
@@ -256,9 +259,7 @@ fn a_missing_key_is_generated_and_saved_on_its_owner() {
             None,
         )
         .unwrap();
-    let linked = core
-        .save_connection(None, &ssh_draft("Web 1", "127.0.0.1", port), None, None)
-        .unwrap();
+    let linked = save_single(&core, None, &web1, ssh_draft(port), None, None).unwrap();
     core.set_credential(Some(&credential), &[], std::slice::from_ref(&linked))
         .unwrap();
     assert_eq!(setup(&core, &linked).unwrap_err().code, "connectFailed");
@@ -278,9 +279,10 @@ fn an_unreadable_key_and_read_only_mode() {
     let core = env.unlocked();
     let home = tempfile::tempdir().unwrap();
     use_home(&core, home.path());
-    let mut draft = ssh_draft("gw", "127.0.0.1", closed_port());
+    let gw = entry_draft("gw", "127.0.0.1");
+    let mut draft = ssh_draft(closed_port());
     draft.ssh_key_path = "~/.ssh/missing".into();
-    let id = core.save_connection(None, &draft, None, None).unwrap();
+    let id = save_single(&core, None, &gw, draft.clone(), None, None).unwrap();
     let error = setup(&core, &id).unwrap_err();
     assert_eq!(error.code, "cannotReadKey");
     assert!(error.detail.unwrap().ends_with("missing"));
@@ -290,7 +292,7 @@ fn an_unreadable_key_and_read_only_mode() {
     std::fs::create_dir_all(home.path().join(".ssh")).unwrap();
     super::ssh_unlock::tests::write_encrypted_key(&key_path, "secret");
     draft.ssh_key_path = "~/.ssh/enc".into();
-    core.save_connection(Some(&id), &draft, None, None).unwrap();
+    save_single(&core, Some(&id), &gw, draft, None, None).unwrap();
     assert_eq!(setup(&core, &id).unwrap_err().code, "connectFailed");
 
     // A broken `.pub` is refused before connecting.
@@ -342,14 +344,16 @@ fn lab_sshd_key_setup() {
         // Known now: no more prompts.
         assert!(receiver.recv_timeout(Duration::from_secs(2)).is_err());
     });
-    let id = core
-        .save_connection(
-            None,
-            &ssh_draft("lab key", host, port.parse().unwrap()),
-            Some("tester-pass"),
-            None,
-        )
-        .unwrap();
+    let lab = entry_draft("lab key", host);
+    let id = save_single(
+        &core,
+        None,
+        &lab,
+        ssh_draft(port.parse().unwrap()),
+        Some("tester-pass"),
+        None,
+    )
+    .unwrap();
     let first = setup(&core, &id).unwrap();
     assert_eq!(first.host, host);
     assert_eq!(first.key_path, "~/.ssh/rdnext_lab_key_ed25519");
@@ -357,9 +361,9 @@ fn lab_sshd_key_setup() {
     assert!(first.verified);
 
     // The password is no longer needed.
-    let mut draft = ssh_draft("lab key", host, port.parse().unwrap());
+    let mut draft = ssh_draft(port.parse().unwrap());
     draft.ssh_key_path = first.key_path.clone();
-    core.save_connection(Some(&id), &draft, Some(""), None).unwrap();
+    save_single(&core, Some(&id), &lab, draft, Some(""), None).unwrap();
     let second = setup(&core, &id).unwrap();
     assert!(!second.generated);
     assert!(second.verified);

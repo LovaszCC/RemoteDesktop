@@ -1,10 +1,10 @@
 <script lang="ts">
   import MousePointerClick from '@lucide/svelte/icons/mouse-pointer-click';
   import { t } from '../i18n/index.svelte';
-  import { parseTag } from '../stores/library.svelte';
-  import ConnectionDetail from './ConnectionDetail.svelte';
+  import { isEntryKind, parseTag } from '../stores/library.svelte';
   import CredentialDetail from './CredentialDetail.svelte';
   import { viewDeps } from './deps';
+  import EntryDetail from './EntryDetail.svelte';
   import FolderDetail from './FolderDetail.svelte';
   import MultiSelectionDetail from './MultiSelectionDetail.svelte';
   import SavedSplitDetail from './SavedSplitDetail.svelte';
@@ -14,9 +14,14 @@
   const store = deps.library;
 
   const parsed = $derived(store.single ? parseTag(store.single) : null);
-  const connection = $derived(
-    parsed?.kind === 'connection' || parsed?.kind === 'favorite' ? store.connection(parsed.id) : undefined,
+  // An entry row and a child row both show the entry; a child row highlights its connection.
+  const selectedConnection = $derived(
+    parsed?.kind === 'connection' ? store.connection(parsed.id) : undefined,
   );
+  const entry = $derived(
+    isEntryKind(parsed?.kind) ? store.entry(parsed?.id) : store.entry(selectedConnection?.entryId),
+  );
+  const connections = $derived(store.connectionsOf(entry?.id));
   const folder = $derived(parsed?.kind === 'folder' ? store.folder(parsed.id) : undefined);
   const credential = $derived(parsed?.kind === 'credential' ? store.credential(parsed.id) : undefined);
   const split = $derived(parsed?.kind === 'split' ? store.split(parsed.id) : undefined);
@@ -24,8 +29,8 @@
 </script>
 
 <div class="detail-view">
-  {#if connection}
-    <ConnectionDetail {connection} />
+  {#if entry && connections.length > 0}
+    <EntryDetail {entry} {connections} selectedId={selectedConnection?.id ?? null} />
   {:else if folder}
     <FolderDetail {folder} />
   {:else if credential}

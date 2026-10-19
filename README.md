@@ -105,11 +105,16 @@ hurts.
 |:-:|---|
 | 🖥️ **RDP** | Opens in a tab inside the app, or in the system's own client (Windows App, Remote Desktop Connection, Remmina). Copy and paste works both ways, files too. |
 | 💻 **SSH** | A terminal tab inside the app, or your favourite terminal app. Your `~/.ssh/config` just works, and saved passwords are filled in for you. |
-| 🌐 **Web** | Opens the admin page in your browser and puts the password on the clipboard, ready to paste. |
+| 🌐 **Web** | Opens the admin page in your browser and puts the password on the clipboard, ready to paste. Scheme, port and path are separate fields, and pasting a whole URL fills them in for you. |
 | 📶 **MikroTik** | Over SSH or straight into WinBox, already logged in. |
 
 And a few things that make everyday work nicer:
 
+- **🧩 One entry per machine.** A server can have several connections under one name: SSH and RDP, the
+  web admin page next to WinBox, or two SSH logins (say `root` and `deploy`), each with its own login or
+  shared credential. Pick one as the default: a double-click or *Connect* opens that one. The details page
+  has a button for each connection plus a *Connect ▾* menu with all of them, and *Merge…* folds entries
+  you made for the same machine into one.
 - **🔑 Shared credentials.** Save a login once and use it on as many connections as you like. Change the
   password in one place and every connection follows.
 - **🗂️ Folders, favourites and search.** Drag and drop to organise, colour folders, and find anything by

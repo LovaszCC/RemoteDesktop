@@ -202,5 +202,37 @@
   "Open tabs": "Open tabs",
   "Update required": "Update required",
   "This database was last used with RemoteDesktop %@. This is version %@: update the app to open it.": "This database was last used with RemoteDesktop %@. This is version %@: update the app to open it.",
-  "Check for updates": "Check for updates"
+  "Check for updates": "Check for updates",
+  "Default connection": "Default connection",
+  "Add connection": "Add connection",
+  "Label": "Label",
+  "Scheme": "Scheme",
+  "Paste a full URL into these fields to fill them.": "Paste a full URL into these fields to fill them.",
+  "The URL is on %@, this entry on %@.": "The URL is on %@, this entry on %@.",
+  "Use %@": "Use %@",
+  "Show as button on Details": "Show as button on Details",
+  "Set as default": "Set as default",
+  "Remove this connection": "Remove this connection",
+  "Merge…": "Merge…",
+  "Merge into “%@”": "Merge into “%@”",
+  "The connections of the checked entries move into this entry; the emptied entries are deleted.": "The connections of the checked entries move into this entry; the emptied entries are deleted.",
+  "Name, host or folder": "Name, host or folder",
+  "No entries": "No entries",
+  "its connections will use %@": "its connections will use %@",
+  "Merge %lld": "Merge %lld",
+  "Merged — %lld connections moved": {
+    "one": "Merged — %lld connection moved",
+    "other": "Merged — %lld connections moved"
+  },
+  "All connections": "All connections",
+  "An entry needs at least one connection.": "An entry needs at least one connection.",
+  "An entry can't be merged into itself.": "An entry can't be merged into itself.",
+  "Only one connection can be the default.": "Only one connection can be the default.",
+  "This database needs an upgrade, which can't be done while it is open on another computer. Close it there, or update the app there first, then retry.": "This database needs an upgrade, which can't be done while it is open on another computer. Close it there, or update the app there first, then retry.",
+  "Delete “%@” and its %lld connections?": {
+    "one": "Delete “%@” and its %lld connection?",
+    "other": "Delete “%@” and its %lld connections?"
+  },
+  "Edit entry": "Edit entry",
+  "New entry": "New entry"
 }

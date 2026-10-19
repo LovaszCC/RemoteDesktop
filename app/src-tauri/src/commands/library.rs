@@ -1,13 +1,13 @@
 //! Library commands. Every write refuses with `locked` or `readOnly` and emits `library-changed` after
 //! success.
 
-use rd_core::draft::ConnectionDraft;
+use rd_core::draft::EntryDraft;
 use tauri::{AppHandle, State};
 
 use super::{Core, blocking, emit_library};
 use crate::clipboard;
-use crate::core::{AppCore, CommandError, CredentialInput, FolderInput};
-use crate::dto::{DeleteCountsDto, LibraryDto, MoveResultDto, SearchResultDto};
+use crate::core::{AppCore, CommandError, ConnectionSave, CredentialInput, FolderInput};
+use crate::dto::{DeleteCountsDto, LibraryDto, MergeResultDto, MoveResultDto, SearchResultDto};
 
 /// Runs a write on the blocking pool, then emits `library-changed`.
 pub(super) async fn write<T: Send + 'static>(
@@ -26,7 +26,7 @@ pub async fn library(core: State<'_, Core>) -> Result<LibraryDto, CommandError> 
     blocking(&core, |c| Ok(c.library())).await
 }
 
-/// Sidebar search: `{connections, credentials}` as ids.
+/// Sidebar search: `{entries, credentials}` as ids.
 #[tauri::command]
 pub async fn search(core: State<'_, Core>, query: String) -> Result<SearchResultDto, CommandError> {
     blocking(&core, move |c| Ok(c.search(&query))).await
@@ -52,21 +52,43 @@ pub async fn matching(
     blocking(&core, move |c| Ok(c.matching(&connection_ids, &query))).await
 }
 
-/// Saves the connection editor; `password`/`passphrase`: `null` keeps, `""` clears, a value sets. Returns
-/// the id.
+/// Saves the entry editor: the shared fields and exactly `connections` in their order (each with
+/// `password`/`passphrase`: `null` keeps, `""` clears, a value sets). Returns the entry id.
 #[tauri::command]
-pub async fn save_connection(
+pub async fn save_entry(
     app: AppHandle,
     core: State<'_, Core>,
     id: Option<String>,
-    draft: ConnectionDraft,
-    password: Option<String>,
-    passphrase: Option<String>,
+    entry: EntryDraft,
+    connections: Vec<ConnectionSave>,
 ) -> Result<String, CommandError> {
     write(&app, &core, move |c| {
-        c.save_connection(id.as_deref(), &draft, password.as_deref(), passphrase.as_deref())
+        c.save_entry(id.as_deref(), &entry, &connections)
     })
     .await
+}
+
+/// Merges the `sources` entries into `target`; returns `{movedConnections}`.
+#[tauri::command]
+pub async fn merge_entries(
+    app: AppHandle,
+    core: State<'_, Core>,
+    target: String,
+    sources: Vec<String>,
+) -> Result<MergeResultDto, CommandError> {
+    write(&app, &core, move |c| c.merge_entries(&target, &sources)).await
+}
+
+/// Duplicates an entry with all its connections and the localized `copySuffix` (" (copy)"); returns the
+/// new entry id.
+#[tauri::command]
+pub async fn duplicate_entry(
+    app: AppHandle,
+    core: State<'_, Core>,
+    id: String,
+    copy_suffix: String,
+) -> Result<String, CommandError> {
+    write(&app, &core, move |c| c.duplicate_entry(&id, &copy_suffix)).await
 }
 
 /// Saves the credential editor (same secret rule) and regenerates the unlocked key. Returns the id.
@@ -124,15 +146,15 @@ pub async fn move_items(
     .await
 }
 
-/// Stars or unstars a connection.
+/// Stars or unstars the entry behind `tag` (`e:`, `fav:` or `c:`).
 #[tauri::command]
 pub async fn set_favorite(
     app: AppHandle,
     core: State<'_, Core>,
-    connection_id: String,
+    tag: String,
     is_favorite: bool,
 ) -> Result<(), CommandError> {
-    write(&app, &core, move |c| c.set_favorite(&connection_id, is_favorite)).await
+    write(&app, &core, move |c| c.set_favorite(&tag, is_favorite)).await
 }
 
 /// Links (`credentialId`) or unlinks (`null`) the connections behind `tags` and `connectionIds`; returns
@@ -153,17 +175,6 @@ pub async fn set_credential(
         )
     })
     .await
-}
-
-/// Duplicates a connection with the localized `copySuffix` (" (copy)"); returns the new id.
-#[tauri::command]
-pub async fn duplicate_connection(
-    app: AppHandle,
-    core: State<'_, Core>,
-    id: String,
-    copy_suffix: String,
-) -> Result<String, CommandError> {
-    write(&app, &core, move |c| c.duplicate_connection(&id, &copy_suffix)).await
 }
 
 /// Saves a new split (or replaces one with `id`) from up to four connections; returns the id.

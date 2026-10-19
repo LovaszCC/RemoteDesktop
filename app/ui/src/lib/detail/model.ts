@@ -1,11 +1,14 @@
 // The detail views' pure logic (Swift `DetailView.swift`): the connection subtitle, the field grids with
-// "—" for empty values, the port forward lines, and the "Used by" / link sheet checkbox sets.
+// "—" for empty values, the port forward lines, the "Used by" / link sheet checkbox sets, and the entry
+// buttons, Connect menu and merge rows.
 
+import type { MenuItem } from '../components/menu.svelte';
 import { t } from '../i18n/index.svelte';
 import { terminalName, typeName, usesSSH } from '../sidebar/model';
 import type {
   ConnectionDto,
   CredentialDto,
+  EntryDto,
   LibraryDto,
   MikrotikMode,
   Platform,
@@ -179,6 +182,62 @@ export function setPicked(picked: ReadonlySet<string>, id: string, on: boolean):
 /** What "Unlink n" acts on: the picks that still use the credential. */
 export function pickedAmong(picked: ReadonlySet<string>, ids: readonly string[]): string[] {
   return ids.filter((id) => picked.has(id));
+}
+
+// Entries (the Details page and the merge sheet)
+
+export interface EntryButton {
+  connection: ConnectionDto;
+  /** The default connection's button (accent). */
+  primary: boolean;
+}
+
+/**
+ * The per-connection buttons of the Details page: the connections shown as buttons, the default first
+ * and primary. A single connection is always its entry's primary button (the page looks like before).
+ */
+export function entryButtons(entry: EntryDto, connections: readonly ConnectionDto[]): EntryButton[] {
+  if (connections.length === 1) return [{ connection: connections[0]!, primary: true }];
+  const pinned = connections.filter((c) => c.showAsButton);
+  const defaultButton = pinned.find((c) => c.id === entry.defaultConnectionId);
+  return [
+    ...(defaultButton ? [{ connection: defaultButton, primary: true }] : []),
+    ...pinned.filter((c) => c !== defaultButton).map((connection) => ({ connection, primary: false })),
+  ];
+}
+
+/** "Connect ▾" (Details and the sidebar's Connect ▸): every connection, the default checked. */
+export function connectMenuItems(
+  connections: readonly ConnectionDto[],
+  defaultConnectionId: string | null,
+  connect: (connection: ConnectionDto) => void,
+): MenuItem[] {
+  return connections.map((connection) => ({
+    label: connection.displayLabel,
+    checked: connection.id === defaultConnectionId,
+    action: () => connect(connection),
+  }));
+}
+
+export interface MergeCandidate {
+  entry: EntryDto;
+  /** Its connections would take the target's host (the merge notes the replaced one). */
+  hostDiffers: boolean;
+}
+
+/** The merge sheet's rows: the other entries by name, matching `query` in name, host or folder. */
+export function mergeCandidates(library: LibraryDto, targetId: string, query: string): MergeCandidate[] {
+  const target = library.entries.find((e) => e.id === targetId);
+  if (!target) return [];
+  const needle = query.trim().toLowerCase();
+  const host = target.host.toLowerCase();
+  return library.entries
+    .filter((e) => e.id !== targetId)
+    .filter(
+      (e) => !needle || [e.name, e.host, e.folderPath].some((value) => value.toLowerCase().includes(needle)),
+    )
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+    .map((entry) => ({ entry, hostDiffers: entry.host.toLowerCase() !== host }));
 }
 
 /** No row picked. */

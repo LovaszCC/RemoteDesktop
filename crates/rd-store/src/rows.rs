@@ -2,14 +2,18 @@
 
 use std::str::FromStr;
 
-use rd_core::{Connection, Credential, Folder, PortForward, SavedSplit, Sealed, Timestamp};
+use rd_core::{Connection, Credential, Entry, Folder, PortForward, SavedSplit, Sealed, Timestamp};
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSqlOutput, ValueRef};
 use rusqlite::{Row, ToSql};
 
 /// Column list for `SELECT`/`INSERT` on `connection`, in [`connection_from_row`] order.
 pub(crate) const CONNECTION_COLUMNS: &str = "id, folderId, credentialId, type, name, host, port, username, \
     domain, passwordEnc, sshKeyPath, sshKeyPassphraseEnc, isFavorite, rdpAdminSession, browserBundleId, \
-    mikrotikMode, sshTerminal, rdpClient, color, notes, createdAt, updatedAt";
+    mikrotikMode, sshTerminal, rdpClient, color, notes, createdAt, updatedAt, entryId, label, showAsButton, \
+    sortOrder, webScheme, webPath";
+/// Column list for `SELECT`/`INSERT` on `entry`, in [`entry_from_row`] order.
+pub(crate) const ENTRY_COLUMNS: &str =
+    "id, folderId, name, host, notes, color, isFavorite, defaultConnectionId, createdAt, updatedAt";
 pub(crate) const CREDENTIAL_COLUMNS: &str = "id, name, username, domain, passwordEnc, sshKeyPath, \
     sshKeyPassphraseEnc, sshKeyUnlockedEnc, notes, createdAt, updatedAt";
 pub(crate) const FOLDER_COLUMNS: &str = "id, parentId, name, sortOrder, color";
@@ -65,8 +69,11 @@ fn port(row: &Row<'_>, index: usize) -> rusqlite::Result<u16> {
 }
 
 pub(crate) fn connection_from_row(row: &Row<'_>) -> rusqlite::Result<Connection> {
+    let id: String = row.get(0)?;
     Ok(Connection {
-        id: row.get(0)?,
+        // A row written without an entry (by an older build) stands for its own entry.
+        entry_id: row.get::<_, Option<String>>(22)?.unwrap_or_else(|| id.clone()),
+        id,
         folder_id: row.get(1)?,
         credential_id: row.get(2)?,
         kind: text(row, 3)?,
@@ -91,6 +98,26 @@ pub(crate) fn connection_from_row(row: &Row<'_>) -> rusqlite::Result<Connection>
         notes: row.get(19)?,
         created_at: timestamp(row, 20)?,
         updated_at: timestamp(row, 21)?,
+        label: row.get(23)?,
+        show_as_button: row.get(24)?,
+        sort_order: row.get(25)?,
+        web_scheme: row.get(26)?,
+        web_path: row.get(27)?,
+    })
+}
+
+pub(crate) fn entry_from_row(row: &Row<'_>) -> rusqlite::Result<Entry> {
+    Ok(Entry {
+        id: row.get(0)?,
+        folder_id: row.get(1)?,
+        name: row.get(2)?,
+        host: row.get(3)?,
+        notes: row.get(4)?,
+        color: opt_text(row, 5)?,
+        is_favorite: row.get(6)?,
+        default_connection_id: row.get(7)?,
+        created_at: timestamp(row, 8)?,
+        updated_at: timestamp(row, 9)?,
     })
 }
 

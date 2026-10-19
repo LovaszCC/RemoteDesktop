@@ -11,7 +11,7 @@ use rd_core::draft::ConnectionDraft;
 use rd_ssh::files::{ConflictChoice, Direction, ItemStatus, RemoteMode};
 
 use super::forwards::Paths;
-use super::tests::Env;
+use super::tests::{Env, entry_draft, save_single};
 use super::*;
 
 struct Notices {
@@ -52,12 +52,10 @@ fn hook(core: &AppCore) -> Notices {
 }
 
 fn connection(core: &AppCore, kind: ConnectionType, host: &str, port: u16, password: &str) -> String {
-    let mut draft = ConnectionDraft::new(kind, None);
-    draft.name = "lab".into();
-    draft.host = host.into();
+    let mut draft = ConnectionDraft::new(kind);
     draft.port = port.to_string();
     draft.username = "tester".into();
-    core.save_connection(None, &draft, Some(password), None).unwrap()
+    save_single(core, None, &entry_draft("lab", host), draft, Some(password), None).unwrap()
 }
 
 fn closed_port() -> u16 {
@@ -104,10 +102,16 @@ fn refusals_and_unknown_browsers() {
     let env = Env::new();
     let core = env.unlocked();
     let rdp = {
-        let mut draft = ConnectionDraft::new(ConnectionType::Rdp, None);
-        draft.name = "dc".into();
-        draft.host = "dc.example.com".into();
-        core.save_connection(None, &draft, None, None).unwrap()
+        let draft = ConnectionDraft::new(ConnectionType::Rdp);
+        save_single(
+            &core,
+            None,
+            &entry_draft("dc", "dc.example.com"),
+            draft,
+            None,
+            None,
+        )
+        .unwrap()
     };
     assert_eq!(core.files_open(&rdp, None, None).unwrap_err().code, "notSsh");
     assert_eq!(

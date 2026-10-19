@@ -1,21 +1,25 @@
 <script lang="ts">
   import ArrowLeftRight from '@lucide/svelte/icons/arrow-left-right';
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
+  import CircleCheck from '@lucide/svelte/icons/circle-check';
   import Folder from '@lucide/svelte/icons/folder';
   import Grid2x2 from '@lucide/svelte/icons/grid-2x2';
   import Star from '@lucide/svelte/icons/star';
   import UserRoundKey from '@lucide/svelte/icons/user-round-key';
-  import type { ConnectionDto, CredentialDto, FolderDto, SavedSplitDto } from '../types';
+  import type { ConnectionDto, CredentialDto, EntryDto, FolderDto, SavedSplitDto } from '../types';
   import ConnectionIcon from './ConnectionIcon.svelte';
   import { t } from '../i18n/index.svelte';
   import { colorTitle, connectionTooltip, splitCaption, type DropMark, type SidebarRow } from './model';
 
   interface Props {
     row: SidebarRow;
+    /** An entry row's entry. */
+    entry?: EntryDto;
+    /** A child row's connection, or an entry row's default connection (icon and tooltip). */
     connection?: ConnectionDto;
-    /** A port forward of the connection is starting or active: green dot and arrows. */
+    /** A port forward of the connection (an entry: of any of its) is starting or active: green arrows. */
     forwardRunning?: boolean;
-    /** The connection has a live embedded session: green dot. */
+    /** The connection (an entry: any of its) has a live embedded session: green dot. */
     sessionOpen?: boolean;
     folder?: FolderDto;
     credential?: CredentialDto;
@@ -38,6 +42,7 @@
 
   let {
     row,
+    entry,
     connection,
     forwardRunning = false,
     sessionOpen = false,
@@ -63,6 +68,18 @@
     connection ? connectionTooltip(connection) : credential ? credential.displayUser || undefined : undefined,
   );
 </script>
+
+{#snippet indicators()}
+  {#if sessionOpen}
+    <span class="session-dot" title={t('Open session')} aria-label={t('Open session')} role="img"></span>
+  {/if}
+  {#if forwardRunning}
+    <span class="forward" title={t('Port forward active')} aria-label={t('Port forward active')} role="img">
+      <span class="forward-dot"></span>
+      <ArrowLeftRight size={11} strokeWidth={2} />
+    </span>
+  {/if}
+{/snippet}
 
 <div
   class="row"
@@ -114,33 +131,56 @@
       <Folder size={15} strokeWidth={1.75} fill={folder?.color ? 'currentColor' : 'none'} />
     </span>
     <span class="name">{folder?.name ?? ''}</span>
-  {:else if row.kind === 'connection' && connection}
-    <ConnectionIcon type={connection.type} />
+  {:else if row.kind === 'entry' && entry}
+    {#if row.hasChildren}
+      <button
+        type="button"
+        class="disclosure"
+        class:open={row.expanded}
+        tabindex="-1"
+        aria-label={row.expanded ? t('Collapse') : t('Expand')}
+        onclick={(e) => {
+          e.stopPropagation();
+          ontoggle?.();
+        }}
+        ondblclick={(e) => e.stopPropagation()}
+      >
+        <ChevronRight size={12} strokeWidth={2} />
+      </button>
+    {/if}
+    {#if connection}<ConnectionIcon type={connection.type} />{/if}
     <span class="text">
       <span class="title-line">
-        <span class="name">{connection.name}</span>
-        {#if connection.color}
-          <span
-            class="swatch"
-            style:background="var(--label-{connection.color})"
-            title={colorTitle(connection.color)}
+        <span class="name">{entry.name}</span>
+        {#if entry.color}
+          <span class="swatch" style:background="var(--label-{entry.color})" title={colorTitle(entry.color)}
           ></span>
         {/if}
       </span>
       {#if row.subtitle}<span class="subtitle">{row.subtitle}</span>{/if}
     </span>
-    {#if sessionOpen}
-      <span class="session-dot" title={t('Open session')} aria-label={t('Open session')} role="img"></span>
-    {/if}
-    {#if forwardRunning}
-      <span class="forward" title={t('Port forward active')} aria-label={t('Port forward active')} role="img">
-        <span class="forward-dot"></span>
-        <ArrowLeftRight size={11} strokeWidth={2} />
-      </span>
-    {/if}
-    {#if connection.isFavorite}
+    {@render indicators()}
+    {#if entry.isFavorite}
       <span class="star"><Star size={10} fill="currentColor" strokeWidth={0} /></span>
     {/if}
+  {:else if row.kind === 'connection' && connection}
+    <ConnectionIcon type={connection.type} />
+    <span class="text">
+      <span class="title-line">
+        <span class="name">{row.label}</span>
+        {#if row.isDefault}
+          <span
+            class="default"
+            title={t('Default connection')}
+            aria-label={t('Default connection')}
+            role="img"
+          >
+            <CircleCheck size={11} strokeWidth={2} />
+          </span>
+        {/if}
+      </span>
+    </span>
+    {@render indicators()}
   {:else if row.kind === 'credential' && credential}
     <span class="icon credential-icon"><UserRoundKey size={15} strokeWidth={1.75} /></span>
     <span class="name">{credential.name}</span>
@@ -186,6 +226,7 @@
     color: rgba(255, 255, 255, 0.8);
   }
   :global(.sidebar-list:focus-within) .row.selected .icon,
+  :global(.sidebar-list:focus-within) .row.selected .default,
   :global(.sidebar-list:focus-within) .row.selected :global(.connection-icon) {
     color: #fff;
   }
@@ -297,6 +338,11 @@
     font-size: var(--font-size-small);
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .default {
+    display: inline-flex;
+    flex: none;
+    color: var(--accent);
   }
   .star {
     display: inline-flex;

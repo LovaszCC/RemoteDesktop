@@ -7,17 +7,17 @@ import { createLibraryStore } from '../stores/library.svelte';
 import { createSettingsStore } from '../stores/settings.svelte';
 import { createToastStore } from '../stores/toast.svelte';
 import { fakeBridge } from '../testing/bridge';
-import { settingsDto, sidebarLibrary } from '../testing/fixtures';
+import { multiEntryLibrary, settingsDto, sidebarLibrary } from '../testing/fixtures';
 import type { LaunchOutcomeDto } from '../types';
 import { createSidebarActions } from './actions.svelte';
 
-function setup(replies: Parameters<typeof fakeBridge>[0] = {}) {
+function setup(replies: Parameters<typeof fakeBridge>[0] = {}, data = sidebarLibrary()) {
   const bridge = fakeBridge({
     settings_set: (args?: Record<string, unknown>) => settingsDto(args?.patch as object),
     ...replies,
   });
   const library = createLibraryStore(bridge);
-  library.replace(sidebarLibrary());
+  library.replace(data);
   const deps = {
     api: createApi(bridge.invoke),
     library,
@@ -38,9 +38,9 @@ const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 describe('sidebar actions', () => {
   it('toasts when a folder cycle was refused', async () => {
     const { actions, toast, bridge } = setup({ move_items: { moved: 1, cycleRefused: 1 } });
-    await actions.move(['f:f1', 'c:c1'], 'f2');
+    await actions.move(['f:f1', 'e:c1'], 'f2');
     expect(bridge.invoke).toHaveBeenCalledWith('move_items', {
-      tags: ['f:f1', 'c:c1'],
+      tags: ['f:f1', 'e:c1'],
       targetFolderId: 'f2',
     });
     expect(toast.current?.message).toBe("A folder can't be moved into itself");
@@ -52,7 +52,7 @@ describe('sidebar actions', () => {
         throw { code: 'readOnly', message: 'x', detail: null };
       },
     });
-    await actions.move(['c:c1'], null);
+    await actions.move(['e:c1'], null);
     expect(alerts.current).toBe('The database is open read-only because another computer is using it.');
   });
 
@@ -61,7 +61,7 @@ describe('sidebar actions', () => {
     await actions.setCredential('k1', ['f:f1']);
     expect(toast.current?.message).toBe('Linked credential set — 3 connections');
     toast.clear();
-    await actions.setCredential(null, ['c:c1']);
+    await actions.setCredential(null, ['e:c1']);
     expect(toast.current?.message).toBe('Linked credential removed — 3 connections');
   });
 
@@ -69,19 +69,19 @@ describe('sidebar actions', () => {
     const { actions, dialogs, library, bridge } = setup({
       delete_items: { connections: 1, folders: 1, credentials: 0, splits: 0 },
     });
-    library.setSelection(['c:c1', 'f:f3', 's:s1']);
+    library.setSelection(['e:c1', 'f:f3', 's:s1']);
     const done = actions.deleteItems(library.selection);
     expect(dialogs.current?.title).toBe('Delete 2 items?');
     expect(dialogs.current?.kind === 'confirm' && dialogs.current.destructive).toBe(true);
     dialogs.accept();
     await done;
     expect(library.selection).toEqual([]);
-    expect(bridge.invoke).toHaveBeenCalledWith('delete_items', { tags: ['c:c1', 'f:f3'] });
+    expect(bridge.invoke).toHaveBeenCalledWith('delete_items', { tags: ['e:c1', 'f:f3'] });
   });
 
   it('a cancelled bulk delete deletes nothing', async () => {
     const { actions, dialogs, bridge } = setup();
-    const done = actions.deleteItems(['c:c1']);
+    const done = actions.deleteItems(['e:c1']);
     dialogs.cancel();
     await done;
     expect(bridge.invoke).not.toHaveBeenCalled();
@@ -118,10 +118,60 @@ describe('sidebar actions', () => {
     expect(toast.current?.message).toBe('No saved password');
   });
 
-  it('duplicates with the localised suffix', async () => {
-    const { actions, bridge } = setup({ duplicate_connection: 'new' });
-    await actions.duplicate('c1');
-    expect(bridge.invoke).toHaveBeenCalledWith('duplicate_connection', { id: 'c1', copySuffix: ' (copy)' });
+  it('duplicates the entry with the localised suffix', async () => {
+    const { actions, bridge } = setup({ duplicate_entry: 'new' });
+    await actions.duplicate('e1');
+    expect(bridge.invoke).toHaveBeenCalledWith('duplicate_entry', { id: 'e1', copySuffix: ' (copy)' });
+  });
+
+  it('opens and closes the merge sheet, and merges with a toast', async () => {
+    const { actions, bridge, toast, alerts } = setup({ merge_entries: { movedConnections: 1 } });
+    expect(actions.mergeTarget).toBeNull();
+    actions.merge('e1');
+    expect(actions.mergeTarget).toBe('e1');
+    actions.closeMerge();
+    expect(actions.mergeTarget).toBeNull();
+    await actions.mergeEntries('e1', ['c1']);
+    expect(bridge.invoke).toHaveBeenCalledWith('merge_entries', { target: 'e1', sources: ['c1'] });
+    expect(toast.current?.message).toBe('Merged — 1 connection moved');
+    const failing = setup({
+      merge_entries: () => {
+        throw { code: 'mergeIntoSelf', message: 'x', detail: null };
+      },
+    });
+    await failing.actions.mergeEntries('e1', ['e1']);
+    expect(failing.alerts.current).toBeTruthy();
+    expect(alerts.current).toBeNull();
+  });
+
+  it('stars the entry of a connection', async () => {
+    const { actions, bridge } = setup({ set_favorite: null });
+    await actions.setFavorite('h1', true);
+    expect(bridge.invoke).toHaveBeenCalledWith('set_favorite', { tag: 'c:h1', isFavorite: true });
+  });
+
+  it('primary_action_on_an_entry_connects_its_default', async () => {
+    const data = multiEntryLibrary();
+    data.entries = data.entries.map((e) => (e.id === 'e1' ? { ...e, defaultConnectionId: 'h2' } : e));
+    const { actions, sessions, rdpSessions } = setup({}, data);
+    actions.primaryAction('e:e1');
+    expect(rdpSessions.open).toHaveBeenCalledWith(expect.objectContaining({ id: 'h2' }));
+    actions.primaryAction('c:h1');
+    expect(sessions.open).toHaveBeenCalledWith(expect.objectContaining({ id: 'h1' }));
+  });
+
+  it('expands entries like folders, in the same setting', async () => {
+    const { actions, bridge } = setup({}, multiEntryLibrary());
+    await actions.setExpanded('e1');
+    expect(bridge.invoke).toHaveBeenCalledWith('settings_set', { patch: { expandedFolders: ['e1'] } });
+  });
+
+  it('new items go into the folder of the selected entry or child connection', () => {
+    const { actions, library } = setup();
+    library.select('e:c3');
+    expect(actions.selectedFolderId()).toBe('f2');
+    library.select('fav:c2');
+    expect(actions.selectedFolderId()).toBe('f1');
   });
 
   it('saves a split under the prompted name', async () => {
@@ -215,7 +265,7 @@ describe('sidebar actions', () => {
     expect(toast.current?.message).toBe('Opened: portal · password, then username on the clipboard');
     outcome = { kind: 'launched' };
     toast.clear();
-    actions.primaryAction('c:c5');
+    actions.primaryAction('e:c5');
     await flush();
     expect(toast.current?.message).toBe('Connecting: portal');
   });
@@ -286,19 +336,77 @@ describe('sidebar actions', () => {
 
   it('opens editors in the selected folder', () => {
     const { actions, editor, library } = setup();
-    library.select('c:c3');
+    library.select('e:c3');
     actions.newConnection('rdp');
-    expect(editor.connection).toEqual({ mode: 'new', type: 'rdp', folderId: 'f2' });
+    expect(editor.entry).toEqual({ mode: 'new', type: 'rdp', folderId: 'f2' });
     library.select('f:f1');
     actions.newFolder();
     expect(editor.folder).toEqual({ mode: 'new', parentId: 'f1' });
     library.select('k:k1');
     actions.newFolder();
     expect(editor.folder).toEqual({ mode: 'new', parentId: null });
-    actions.editConnection('c1');
-    expect(editor.connection).toEqual({ mode: 'edit', id: 'c1' });
+    actions.editEntry('c1');
+    expect(editor.entry).toEqual({ mode: 'edit', id: 'c1' });
     actions.renameFolder('f1');
     expect(editor.folder).toEqual({ mode: 'edit', id: 'f1' });
+  });
+
+  it('edits an entry on a connection tab, and opens nothing for an unknown id', () => {
+    const { actions, editor } = setup({}, multiEntryLibrary());
+    actions.editEntry('e1', 'h2');
+    expect(editor.entry).toEqual({ mode: 'edit', id: 'e1', connectionId: 'h2' });
+    // A connection of another entry is not a tab of this one.
+    actions.editEntry('e1', 'c1');
+    expect(editor.entry).toEqual({ mode: 'edit', id: 'e1' });
+    editor.closeEntryEditor();
+    actions.editEntry('gone');
+    actions.editEntry('h2');
+    expect(editor.entry).toBeNull();
+  });
+
+  it('confirms deleting an entry with several connections', async () => {
+    const { actions, dialogs, bridge } = setup(
+      { delete_items: { entries: 1, connections: 2, folders: 0, credentials: 0, splits: 0 } },
+      multiEntryLibrary(),
+    );
+    let done = actions.deleteEntry('e1');
+    expect(dialogs.current?.title).toBe('Delete “Home Server” and its 2 connections?');
+    expect(dialogs.current?.kind === 'confirm' && dialogs.current.destructive).toBe(true);
+    dialogs.cancel();
+    await done;
+    expect(bridge.invoke).not.toHaveBeenCalledWith('delete_items', expect.anything());
+    done = actions.deleteEntry('e1');
+    dialogs.accept();
+    await done;
+    expect(bridge.invoke).toHaveBeenCalledWith('delete_items', { tags: ['e:e1'] });
+    // A one-connection entry goes at once.
+    await actions.deleteEntry('c1');
+    expect(dialogs.current).toBeNull();
+    expect(bridge.invoke).toHaveBeenLastCalledWith('delete_items', { tags: ['e:c1'] });
+  });
+
+  it('counts every connection of an entry in the bulk delete text', async () => {
+    const { actions, dialogs } = setup({ delete_items: null }, multiEntryLibrary());
+    const done = actions.deleteItems(['e:e1', 'c:h2', 'e:c1']);
+    expect(dialogs.current?.title).toBe('Delete 3 items?');
+    expect(dialogs.current?.kind === 'confirm' && dialogs.current.message).toContain(
+      'Connections: 3, folders: 0, credentials: 0.',
+    );
+    dialogs.cancel();
+    await done;
+  });
+
+  it('moves a selected child row to its entry when the entry collapses', async () => {
+    const { actions, library } = setup({}, multiEntryLibrary());
+    await actions.setExpanded('e1', true);
+    library.setSelection(['c:h2', 'e:c1']);
+    library.anchor = 'c:h2';
+    await actions.setExpanded('e1', false);
+    expect(library.selection).toEqual(['e:e1', 'e:c1']);
+    expect(library.anchor).toBe('e:e1');
+    // Collapsing a folder leaves the selection alone.
+    await actions.setExpanded('f1', false);
+    expect(library.selection).toEqual(['e:e1', 'e:c1']);
   });
 
   it('sets a folder colour keeping its name', async () => {

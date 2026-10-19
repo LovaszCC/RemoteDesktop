@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use rd_core::draft::ConnectionDraft;
+use rd_core::draft::{ConnectionDraft, EntryDraft};
 use rd_core::import::ImportKind;
 use rd_core::shortcuts::{KeyShortcut, Modifiers, Platform};
 use rd_core::{ConnectionType, Timestamp};
@@ -91,11 +91,87 @@ const LOCKED: Phase = Phase::Locked { needs_setup: false };
 const SETUP: Phase = Phase::Locked { needs_setup: true };
 const UNLOCKED: Phase = Phase::Unlocked { read_only: false };
 
-fn draft(kind: ConnectionType, name: &str) -> ConnectionDraft {
-    let mut draft = ConnectionDraft::new(kind, None);
-    name.clone_into(&mut draft.name);
-    draft.host = "host.example.com".into();
-    draft
+pub(super) const HOST: &str = "host.example.com";
+
+/// The shared fields of a root entry.
+pub(super) fn entry_draft(name: &str, host: &str) -> EntryDraft {
+    EntryDraft {
+        name: name.into(),
+        host: host.into(),
+        ..EntryDraft::default()
+    }
+}
+
+/// Saves a one-connection entry: a new one, or with `id` the entry of that connection. Returns the
+/// connection id.
+pub(super) fn save_single(
+    core: &AppCore,
+    id: Option<&str>,
+    entry: &EntryDraft,
+    draft: ConnectionDraft,
+    password: Option<&str>,
+    passphrase: Option<&str>,
+) -> Result<String, CommandError> {
+    let entry_id = id.map(|id| {
+        core.library()
+            .connections
+            .iter()
+            .find(|c| c.id == id)
+            .map_or_else(|| id.to_owned(), |c| c.entry_id.clone())
+    });
+    let save = ConnectionSave {
+        id: id.map(Into::into),
+        draft,
+        password: password.map(Into::into),
+        passphrase: passphrase.map(Into::into),
+        is_default: false,
+    };
+    let entry_id = core.save_entry(entry_id.as_deref(), entry, &[save])?;
+    Ok(core
+        .library()
+        .entries
+        .iter()
+        .find(|e| e.id == entry_id)
+        .map(|e| e.connection_ids[0].clone())
+        .unwrap_or_default())
+}
+
+/// An entry "Entry" on [`HOST`] with one blank connection per kind; returns its id and the connection
+/// ids in order.
+pub(super) fn entry_with(core: &AppCore, kinds: &[ConnectionType]) -> (String, Vec<String>) {
+    let saves: Vec<ConnectionSave> = kinds
+        .iter()
+        .map(|&kind| ConnectionSave {
+            id: None,
+            draft: ConnectionDraft::new(kind),
+            password: None,
+            passphrase: None,
+            is_default: false,
+        })
+        .collect();
+    let id = core
+        .save_entry(None, &entry_draft("Entry", HOST), &saves)
+        .unwrap();
+    let connections = core
+        .library()
+        .entries
+        .iter()
+        .find(|e| e.id == id)
+        .unwrap()
+        .connection_ids
+        .clone();
+    (id, connections)
+}
+
+/// The entry a connection belongs to.
+fn entry_of(core: &AppCore, connection_id: &str) -> String {
+    core.library()
+        .connections
+        .iter()
+        .find(|c| c.id == connection_id)
+        .unwrap()
+        .entry_id
+        .clone()
 }
 
 fn folder(core: &AppCore, name: &str, parent: Option<&str>) -> String {
@@ -108,9 +184,17 @@ fn folder(core: &AppCore, name: &str, parent: Option<&str>) -> String {
 }
 
 fn connection(core: &AppCore, name: &str, folder_id: Option<&str>) -> String {
-    let mut draft = draft(ConnectionType::Ssh, name);
-    draft.folder_id = folder_id.map(Into::into);
-    core.save_connection(None, &draft, None, None).unwrap()
+    let mut entry = entry_draft(name, HOST);
+    entry.folder_id = folder_id.map(Into::into);
+    save_single(
+        core,
+        None,
+        &entry,
+        ConnectionDraft::new(ConnectionType::Ssh),
+        None,
+        None,
+    )
+    .unwrap()
 }
 
 fn credential(core: &AppCore, name: &str, password: Option<&str>) -> String {
@@ -122,7 +206,7 @@ fn credential(core: &AppCore, name: &str, password: Option<&str>) -> String {
     core.save_credential(None, &input, password, None).unwrap()
 }
 
-fn record<T>(core: &AppCore, read: impl FnOnce(&rd_store::Database) -> T) -> T {
+pub(super) fn record<T>(core: &AppCore, read: impl FnOnce(&rd_store::Database) -> T) -> T {
     read(core.inner().db.as_ref().unwrap())
 }
 
@@ -320,15 +404,109 @@ fn a_read_only_open_does_not_stamp() {
     assert_eq!(stamp(&path).as_deref(), Some("1.0.0"));
 }
 
+/// Points the settings at `path` and writes there a database file with the migrations up to `v13-saved-split` (the last one older builds
+/// know), stamped `version`.
+fn write_v13(env: &Env, path: &Path, version: &str) {
+    let mut settings = Settings::load(&env.settings_dir());
+    settings.database_path = Some(path.to_path_buf());
+    settings.save(&env.settings_dir()).unwrap();
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let mut conn = rusqlite::Connection::open(path).unwrap();
+    rd_store::migrate_up_to(&mut conn, "v13-saved-split").unwrap();
+    conn.execute(
+        "INSERT INTO meta(key, value) VALUES (?1, ?2)",
+        rusqlite::params![rd_store::APP_VERSION_KEY, version.as_bytes()],
+    )
+    .unwrap();
+}
+
+#[test]
+fn a_read_only_open_refuses_a_database_that_needs_migrating() {
+    let env = Env::new();
+    let path = env.db("connections.sqlite");
+    write_v13(&env, &path, "1.6.6");
+    write_foreign_lock(&path);
+    let before = std::fs::read(&path).unwrap();
+
+    let core = versioned(&env, "1.6.7");
+    assert!(matches!(phase(&core), Phase::LockConflict { .. }));
+    let status = core.resolve_db_lock(LockChoice::ReadOnly).unwrap();
+    let Phase::NoDatabase { code, error } = status.phase else {
+        panic!("expected the error screen, got {:?}", status.phase)
+    };
+    assert_eq!(code, "readOnlyNeedsUpgrade");
+    assert!(error.starts_with("This database needs an upgrade"), "{error}");
+    assert_eq!(std::fs::read(&path).unwrap(), before, "the file is untouched");
+    assert_eq!(rd_store::pending_migrations(&path).unwrap(), vec!["v14-entries"]);
+    assert_eq!(stamp(&path).as_deref(), Some("1.6.6"));
+    assert_eq!(
+        core.save_folder(&FolderInput::default()).unwrap_err().code,
+        "locked"
+    );
+}
+
+#[test]
+fn a_read_only_open_of_a_migrated_database_works_without_writing() {
+    let env = Env::new();
+    let path = env.db("connections.sqlite");
+    let id = connection(&env.unlocked(), "srv", None);
+    write_foreign_lock(&path);
+    let before = std::fs::read(&path).unwrap();
+
+    let core = env.core();
+    let status = core.resolve_db_lock(LockChoice::ReadOnly).unwrap();
+    assert_eq!(status.phase, Phase::Unlocked { read_only: true });
+    assert_eq!(core.library().connections[0].id, id);
+    assert_eq!(std::fs::read(&path).unwrap(), before, "the file is untouched");
+}
+
+#[test]
+fn a_writable_open_stamps_before_migrating() {
+    let env = Env::new();
+    let path = env.db("connections.sqlite");
+    write_v13(&env, &path, "1.6.6");
+    let core = versioned(&env, "1.6.7");
+    assert_eq!(phase(&core), SETUP);
+    assert!(rd_store::pending_migrations(&path).unwrap().is_empty());
+    assert_eq!(stamp(&path).as_deref(), Some("1.6.7"));
+    drop(core);
+    // The older build that knows only v13 is refused now.
+    assert!(matches!(
+        phase(&versioned(&env, "1.6.6")),
+        Phase::NeedsUpdate { .. }
+    ));
+
+    // A migration that fails still leaves the stamp, so the older build can't open the half-done file.
+    let broken = env.db("broken.sqlite");
+    write_v13(&env, &broken, "1.6.6");
+    rusqlite::Connection::open(&broken)
+        .unwrap()
+        .execute_batch("CREATE TABLE entry (x)")
+        .unwrap();
+    let core = versioned(&env, "1.6.7");
+    let Phase::NoDatabase { code, .. } = core.open_database(&broken).phase else {
+        panic!("expected the error screen")
+    };
+    assert_eq!(code, "openFailed");
+    assert_eq!(
+        rd_store::pending_migrations(&broken).unwrap(),
+        vec!["v14-entries"]
+    );
+    assert_eq!(stamp(&broken).as_deref(), Some("1.6.7"));
+    assert!(!DbLock::path_for(&broken).exists());
+}
+
 #[test]
 fn change_password_checks_the_current_one_and_rekeys() {
     let env = Env::new();
     let path = env.db("connections.sqlite");
     let core = env.unlocked();
     let id = connection(&core, "srv", None);
-    core.save_connection(
+    save_single(
+        &core,
         Some(&id),
-        &draft(ConnectionType::Ssh, "srv"),
+        &entry_draft("srv", HOST),
+        ConnectionDraft::new(ConnectionType::Ssh),
         Some("secret"),
         None,
     )
@@ -422,9 +600,12 @@ fn lock_conflict_offers_read_only_open_anyway_and_cancel() {
             ..FolderInput::default()
         })
         .unwrap_err(),
-        core.set_favorite(&id, true).unwrap_err(),
+        core.set_favorite(&format!("c:{id}"), true).unwrap_err(),
         core.delete_items(&tags(&["c:x"])).unwrap_err(),
-        core.duplicate_connection(&id, " (copy)").unwrap_err(),
+        core.duplicate_entry(&entry_of(&core, &id), " (copy)")
+            .unwrap_err(),
+        core.merge_entries("a", &["b".into()]).unwrap_err(),
+        core.save_entry(None, &entry_draft("x", HOST), &[]).unwrap_err(),
         core.change_password("master", "x").unwrap_err(),
     ];
     assert!(refused.iter().all(|e| e.code == "readOnly"), "{refused:?}");
@@ -452,7 +633,7 @@ fn lock_conflict_offers_read_only_open_anyway_and_cancel() {
             .unwrap()
             .contains("other-host.invalid")
     );
-    core.set_favorite(&id, true).unwrap();
+    core.set_favorite(&format!("c:{id}"), true).unwrap();
     core.refresh_lock();
     core.close();
     assert!(!DbLock::path_for(&path).exists());
@@ -464,9 +645,12 @@ fn writes_are_refused_while_locked() {
     let core = env.unlocked();
     let id = connection(&core, "srv", None);
     core.lock();
-    assert_eq!(core.set_favorite(&id, true).unwrap_err().code, "locked");
+    assert_eq!(
+        core.set_favorite(&format!("c:{id}"), true).unwrap_err().code,
+        "locked"
+    );
     assert_eq!(core.password_for_copy(&id).unwrap_err().code, "locked");
-    assert!(core.search("srv").connections.is_empty());
+    assert!(core.search("srv").entries.is_empty());
     assert!(core.library().connections.is_empty());
 }
 
@@ -476,28 +660,29 @@ fn writes_are_refused_while_locked() {
 fn connection_secrets_keep_clear_and_set() {
     let env = Env::new();
     let core = env.unlocked();
-    let ssh = draft(ConnectionType::Ssh, "srv");
-    let id = core
-        .save_connection(None, &ssh, Some("pw-1"), Some("phrase-1"))
-        .unwrap();
+    let entry = entry_draft("srv", HOST);
+    let ssh = || ConnectionDraft::new(ConnectionType::Ssh);
+    let save = |id: Option<&str>, password: Option<&str>, passphrase: Option<&str>| {
+        save_single(&core, id, &entry, ssh(), password, passphrase).unwrap()
+    };
+    let id = save(None, Some("pw-1"), Some("phrase-1"));
     let stored = |core: &AppCore| record(core, |db| db.connection(&id).unwrap().unwrap());
     let first = stored(&core);
     assert!(first.password_enc.is_some() && first.ssh_key_passphrase_enc.is_some());
     assert_eq!(core.password_for_copy(&id).unwrap().expose_secret(), "pw-1");
 
     // null keeps the sealed bytes untouched.
-    core.save_connection(Some(&id), &ssh, None, None).unwrap();
+    save(Some(&id), None, None);
     let kept = stored(&core);
     assert_eq!(kept.password_enc, first.password_enc);
     assert_eq!(kept.ssh_key_passphrase_enc, first.ssh_key_passphrase_enc);
     assert_eq!(kept.created_at, first.created_at);
 
     // A value replaces, "" clears.
-    core.save_connection(Some(&id), &ssh, Some("pw-2"), Some(""))
-        .unwrap();
+    save(Some(&id), Some("pw-2"), Some(""));
     assert_eq!(core.password_for_copy(&id).unwrap().expose_secret(), "pw-2");
     assert_eq!(stored(&core).ssh_key_passphrase_enc, None);
-    core.save_connection(Some(&id), &ssh, Some(""), None).unwrap();
+    save(Some(&id), Some(""), None);
     let err = core.password_for_copy(&id).unwrap_err();
     assert_eq!(
         (err.code.as_str(), err.message.as_str()),
@@ -505,14 +690,15 @@ fn connection_secrets_keep_clear_and_set() {
     );
 
     // Non-SSH types drop the passphrase.
-    let rdp = core
-        .save_connection(
-            None,
-            &draft(ConnectionType::Rdp, "dc"),
-            Some("pw"),
-            Some("phrase"),
-        )
-        .unwrap();
+    let rdp = save_single(
+        &core,
+        None,
+        &entry_draft("dc", HOST),
+        ConnectionDraft::new(ConnectionType::Rdp),
+        Some("pw"),
+        Some("phrase"),
+    )
+    .unwrap();
     assert_eq!(
         record(&core, |db| db
             .connection(&rdp)
@@ -527,29 +713,23 @@ fn connection_secrets_keep_clear_and_set() {
 fn drafts_are_validated_in_rust() {
     let env = Env::new();
     let core = env.unlocked();
-    let mut bad = draft(ConnectionType::Ssh, "  ");
-    assert_eq!(
-        core.save_connection(None, &bad, None, None).unwrap_err().code,
-        "emptyName"
-    );
-    bad.name = "x".into();
+    let check = |id: Option<&str>, entry: &EntryDraft, draft: ConnectionDraft| {
+        save_single(&core, id, entry, draft, None, None).unwrap_err().code
+    };
+    let ssh = || ConnectionDraft::new(ConnectionType::Ssh);
+    assert_eq!(check(None, &entry_draft("  ", HOST), ssh()), "emptyName");
+    let mut bad = ssh();
     bad.port = "70000".into();
+    assert_eq!(check(None, &entry_draft("x", HOST), bad), "invalidPort");
     assert_eq!(
-        core.save_connection(None, &bad, None, None).unwrap_err().code,
-        "invalidPort"
-    );
-    let mut web = draft(ConnectionType::Web, "site");
-    web.host = "has space".into();
-    assert_eq!(
-        core.save_connection(None, &web, None, None).unwrap_err().code,
+        check(
+            None,
+            &entry_draft("site", "has space"),
+            ConnectionDraft::new(ConnectionType::Web)
+        ),
         "invalidUrl"
     );
-    assert_eq!(
-        core.save_connection(Some("missing"), &draft(ConnectionType::Ssh, "x"), None, None)
-            .unwrap_err()
-            .code,
-        "notFound"
-    );
+    assert_eq!(check(Some("missing"), &entry_draft("x", HOST), ssh()), "notFound");
     assert_eq!(
         core.save_credential(None, &CredentialInput::default(), None, None)
             .unwrap_err()
@@ -670,7 +850,7 @@ fn bulk_delete_counts_each_kind() {
     let counts = core
         .delete_items(&tags(&[
             &format!("c:{loose}"),
-            &format!("fav:{loose}"),
+            &format!("fav:{}", entry_of(&core, &loose)),
             &format!("f:{parent}"),
             &format!("k:{key}"),
             &format!("s:{split}"),
@@ -681,6 +861,7 @@ fn bulk_delete_counts_each_kind() {
     assert_eq!(
         counts,
         DeleteCountsDto {
+            entries: 1,
             connections: 1,
             folders: 1,
             credentials: 1,
@@ -692,10 +873,7 @@ fn bulk_delete_counts_each_kind() {
     assert!(library.credentials.is_empty() && library.saved_splits.is_empty());
     assert_eq!(library.connections.len(), 1);
     assert_eq!(library.connections[0].id, inside);
-    assert_eq!(
-        library.connections[0].folder_id, None,
-        "connections move to the root"
-    );
+    assert_eq!(library.connections[0].folder_id, None, "entries move to the root");
 }
 
 #[test]
@@ -711,7 +889,7 @@ fn move_refuses_cycles_and_moves_the_rest() {
         .move_items(
             &tags(&[
                 &format!("f:{parent}"),
-                &format!("fav:{loose}"),
+                &format!("fav:{}", entry_of(&core, &loose)),
                 &format!("f:{other}"),
             ]),
             Some(&child),
@@ -792,20 +970,29 @@ fn set_credential_covers_folder_subtrees() {
 fn duplicate_copies_everything_but_identity() {
     let env = Env::new();
     let core = env.unlocked();
-    let mut ssh = draft(ConnectionType::Ssh, "srv");
-    ssh.is_favorite = true;
-    let id = core.save_connection(None, &ssh, Some("pw"), None).unwrap();
-    let copy = core.duplicate_connection(&id, " (copy)").unwrap();
-    assert_ne!(copy, id);
+    let mut entry = entry_draft("srv", HOST);
+    entry.is_favorite = true;
+    let id = save_single(
+        &core,
+        None,
+        &entry,
+        ConnectionDraft::new(ConnectionType::Ssh),
+        Some("pw"),
+        None,
+    )
+    .unwrap();
+    let copy = core.duplicate_entry(&entry_of(&core, &id), " (copy)").unwrap();
     let library = core.library();
-    let dup = library.connections.iter().find(|c| c.id == copy).unwrap();
+    let copy = library.entries.iter().find(|e| e.id == copy).unwrap();
+    let dup = library
+        .connections
+        .iter()
+        .find(|c| c.id == copy.connection_ids[0])
+        .unwrap();
+    assert_ne!(dup.id, id);
     assert_eq!(dup.name, "srv (copy)");
     assert!(dup.is_favorite && dup.has_password);
-    assert_eq!(core.password_for_copy(&copy).unwrap().expose_secret(), "pw");
-    assert_eq!(
-        core.duplicate_connection("missing", " (copy)").unwrap_err().code,
-        "notFound"
-    );
+    assert_eq!(core.password_for_copy(&dup.id).unwrap().expose_secret(), "pw");
 }
 
 #[test]
@@ -816,15 +1003,17 @@ fn favorites_folders_and_search() {
     let web2 = connection(&core, "web2", Some(&prod));
     let web10 = connection(&core, "web10", None);
     let db = connection(&core, "db", None);
-    core.set_favorite(&web10, true).unwrap();
-    assert_eq!(core.set_favorite("missing", true).unwrap_err().code, "notFound");
+    let (web2_entry, web10_entry) = (entry_of(&core, &web2), entry_of(&core, &web10));
+    core.set_favorite(&format!("e:{web10_entry}"), true).unwrap();
+    assert_eq!(core.set_favorite("e:missing", true).unwrap_err().code, "notFound");
+    assert_eq!(core.set_favorite("k:x", true).unwrap_err().code, "notFound");
     let key = credential(&core, "Web admin", None);
 
     let found = core.search("WEB");
-    assert_eq!(found.connections, [web2.clone(), web10.clone()]);
+    assert_eq!(found.entries, [web2_entry.clone(), web10_entry.clone()]);
     assert_eq!(found.credentials, std::slice::from_ref(&key));
-    assert_eq!(core.search("prod").connections, std::slice::from_ref(&web2));
-    assert!(core.search("   ").connections.is_empty());
+    assert_eq!(core.search("prod").entries, std::slice::from_ref(&web2_entry));
+    assert!(core.search("   ").entries.is_empty());
     assert_eq!(core.link_candidates(&key, "").len(), 3);
     assert_eq!(
         core.matching(&[db.clone(), web2.clone()], ""),
@@ -833,9 +1022,9 @@ fn favorites_folders_and_search() {
     assert_eq!(core.matching(&[db, web2.clone()], "prod"), [web2]);
 
     let library = core.library();
-    assert_eq!(library.favorites, [web10]);
+    assert_eq!(library.favorites, [web10_entry]);
     assert_eq!(library.flattened_folders.len(), 1);
-    assert_eq!(library.tree.len(), 3, "the folder, then two root connections");
+    assert_eq!(library.tree.len(), 3, "the folder, then two root entries");
 
     // Rename and recolor keep the parent.
     let renamed = core
@@ -891,14 +1080,15 @@ fn dtos_carry_no_secrets() {
     let core = env.unlocked();
     let key_path = env.dir.path().join("id_ed25519");
     write_encrypted_key(&key_path, "PASSPHRASE-PLAIN-3");
-    let id = core
-        .save_connection(
-            None,
-            &draft(ConnectionType::Ssh, "srv"),
-            Some("PASSWORD-PLAIN-1"),
-            Some("PASSPHRASE-PLAIN-2"),
-        )
-        .unwrap();
+    let id = save_single(
+        &core,
+        None,
+        &entry_draft("srv", HOST),
+        ConnectionDraft::new(ConnectionType::Ssh),
+        Some("PASSWORD-PLAIN-1"),
+        Some("PASSPHRASE-PLAIN-2"),
+    )
+    .unwrap();
     let cred = core
         .save_credential(
             None,
@@ -1234,6 +1424,14 @@ fn winbox_preview_then_commit_the_selection() {
     let library = record(&core, |db| db.library().unwrap());
     let imported = library.connections.iter().find(|c| c.name == "core-rtr").unwrap();
     assert_eq!(imported.kind, ConnectionType::Mikrotik);
+    // Each imported item is an entry of its own with that one connection.
+    let entry = library.entry(&imported.entry_id).unwrap();
+    assert_eq!(entry.name, "core-rtr");
+    assert_eq!(library.connections_of(&entry.id).len(), 1);
+    assert_eq!(
+        library.default_connection(&entry.id).map(|c| c.id.as_str()),
+        Some(imported.id.as_str())
+    );
     assert_eq!(
         core.password_for_copy(&imported.id).unwrap().expose_secret(),
         "s3cret-pw"

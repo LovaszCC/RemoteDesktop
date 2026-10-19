@@ -25,7 +25,7 @@ import { sessions as defaultSessions, type SessionsStore } from './terminal/sess
 import { isLocalTerminal } from './terminal/local';
 import { splits as defaultSplits, type SplitsStore } from './terminal/splits.svelte';
 import { updates as defaultUpdates, type UpdateStore } from './updates/updates.svelte';
-import { sshConnections, usesSSH } from './sidebar/model';
+import { sshConnections } from './sidebar/model';
 import type { ConnectionType } from './types';
 
 export interface CommandDeps {
@@ -76,10 +76,10 @@ export function filesTarget(
       : { connectionId: session.connectionId, sessionId: session.id };
   }
   if (deps.tabs.active !== null || deps.library.selection.length !== 1 || !deps.library.primary) return null;
-  const parsed = parseTag(deps.library.primary);
-  if (parsed?.kind !== 'connection' && parsed?.kind !== 'favorite') return null;
-  const connection = deps.library.library?.connections.find((c) => c.id === parsed.id);
-  return connection && usesSSH(connection.type) ? { connectionId: connection.id } : null;
+  if (!deps.library.library) return null;
+  // An entry: its default connection when it uses SSH, else its first that does.
+  const connection = sshConnections(deps.library.library, [deps.library.primary])[0];
+  return connection ? { connectionId: connection.id } : null;
 }
 
 /** Runs app commands; anything unavailable in the current state does nothing. */
@@ -129,7 +129,12 @@ export function createCommandRunner(deps: Partial<CommandDeps> = {}) {
         }
         if (!library.primary) return;
         const parsed = parseTag(library.primary);
-        if (parsed?.kind === 'connection' || parsed?.kind === 'favorite' || parsed?.kind === 'split') {
+        if (
+          parsed?.kind === 'entry' ||
+          parsed?.kind === 'connection' ||
+          parsed?.kind === 'favorite' ||
+          parsed?.kind === 'split'
+        ) {
           actions.primaryAction(library.primary);
         }
         return;

@@ -3,16 +3,18 @@
 
 use std::collections::HashSet;
 
-use rd_core::draft::ConnectionDraft;
+use rd_core::draft::{ConnectionDraft, EntryDraft};
 use rd_core::tree::{self, SidebarTag};
-use rd_core::{Connection, Credential, Folder, LabelColor, Library, SavedSplit, Sealed, Timestamp, new_id};
+use rd_core::{
+    Connection, Credential, Entry, Folder, LabelColor, Library, SavedSplit, Sealed, Timestamp, new_id,
+};
 use rd_store::{StoreError, Vault};
 use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
 
 use super::ssh_unlock::{self, UnlockError};
 use super::{AppCore, CommandError};
-use crate::dto::{DeleteCountsDto, LibraryDto, MoveResultDto, SearchResultDto};
+use crate::dto::{DeleteCountsDto, LibraryDto, MergeResultDto, MoveResultDto, SearchResultDto};
 
 /// The most panes a split holds.
 pub const MAX_SPLIT_PANES: usize = 4;
@@ -45,6 +47,27 @@ pub struct FolderInput {
     pub name: String,
     /// Tag color.
     pub color: Option<LabelColor>,
+}
+
+/// One connection of the entry editor: `id` `None` creates it. `password` / `passphrase`: `None` keeps the
+/// stored value, `""` clears it, anything else is sealed.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConnectionSave {
+    /// The connection being edited; it must belong to the entry.
+    #[serde(default)]
+    pub id: Option<String>,
+    /// Its secret-free fields.
+    pub draft: ConnectionDraft,
+    /// Password update.
+    #[serde(default)]
+    pub password: Option<String>,
+    /// Key passphrase update.
+    #[serde(default)]
+    pub passphrase: Option<String>,
+    /// Becomes the entry's default connection (at most one per save).
+    #[serde(default)]
+    pub is_default: bool,
 }
 
 /// Swift `.whitespaces` trim (spaces and tabs).
@@ -98,6 +121,46 @@ fn ids(connections: &[&Connection]) -> Vec<String> {
     connections.iter().map(|c| c.id.clone()).collect()
 }
 
+fn no_connections() -> CommandError {
+    CommandError::new("noConnections", "An entry needs at least one connection.")
+}
+
+/// The entry with `id`: its record, or the one a lone connection row without a record stands for.
+fn entry_of(library: &Library, id: &str) -> Result<Entry, CommandError> {
+    library
+        .entry(id)
+        .cloned()
+        .or_else(|| {
+            library
+                .connections_of(id)
+                .first()
+                .map(|c| Entry::for_connection(c))
+        })
+        .ok_or_else(|| CommandError::not_found(id))
+}
+
+/// `notes` with a "Merged from" block per source: the source's notes, or only the header when its host
+/// differs from `host`, so the replaced host is recorded.
+fn merged_notes(notes: &str, host: &str, sources: &[Entry]) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    if !notes.is_empty() {
+        parts.push(notes.to_owned());
+    }
+    for source in sources {
+        let other_host = !source.host.eq_ignore_ascii_case(host);
+        if source.notes.is_empty() && !other_host {
+            continue;
+        }
+        let mut block = format!("Merged from {} ({}):", source.name, source.host);
+        if !source.notes.is_empty() {
+            block.push('\n');
+            block.push_str(&source.notes);
+        }
+        parts.push(block);
+    }
+    parts.join("\n\n")
+}
+
 impl AppCore {
     /// The library for the UI; empty while locked.
     #[must_use]
@@ -111,14 +174,17 @@ impl AppCore {
         Ok(db.library()?)
     }
 
-    /// The sidebar search: connection ids in natural order and credential ids. Empty while locked.
+    /// The sidebar search: entry ids in natural order and credential ids. Empty while locked.
     #[must_use]
     pub fn search(&self, query: &str) -> SearchResultDto {
         let Ok(library) = self.load_library() else {
             return SearchResultDto::default();
         };
         SearchResultDto {
-            connections: ids(&tree::search(&library, query)),
+            entries: tree::search(&library, query)
+                .iter()
+                .map(|e| e.id.clone())
+                .collect(),
             credentials: tree::search_credentials(&library, query)
                 .iter()
                 .map(|c| c.id.clone())
@@ -151,34 +217,145 @@ impl AppCore {
         ))
     }
 
-    /// Saves the connection editor. `password` / `passphrase`: `None` keeps, `""` clears, a value is
-    /// sealed. Returns the connection id.
+    /// Saves the entry editor: the shared fields and exactly `connections`, in their order, in one
+    /// transaction. Connections of the entry missing from the list are deleted and their forwards
+    /// stopped. The connection flagged `isDefault` (new or existing) becomes the default; with none
+    /// flagged the stored default is kept while it is still listed, otherwise the first one is. Returns the
+    /// entry id.
     ///
     /// # Errors
-    /// `locked`, `readOnly`, a draft code (`emptyName`, `invalidUrl`, `emptyHost`, `invalidPort`),
-    /// `notFound` or `database`.
-    pub fn save_connection(
+    /// `locked`, `readOnly`, `emptyName`, `noConnections`, `multipleDefaults`, a draft code (`invalidUrl`, `emptyHost`,
+    /// `invalidPort`), `notFound` (the entry, or a connection that isn't the entry's or is listed twice) or
+    /// `database`.
+    pub fn save_entry(
         &self,
         id: Option<&str>,
-        draft: &ConnectionDraft,
-        password: Option<&str>,
-        passphrase: Option<&str>,
+        entry: &EntryDraft,
+        connections: &[ConnectionSave],
     ) -> Result<String, CommandError> {
-        let inner = self.inner();
-        let (db, vault) = Self::writable(&inner)?;
-        draft.validate()?;
-        let mut connection = match id {
-            Some(id) => db.connection(id)?.ok_or_else(|| CommandError::not_found(id))?,
-            None => Connection::new(draft.kind, "", ""),
+        self.save_entry_with_ids(id, entry, connections)
+            .map(|(entry_id, _)| entry_id)
+    }
+
+    /// [`save_entry`](Self::save_entry), also returning the saved connection ids in order.
+    fn save_entry_with_ids(
+        &self,
+        id: Option<&str>,
+        draft: &EntryDraft,
+        connections: &[ConnectionSave],
+    ) -> Result<(String, Vec<String>), CommandError> {
+        let (write, connection_ids) = {
+            let inner = self.inner();
+            let (db, vault) = Self::writable(&inner)?;
+            draft.validate()?;
+            if connections.is_empty() {
+                return Err(no_connections());
+            }
+            if connections.iter().filter(|c| c.is_default).count() > 1 {
+                return Err(CommandError::new(
+                    "multipleDefaults",
+                    "Only one connection can be the default.",
+                ));
+            }
+            for save in connections {
+                save.draft.validate(&draft.host)?;
+            }
+            let library = db.library()?;
+            let mut entry = match id {
+                Some(id) => entry_of(&library, id)?,
+                None => Entry::new("", ""),
+            };
+            draft.apply_to(&mut entry);
+            let mut saved = Vec::with_capacity(connections.len());
+            for (index, save) in connections.iter().enumerate() {
+                let mut connection = match &save.id {
+                    Some(connection_id) => library
+                        .connections
+                        .iter()
+                        .find(|c| &c.id == connection_id && c.entry_id == entry.id)
+                        .filter(|_| !saved.iter().any(|s: &Connection| &s.id == connection_id))
+                        .cloned()
+                        .ok_or_else(|| CommandError::not_found(connection_id))?,
+                    None => Connection::new(save.draft.kind, "", ""),
+                };
+                update_secret(&mut connection.password_enc, save.password.as_deref(), vault);
+                update_secret(
+                    &mut connection.ssh_key_passphrase_enc,
+                    save.passphrase.as_deref(),
+                    vault,
+                );
+                save.draft.apply_to(&entry.host, &mut connection)?;
+                connection.entry_id.clone_from(&entry.id);
+                connection.sort_order = i64::try_from(index).unwrap_or(i64::MAX);
+                saved.push(connection);
+            }
+            let flagged = connections.iter().position(|c| c.is_default);
+            let stored = entry
+                .default_connection_id
+                .as_ref()
+                .and_then(|id| saved.iter().position(|c| &c.id == id));
+            let default = flagged.or(stored).unwrap_or(0);
+            entry.default_connection_id = Some(saved[default].id.clone());
+            let write = db.write_entry(&entry, &saved, &[])?;
+            (write, saved.into_iter().map(|c| c.id).collect::<Vec<_>>())
         };
-        update_secret(&mut connection.password_enc, password, vault);
-        update_secret(&mut connection.ssh_key_passphrase_enc, passphrase, vault);
-        draft.apply_to(&mut connection)?;
-        Ok(db.save_connection(&connection)?.id)
+        // Their forwards are gone with them (cascade): stop the tunnels.
+        self.stop_forwards_of(&write.deleted_connections);
+        Ok((write.entry.id, connection_ids))
+    }
+
+    /// Merges the `sources` entries into `target`, in the order given: their connections (with their
+    /// credentials, secrets and forwards) move to the end of the target's, the target's shared fields and
+    /// default win, and each source's notes are appended as `Merged from <name> (<host>):` — the header
+    /// alone when a source on another host has no notes. The sources are deleted.
+    ///
+    /// # Errors
+    /// `locked`, `readOnly`, `mergeIntoSelf`, `notFound` or `database`.
+    pub fn merge_entries(&self, target: &str, sources: &[String]) -> Result<MergeResultDto, CommandError> {
+        let inner = self.inner();
+        let (db, _) = Self::writable(&inner)?;
+        if sources.iter().any(|s| s == target) {
+            return Err(CommandError::new(
+                "mergeIntoSelf",
+                "An entry can't be merged into itself.",
+            ));
+        }
+        let library = db.library()?;
+        let mut entry = entry_of(&library, target)?;
+        if sources.is_empty() {
+            return Ok(MergeResultDto::default());
+        }
+        let mut source_ids: Vec<String> = Vec::new();
+        for id in sources {
+            if !source_ids.contains(id) {
+                source_ids.push(id.clone());
+            }
+        }
+        let source_entries = source_ids
+            .iter()
+            .map(|id| entry_of(&library, id))
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut connections: Vec<Connection> = library.connections_of(target).into_iter().cloned().collect();
+        let kept = connections.len();
+        for id in &source_ids {
+            connections.extend(library.connections_of(id).into_iter().cloned());
+        }
+        for (index, connection) in connections.iter_mut().enumerate() {
+            connection.sort_order = i64::try_from(index).unwrap_or(i64::MAX);
+        }
+        entry.notes = merged_notes(&entry.notes, &entry.host, &source_entries);
+        entry.default_connection_id = library.default_connection(target).map(|c| c.id.clone());
+        let write = db.write_entry(&entry, &connections, &source_ids)?;
+        drop(inner);
+        // A source row's connections all move, but stop whatever the write did delete.
+        self.stop_forwards_of(&write.deleted_connections);
+        Ok(MergeResultDto {
+            moved_connections: connections.len() - kept,
+        })
     }
 
     /// Saves the credential editor with the same secret rule as
-    /// [`save_connection`](Self::save_connection), regenerating the unlocked key copy. Returns the id.
+    /// [`save_entry`](Self::save_entry), regenerating the unlocked key copy. Returns the id.
     ///
     /// # Errors
     /// `locked`, `readOnly`, `emptyName`, `notFound`, `wrongKeyPassphrase`, `cannotReadKey` (detail: the
@@ -258,9 +435,10 @@ impl AppCore {
         Ok(folder.id)
     }
 
-    /// Deletes every item behind the sidebar tags (connections, folders with their subfolders,
-    /// credentials, saved splits). Connections inside deleted folders move to the root. Returns how many
-    /// existing items of each kind were named.
+    /// Deletes every item behind the sidebar tags (entries with their connections, single connections,
+    /// folders with their subfolders, credentials, saved splits). An entry's last connection takes the
+    /// entry with it. Entries inside deleted folders move to the root. Returns how many existing items of
+    /// each kind were named; `connections` counts every connection deleted.
     ///
     /// # Errors
     /// `locked`, `readOnly` or `database`.
@@ -279,8 +457,22 @@ impl AppCore {
         splits.dedup();
         let mut counts = DeleteCountsDto::default();
         let mut deleted = Vec::new();
+        for id in &items.entry_ids {
+            let members = ids(&library.connections_of(id));
+            if members.is_empty() && library.entry(id).is_none() {
+                continue;
+            }
+            db.delete_entry(id)?;
+            // A row without an entry record isn't reached by the cascade.
+            for member in &members {
+                db.delete_connection(member)?;
+            }
+            counts.entries += 1;
+            counts.connections += members.len();
+            deleted.extend(members);
+        }
         for id in &items.connection_ids {
-            if library.connections.iter().any(|c| &c.id == id) {
+            if !deleted.contains(id) && library.connections.iter().any(|c| &c.id == id) {
                 db.delete_connection(id)?;
                 deleted.push(id.clone());
                 counts.connections += 1;
@@ -309,9 +501,9 @@ impl AppCore {
         Ok(counts)
     }
 
-    /// Moves the connections and folders behind the tags into `target` (the root with `None`). A folder
-    /// dropped onto itself is skipped; one that would go into its own subtree is refused and counted, and
-    /// the other items still move.
+    /// Moves the entries (a connection row stands for its entry) and folders behind the tags into
+    /// `target` (the root with `None`). A folder dropped onto itself is skipped; one that would go into its
+    /// own subtree is refused and counted, and the other items still move.
     ///
     /// # Errors
     /// `locked`, `readOnly` or `database`.
@@ -319,9 +511,28 @@ impl AppCore {
         let inner = self.inner();
         let (db, _) = Self::writable(&inner)?;
         let items = tree::movable(tags);
+        let library = db.library()?;
+        let mut entries: Vec<String> = Vec::new();
+        let owners = items.connection_ids.iter().filter_map(|id| {
+            library
+                .connections
+                .iter()
+                .find(|c| &c.id == id)
+                .map(|c| c.entry_id.clone())
+        });
+        for id in items.entry_ids.iter().cloned().chain(owners) {
+            if !entries.contains(&id) {
+                entries.push(id);
+            }
+        }
         let mut result = MoveResultDto::default();
-        for id in &items.connection_ids {
-            match db.move_connection(id, target) {
+        for id in &entries {
+            // A row without an entry record is moved through its connection.
+            let moved = match library.connections_of(id).first() {
+                Some(c) if library.entry(id).is_none() => db.move_connection(&c.id, target),
+                _ => db.move_entry(id, target),
+            };
+            match moved {
                 Ok(()) => result.moved += 1,
                 Err(StoreError::NotFound) => {}
                 Err(e) => return Err(e.into()),
@@ -338,18 +549,34 @@ impl AppCore {
         Ok(result)
     }
 
-    /// Stars or unstars a connection.
+    /// Stars or unstars the entry behind a sidebar tag: `e:` or `fav:` (the entry) or `c:` (its entry).
     ///
     /// # Errors
-    /// `locked`, `readOnly`, `notFound` or `database`.
-    pub fn set_favorite(&self, connection_id: &str, is_favorite: bool) -> Result<(), CommandError> {
+    /// `locked`, `readOnly`, `notFound` (also for any other tag) or `database`.
+    pub fn set_favorite(&self, tag: &str, is_favorite: bool) -> Result<(), CommandError> {
         let inner = self.inner();
         let (db, _) = Self::writable(&inner)?;
-        Ok(db.set_favorite(connection_id, is_favorite)?)
+        let written = match SidebarTag::parse(tag) {
+            Some(SidebarTag::Connection(id)) => db.set_favorite(&id, is_favorite),
+            Some(SidebarTag::Entry(id) | SidebarTag::Favorite(id)) => {
+                let library = db.library()?;
+                match library.connections_of(&id).first() {
+                    // A row without an entry record is starred through its connection.
+                    Some(c) if library.entry(&id).is_none() => db.set_favorite(&c.id, is_favorite),
+                    _ => db.set_entry_favorite(&id, is_favorite),
+                }
+            }
+            _ => Err(StoreError::NotFound),
+        };
+        written.map_err(|e| match e {
+            StoreError::NotFound => CommandError::not_found(tag),
+            e => e.into(),
+        })
     }
 
-    /// Links (or with `None` unlinks) a credential to the connections behind `tags` (folders count with
-    /// their subtree) plus `connection_ids`. Returns how many connections changed.
+    /// Links (or with `None` unlinks) a credential to the connections behind `tags` (an entry counts with
+    /// its default connection, a folder with every connection in its subtree) plus `connection_ids`.
+    /// Returns how many connections changed.
     ///
     /// # Errors
     /// `locked`, `readOnly` or `database` (for example, an unknown credential).
@@ -376,16 +603,35 @@ impl AppCore {
         Ok(db.set_credential(credential_id, &ids)?)
     }
 
-    /// Copies a connection with a new id, `name + copy_suffix` and the current creation time; everything
-    /// else (credential, favorite, secrets) is kept. Returns the new id.
+    /// Copies an entry with all its connections: new ids, `name + copy_suffix`, created now, the default
+    /// pointing at the copy of the original's. Everything else (folder, favorite, labels, credentials and
+    /// secrets) is kept, as Duplicate always did; port forwards are not copied. Returns the new entry id.
     ///
     /// # Errors
     /// `locked`, `readOnly`, `notFound` or `database`.
-    pub fn duplicate_connection(&self, id: &str, copy_suffix: &str) -> Result<String, CommandError> {
+    pub fn duplicate_entry(&self, id: &str, copy_suffix: &str) -> Result<String, CommandError> {
         let inner = self.inner();
         let (db, _) = Self::writable(&inner)?;
-        let original = db.connection(id)?.ok_or_else(|| CommandError::not_found(id))?;
-        Ok(db.save_connection(&original.duplicated(copy_suffix))?.id)
+        let library = db.library()?;
+        let original = entry_of(&library, id)?;
+        let now = Timestamp::now();
+        let mut entry = Entry {
+            id: new_id(),
+            name: format!("{}{copy_suffix}", original.name),
+            created_at: now,
+            updated_at: now,
+            ..original
+        };
+        let default = library.default_connection(id).map(|c| c.id.clone());
+        let mut copies = Vec::new();
+        for connection in library.connections_of(id) {
+            let copy = connection.duplicated(copy_suffix);
+            if default.as_ref() == Some(&connection.id) {
+                entry.default_connection_id = Some(copy.id.clone());
+            }
+            copies.push(copy);
+        }
+        Ok(db.write_entry(&entry, &copies, &[])?.entry.id)
     }
 
     /// Saves a new split from up to [`MAX_SPLIT_PANES`] connections, or with `id` replaces an existing

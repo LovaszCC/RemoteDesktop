@@ -5,14 +5,15 @@ import { createDialogStore } from '../stores/dialogs.svelte';
 import { createToastStore } from '../stores/toast.svelte';
 import { TabsStore } from '../tabs.svelte';
 import { fakeBridge } from '../testing/bridge';
+import { entry } from '../testing/fixtures';
 import { encodeFrame } from '../testing/rdpFrames';
-import type { RdpEvent, RdpEventDto, TypeClipboardDto } from '../types';
+import type { RdpEvent, RdpEventDto, TypeClipboardDto, EntryDto } from '../types';
 import type { Frame } from './frame';
 import { createRdpSessionsStore, type FrameChannel } from './sessions.svelte';
 
 const connection = { id: 'c1', name: 'Desk', type: 'rdp' as const, color: 'blue' as const };
 
-function setup(replies: Parameters<typeof fakeBridge>[0] = {}) {
+function setup(replies: Parameters<typeof fakeBridge>[0] = {}, entries: EntryDto[] = []) {
   let n = 0;
   const bridge = fakeBridge({
     open_rdp_session: () => ({ sessionId: `S${++n}` }),
@@ -51,6 +52,7 @@ function setup(replies: Parameters<typeof fakeBridge>[0] = {}) {
       return channel;
     },
     defaultSize: () => ({ width: 1200, height: 760 }),
+    library: { entry: (id) => entries.find((e) => e.id === id) },
   });
   return { bridge, tabs, toast, alerts, dialogs, channels, surfaces, sessions };
 }
@@ -61,6 +63,20 @@ const calls = (bridge: ReturnType<typeof fakeBridge>, command: string) =>
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe('rdp sessions store', () => {
+  it('a multi-connection entry titles RDP tabs with the label and groups them by entry', async () => {
+    const { sessions, tabs } = setup({}, [entry('e1', [], { connectionIds: ['h1', 'h2'] })]);
+    await sessions.open({
+      ...connection,
+      id: 'h2',
+      entryId: 'e1',
+      name: 'Home Server',
+      displayLabel: 'Console',
+    });
+    await sessions.open(connection);
+    expect(tabs.session('S1')).toMatchObject({ title: 'Home Server · Console', group: 'e1' });
+    expect(tabs.session('S2')).toMatchObject({ title: 'Desk', group: 'c1' });
+  });
+
   it('opens a session in a new tab sized like the view', async () => {
     const { sessions, tabs, bridge, channels } = setup();
     const id = await sessions.open(connection);

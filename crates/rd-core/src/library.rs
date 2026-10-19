@@ -2,14 +2,16 @@
 
 use std::collections::HashSet;
 
-use crate::model::{Connection, Credential, Folder, PortForward, SavedSplit};
+use crate::model::{Connection, Credential, Entry, Folder, PortForward, SavedSplit};
 
 /// Every record, each list in the repository's sort order.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Library {
     /// Folders by sort order, then name.
     pub folders: Vec<Folder>,
-    /// Connections by name.
+    /// Entries by name.
+    pub entries: Vec<Entry>,
+    /// Connections by name, each with its entry's shared fields.
     pub connections: Vec<Connection>,
     /// Credentials by name.
     pub credentials: Vec<Credential>,
@@ -20,6 +22,38 @@ pub struct Library {
 }
 
 impl Library {
+    /// The entry with `id`, if any.
+    #[must_use]
+    pub fn entry(&self, id: &str) -> Option<&Entry> {
+        self.entries.iter().find(|e| e.id == id)
+    }
+
+    /// The connections of an entry, by sort order, then creation time.
+    #[must_use]
+    pub fn connections_of(&self, entry_id: &str) -> Vec<&Connection> {
+        let mut connections: Vec<&Connection> = self
+            .connections
+            .iter()
+            .filter(|c| c.entry_id == entry_id)
+            .collect();
+        connections.sort_by_key(|c| (c.sort_order, c.created_at));
+        connections
+    }
+
+    /// The connection an entry opens by default: its stored default when that is still one of its
+    /// connections, otherwise the first of [`connections_of`](Self::connections_of).
+    #[must_use]
+    pub fn default_connection(&self, entry_id: &str) -> Option<&Connection> {
+        let connections = self.connections_of(entry_id);
+        let stored = self
+            .entry(entry_id)
+            .and_then(|e| e.default_connection_id.as_deref());
+        stored
+            .and_then(|id| connections.iter().find(|c| c.id == id))
+            .or_else(|| connections.first())
+            .copied()
+    }
+
     /// The credential with `id`, if any.
     #[must_use]
     pub fn credential(&self, id: Option<&str>) -> Option<&Credential> {
@@ -67,12 +101,41 @@ impl Library {
             .collect()
     }
 
-    /// [`connection_ids_for`](Self::connection_ids_for) over sidebar tags (`c:`, `fav:`, `f:`; others
-    /// ignored), like Swift `Library.connectionIds(forTags:)`.
+    /// [`connection_ids_for`](Self::connection_ids_for) over sidebar tags, like Swift
+    /// `Library.connectionIds(forTags:)`: `c:` is that connection, `e:` and `fav:` the entry's default
+    /// connection, `f:` every connection in the folder's subtree; other tags are ignored.
     #[must_use]
     pub fn connection_ids_for_tags<S: AsRef<str>>(&self, tags: &[S]) -> Vec<String> {
         let items = crate::tree::sidebar_items(tags);
-        self.connection_ids_for(&items.connection_ids, &items.folder_ids)
+        let picked = picked_connections(tags, |entry_id| self.default_connection(entry_id));
+        self.connection_ids_for(&picked, &items.folder_ids)
+    }
+
+    /// The SSH-capable connections behind sidebar tags, for a split (Swift `sshConnections(forTags:)`):
+    /// `c:` when that connection uses SSH, `e:` and `fav:` the entry's default connection when it uses SSH
+    /// and otherwise its first one that does, `f:` every SSH-capable connection in the folder's subtree.
+    #[must_use]
+    pub fn ssh_connection_ids_for_tags<S: AsRef<str>>(&self, tags: &[S]) -> Vec<String> {
+        let items = crate::tree::sidebar_items(tags);
+        let picked = picked_connections(tags, |entry_id| {
+            self.default_connection(entry_id)
+                .filter(|c| c.kind.uses_ssh())
+                .or_else(|| {
+                    self.connections_of(entry_id)
+                        .into_iter()
+                        .find(|c| c.kind.uses_ssh())
+                })
+        });
+        let ssh: HashSet<&str> = self
+            .connections
+            .iter()
+            .filter(|c| c.kind.uses_ssh())
+            .map(|c| c.id.as_str())
+            .collect();
+        self.connection_ids_for(&picked, &items.folder_ids)
+            .into_iter()
+            .filter(|id| ssh.contains(id.as_str()))
+            .collect()
     }
 
     /// The forwards of one connection.
@@ -81,6 +144,21 @@ impl Library {
             .iter()
             .filter(move |f| f.connection_id == connection_id)
     }
+}
+
+/// The `c:` connections and one connection per `e:` / `fav:` entry (chosen by `pick`), in tag order.
+fn picked_connections<'a, S: AsRef<str>>(
+    tags: &[S],
+    pick: impl Fn(&str) -> Option<&'a Connection>,
+) -> Vec<String> {
+    use crate::tree::SidebarTag;
+    tags.iter()
+        .filter_map(|t| match SidebarTag::parse(t.as_ref())? {
+            SidebarTag::Connection(id) => Some(id),
+            SidebarTag::Entry(id) | SidebarTag::Favorite(id) => pick(&id).map(|c| c.id.clone()),
+            _ => None,
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -101,6 +179,7 @@ mod tests {
     fn connection(id: &str, folder: Option<&str>) -> Connection {
         let mut c = Connection::new(ConnectionType::Ssh, id, "h");
         c.id = id.into();
+        c.entry_id = id.into();
         c.folder_id = folder.map(Into::into);
         c
     }
@@ -145,6 +224,36 @@ mod tests {
         assert!(lib.connection_ids_for_tags(&["k:x"]).is_empty());
     }
 
+    /// An entry with an RDP default and an SSH second connection.
+    fn two_way(lib: &mut Library) {
+        let mut entry = Entry::new("E", "h");
+        entry.id = "E".into();
+        entry.default_connection_id = Some("ER".into());
+        let mut rdp = connection("ER", None);
+        rdp.kind = ConnectionType::Rdp;
+        rdp.entry_id = "E".into();
+        let mut ssh = connection("ES", None);
+        ssh.entry_id = "E".into();
+        ssh.sort_order = 1;
+        lib.connections.extend([rdp, ssh]);
+        lib.entries.push(entry);
+    }
+
+    #[test]
+    fn entry_tags_pick_the_default_or_its_ssh_connection() {
+        let mut lib = library();
+        two_way(&mut lib);
+        assert_eq!(lib.connection_ids_for_tags(&["e:E", "fav:E", "e:D"]), ["ER", "D"]);
+        assert_eq!(
+            lib.ssh_connection_ids_for_tags(&["e:E", "c:ER", "e:D"]),
+            ["ES", "D"]
+        );
+        lib.connections[0].kind = ConnectionType::Web;
+        assert_eq!(lib.ssh_connection_ids_for_tags(&["f:F1", "e:A"]), ["B"]);
+        lib.connections.retain(|c| c.id != "ES");
+        assert!(lib.ssh_connection_ids_for_tags(&["e:E", "e:missing"]).is_empty());
+    }
+
     #[test]
     fn resolves_linked_credential() {
         let mut lib = library();
@@ -159,6 +268,34 @@ mod tests {
         assert_eq!(lib.resolved(&lib.connections[1]), lib.connections[1]);
         assert_eq!(lib.connections_using(&credential.id).count(), 1);
         assert!(lib.credential(None).is_none());
+    }
+
+    #[test]
+    fn entry_connections_sort_and_default() {
+        let mut lib = library();
+        let mut entry = Entry::new("E", "h");
+        entry.id = "E".into();
+        let member = |id: &str, sort_order: i64, created: i64| {
+            let mut c = connection(id, None);
+            c.entry_id = "E".into();
+            c.sort_order = sort_order;
+            c.created_at = Timestamp::from_unix(created);
+            c
+        };
+        lib.connections
+            .extend([member("X", 1, 0), member("Y", 0, 5), member("Z", 0, 1)]);
+        lib.entries.push(entry);
+        let ids = |list: Vec<&Connection>| list.iter().map(|c| c.id.clone()).collect::<Vec<_>>();
+        assert_eq!(ids(lib.connections_of("E")), ["Z", "Y", "X"]);
+        assert_eq!(lib.default_connection("E").unwrap().id, "Z");
+        lib.entries[0].default_connection_id = Some("X".into());
+        assert_eq!(lib.default_connection("E").unwrap().id, "X");
+        lib.entries[0].default_connection_id = Some("A".into());
+        assert_eq!(lib.default_connection("E").unwrap().id, "Z");
+        assert_eq!(lib.entry("E").unwrap().name, "E");
+        assert!(lib.entry("nope").is_none());
+        assert!(lib.default_connection("nope").is_none());
+        assert_eq!(ids(lib.connections_of("A")), ["A"]);
     }
 
     #[test]

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RdpSessionState } from '../rdp/model';
+import type { ConnectionDto } from '../types';
 import { createConnectionTabs, type ConnectionTabsDeps } from './connectionTabs.svelte';
 import type { TerminalSessionState } from './model';
 import type { SplitState } from './split';
@@ -13,12 +14,15 @@ function setup({
   ssh = {},
   rdp = {},
   splits = {},
+  entries = {},
 }: {
   ids?: string[];
   ssh?: Record<string, Ssh>;
   rdp?: Record<string, Rdp>;
   /** Split tab id → its panes' connection ids. */
   splits?: Record<string, string[]>;
+  /** Connection id → its entry id (others are their own entry). */
+  entries?: Record<string, string>;
 }) {
   const sshStates = Object.fromEntries(
     Object.entries(ssh).map(([id, s]) => [
@@ -33,6 +37,9 @@ function setup({
     ]),
   ) as unknown as Record<string, RdpSessionState>;
   const deps: ConnectionTabsDeps = {
+    library: {
+      connection: (id) => (id ? ({ id, entryId: entries[id] ?? id } as ConnectionDto) : undefined),
+    },
     tabs: {
       ids,
       session: (id) =>
@@ -144,5 +151,32 @@ describe('connectionTabs.openTabs', () => {
       { id: 'R1', title: 'T-R1', type: 'rdp', split: false },
     ]);
     expect(tabs.openTabs('none')).toEqual([]);
+  });
+});
+
+describe('connectionTabs per entry', () => {
+  // Entry E has connections a (SSH) and b (RDP); c is its own entry.
+  const tabs = setup({
+    ids: ['S1', 'X', 'R1', 'SPLIT', 'S2'],
+    ssh: { S1: { connectionId: 'a' }, X: { connectionId: 'c' }, S2: { connectionId: 'a' } },
+    rdp: { R1: { connectionId: 'b' } },
+    splits: { SPLIT: ['c', 'a'] },
+    entries: { a: 'E', b: 'E' },
+  });
+
+  it('tabs_group_per_entry', () => {
+    expect(tabs.plainTabs('E')).toEqual(['S1', 'R1', 'S2']);
+    expect(tabs.plainTabs('c')).toEqual(['X']);
+    expect(tabs.openTabs('E').map((t) => t.id)).toEqual(['S1', 'R1', 'SPLIT', 'S2']);
+  });
+
+  it('an entry row shows its only plain tab, a child row that connection’s only tab', () => {
+    expect(tabs.tabForSelection(['e:E'], 'tab')).toBeNull();
+    expect(tabs.tabForSelection(['fav:E'], 'tab')).toBeNull();
+    expect(tabs.tabForSelection(['c:b'], 'tab')).toBe('R1');
+    expect(tabs.tabForSelection(['c:a'], 'tab')).toBeNull();
+    const single = setup({ ids: ['R1'], rdp: { R1: { connectionId: 'b' } }, entries: { a: 'E', b: 'E' } });
+    expect(single.tabForSelection(['e:E'], 'tab')).toBe('R1');
+    expect(single.tabForSelection(['fav:E'], 'tab')).toBe('R1');
   });
 });

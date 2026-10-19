@@ -146,6 +146,12 @@ pub trait Launcher: Send + Sync {
     /// When nothing could open it.
     fn open_web(&self, url: &str, browser_id: Option<&str>) -> Result<(), LaunchError>;
 
+    /// Opens `url` with the OS handler of its scheme (`smb://`, `ssh://`, ...).
+    ///
+    /// # Errors
+    /// When nothing could open it.
+    fn open_url(&self, url: &str) -> Result<(), LaunchError>;
+
     /// Copies `values` one after another, unmarked, one second apart.
     ///
     /// # Errors
@@ -182,6 +188,17 @@ pub struct SystemLauncher;
 impl Launcher for SystemLauncher {
     fn open_web(&self, url: &str, browser_id: Option<&str>) -> Result<(), LaunchError> {
         crate::web::open_url(url, browser_id)
+    }
+
+    fn open_url(&self, url: &str) -> Result<(), LaunchError> {
+        #[cfg(target_os = "macos")]
+        {
+            ProcessSpec::new("/usr/bin/open", vec![url.to_owned()]).run()
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            open::that_detached(url).map_err(LaunchError::from)
+        }
     }
 
     fn copy_sequence(&self, values: Vec<Zeroizing<String>>) -> Result<(), LaunchError> {

@@ -3,12 +3,12 @@
 use std::sync::{Arc, Mutex, PoisonError};
 
 use rd_core::ConnectionType;
-use rd_core::draft::ConnectionDraft;
+use rd_core::draft::{ConnectionDraft, EntryDraft};
 use rd_platform::launch::{LaunchError, Launcher};
 use rd_platform::rdp::RdpOutcome;
 use zeroize::Zeroizing;
 
-use super::tests::Env;
+use super::tests::{Env, HOST, entry_draft, save_single};
 use super::*;
 
 /// One recorded side effect.
@@ -18,6 +18,7 @@ pub(super) enum Call {
         url: String,
         browser: Option<String>,
     },
+    Url(String),
     Copy(Vec<String>),
     Winbox {
         configured: Option<String>,
@@ -77,6 +78,10 @@ impl Launcher for Recorder {
         })
     }
 
+    fn open_url(&self, url: &str) -> Result<(), LaunchError> {
+        self.push(Call::Url(url.to_owned()))
+    }
+
     fn copy_sequence(&self, values: Vec<Zeroizing<String>>) -> Result<(), LaunchError> {
         self.push(Call::Copy(values.iter().map(|v| v.to_string()).collect()))
     }
@@ -106,14 +111,13 @@ pub(super) fn recording(env: &Env, fail: Option<LaunchError>) -> (AppCore, Recor
 pub(super) fn save(
     core: &AppCore,
     kind: ConnectionType,
-    edit: impl FnOnce(&mut ConnectionDraft),
+    edit: impl FnOnce(&mut EntryDraft, &mut ConnectionDraft),
     password: Option<&str>,
 ) -> String {
-    let mut draft = ConnectionDraft::new(kind, None);
-    draft.name = "Target".into();
-    draft.host = "host.example.com".into();
-    edit(&mut draft);
-    core.save_connection(None, &draft, password, None).unwrap()
+    let mut entry = entry_draft("Target", HOST);
+    let mut draft = ConnectionDraft::new(kind);
+    edit(&mut entry, &mut draft);
+    save_single(core, None, &entry, draft, password, None).unwrap()
 }
 
 #[test]
@@ -123,8 +127,9 @@ fn web_opens_the_browser_then_copies_password_and_username() {
     let id = save(
         &core,
         ConnectionType::Web,
-        |d| {
-            d.host = " router.example/admin ".into();
+        |e, d| {
+            e.host = " router.example ".into();
+            d.web_path = "/admin".into();
             d.username = "bob".into();
             d.browser_bundle_id = Some("com.brave.Browser".into());
         },
@@ -144,13 +149,66 @@ fn web_opens_the_browser_then_copies_password_and_username() {
 }
 
 #[test]
+fn web_http_opens_in_the_browser() {
+    let env = Env::new();
+    let (core, recorder) = recording(&env, None);
+    let id = save(
+        &core,
+        ConnectionType::Web,
+        |_, d| {
+            d.port = "8443".into();
+            d.web_path = "/admin".into();
+            d.browser_bundle_id = Some("org.mozilla.firefox".into());
+        },
+        None,
+    );
+    assert_eq!(core.connect_web(&id), Ok(LaunchOutcomeDto::Launched));
+    assert_eq!(
+        recorder.calls(),
+        [Call::Web {
+            url: "https://host.example.com:8443/admin".into(),
+            browser: Some("org.mozilla.firefox".into()),
+        }]
+    );
+}
+
+#[test]
+fn web_non_http_scheme_opens_with_the_os() {
+    let env = Env::new();
+    let (core, recorder) = recording(&env, None);
+    let id = save(
+        &core,
+        ConnectionType::Web,
+        |_, d| {
+            d.web_scheme = "smb".into();
+            d.web_path = "/share".into();
+            d.username = "bob".into();
+        },
+        Some("pw"),
+    );
+    assert_eq!(core.connect_web(&id), Ok(LaunchOutcomeDto::LoginCopied));
+    assert_eq!(
+        recorder.calls(),
+        [
+            Call::Url("smb://host.example.com/share".into()),
+            Call::Copy(vec!["pw".into(), "bob".into()]),
+        ]
+    );
+}
+
+#[test]
 fn web_without_login_only_opens() {
     let env = Env::new();
     let (core, recorder) = recording(&env, None);
     let id = save(
         &core,
         ConnectionType::Web,
-        |d| d.host = "http://example.com:8080/x".into(),
+        |e, d| {
+            d.web_scheme = "http".into();
+            e.host = "example.com".into();
+            d.port = "8080".into();
+            d.web_path = "/x".into();
+        },
         None,
     );
     assert_eq!(core.connect_web(&id), Ok(LaunchOutcomeDto::Launched));
@@ -182,7 +240,7 @@ fn web_uses_the_linked_credential() {
     let id = save(
         &core,
         ConnectionType::Web,
-        |d| {
+        |_, d| {
             d.username = "own".into();
             d.credential_id = Some(credential);
         },
@@ -199,14 +257,14 @@ fn web_uses_the_linked_credential() {
 fn web_errors() {
     let env = Env::new();
     let (core, recorder) = recording(&env, Some(LaunchError::OpenFailed("no browser".into())));
-    let web = save(&core, ConnectionType::Web, |_| {}, None);
+    let web = save(&core, ConnectionType::Web, |_, _| {}, None);
     let error = core.connect_web(&web).unwrap_err();
     assert_eq!(
         (error.code.as_str(), error.detail.as_deref()),
         ("launchFailed", Some("no browser"))
     );
 
-    let ssh = save(&core, ConnectionType::Ssh, |_| {}, None);
+    let ssh = save(&core, ConnectionType::Ssh, |_, _| {}, None);
     assert_eq!(core.connect_web(&ssh).unwrap_err().code, "wrongType");
     assert_eq!(core.connect_web("missing").unwrap_err().code, "notFound");
     assert_eq!(recorder.calls().len(), 1);
@@ -254,15 +312,15 @@ fn winbox_logs_in_with_host_user_and_password() {
     let id = save(
         &core,
         ConnectionType::Mikrotik,
-        |d| {
-            d.host = " router.example ".into();
+        |e, d| {
+            e.host = " router.example ".into();
             d.port = "2222".into();
             d.username = "admin".into();
         },
         Some("pw"),
     );
     assert_eq!(core.connect_winbox(&id), Ok(LaunchOutcomeDto::Launched));
-    let no_user = save(&core, ConnectionType::Mikrotik, |_| {}, Some("pw"));
+    let no_user = save(&core, ConnectionType::Mikrotik, |_, _| {}, Some("pw"));
     core.settings_set(&SettingsPatch {
         winbox_path: Some(" /opt/winbox/WinBox ".into()),
         ..SettingsPatch::default()
@@ -288,13 +346,13 @@ fn winbox_logs_in_with_host_user_and_password() {
 fn winbox_errors() {
     let env = Env::new();
     let (core, _) = recording(&env, Some(LaunchError::AppNotInstalled("WinBox".into())));
-    let id = save(&core, ConnectionType::Mikrotik, |_| {}, None);
+    let id = save(&core, ConnectionType::Mikrotik, |_, _| {}, None);
     let error = core.connect_winbox(&id).unwrap_err();
     assert_eq!(
         (error.code.as_str(), error.detail.as_deref()),
         ("appNotInstalled", Some("WinBox"))
     );
-    let web = save(&core, ConnectionType::Web, |_| {}, None);
+    let web = save(&core, ConnectionType::Web, |_, _| {}, None);
     assert_eq!(core.connect_winbox(&web).unwrap_err().code, "wrongType");
 }
 
@@ -333,8 +391,8 @@ fn rdp_hands_the_resolved_connection_to_the_system_client() {
     let id = save(
         &core,
         ConnectionType::Rdp,
-        |d| {
-            d.host = "dc.example.test".into();
+        |e, d| {
+            e.host = "dc.example.test".into();
             d.port = "3390".into();
             d.username = "admin".into();
             d.domain = "CORP".into();
@@ -354,7 +412,7 @@ fn rdp_hands_the_resolved_connection_to_the_system_client() {
     assert!(!file.contains("pw"));
     assert_eq!(password.as_deref(), Some("pw"));
 
-    let ssh = save(&core, ConnectionType::Ssh, |_| {}, None);
+    let ssh = save(&core, ConnectionType::Ssh, |_, _| {}, None);
     assert_eq!(core.connect_rdp_external(&ssh).unwrap_err().code, "wrongType");
 }
 
@@ -372,7 +430,7 @@ fn rdp_reports_the_clipboard_fallbacks() {
     let notices = Arc::new(Mutex::new(Vec::new()));
     let sink = Arc::clone(&notices);
     core.set_launch_notifier(Arc::new(move |notice| sink.lock().unwrap().push(notice)));
-    let id = save(&core, ConnectionType::Rdp, |d| d.name = "Office".into(), None);
+    let id = save(&core, ConnectionType::Rdp, |e, _| e.name = "Office".into(), None);
     assert_eq!(
         core.connect_rdp_external(&id),
         Ok(LaunchOutcomeDto::PasswordCopied {

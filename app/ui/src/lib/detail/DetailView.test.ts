@@ -1,6 +1,7 @@
 import { flushSync } from 'svelte';
 import { afterEach, describe, expect, it } from 'vitest';
-import { sidebarLibrary } from '../testing/fixtures';
+import { contextMenu } from '../components/menu.svelte';
+import { multiEntryLibrary, sidebarLibrary } from '../testing/fixtures';
 import { buttonByText, check, cleanupView, click, renderView, settle, text, type } from '../testing/views';
 import type { LibraryDto } from '../types';
 import DetailView from './DetailView.svelte';
@@ -23,6 +24,7 @@ function linkedLibrary(): LibraryDto {
     notes: 'rack 4',
     resolved: { username: 'admin', domain: '', hasPassword: true, sshKeyPath: null, hasPassphrase: false },
   };
+  library.entries[0] = { ...library.entries[0]!, notes: 'rack 4' };
   library.portForwards = [
     {
       id: 'p1',
@@ -156,7 +158,7 @@ describe('DetailView', () => {
     const { editor } = render(['f:f1']);
     expect(text()).toContain('1 connection · Office');
     click(buttonByText('New SSH'));
-    expect(editor.connection).toEqual({ mode: 'new', type: 'ssh', folderId: 'f1' });
+    expect(editor.entry).toEqual({ mode: 'new', type: 'ssh', folderId: 'f1' });
   });
 
   it('shows a saved split', () => {
@@ -180,6 +182,74 @@ describe('DetailView', () => {
       tags: ['c:c1', 'f:f1'],
       connectionIds: null,
     });
+  });
+});
+
+describe('EntryDetail', () => {
+  const groupTitles = () => [...document.querySelectorAll('h3')].map((h) => h.textContent?.trim());
+
+  it('entry_with_buttons_shows_one_per_pinned_connection_default_primary', () => {
+    render(['e:e1'], { library: multiEntryLibrary() });
+    expect(text()).toContain('Home Server');
+    expect(text()).toContain('home.example.test');
+    expect(buttonByText('SSH · root').className).toContain('primary');
+    expect(buttonByText('Console').className).not.toContain('primary');
+    expect(() => buttonByText('Files (SCP)…')).not.toThrow();
+  });
+
+  it('connect_menu_lists_every_connection', () => {
+    const library = multiEntryLibrary();
+    library.connections = library.connections.map((c) => (c.id === 'h2' ? { ...c, showAsButton: false } : c));
+    render(['e:e1'], { library });
+    expect(() => buttonByText('Console')).toThrow();
+    click(document.querySelector('[aria-haspopup="menu"]')!);
+    const items = contextMenu.open?.items ?? [];
+    expect(items.map((i) => (i.kind === 'separator' ? '-' : [i.label, i.checked]))).toEqual([
+      ['SSH · root', true],
+      ['Console', false],
+    ]);
+  });
+
+  it('single_connection_entry_looks_like_today', () => {
+    render(['e:c1']);
+    expect(buttonByText('Connect').className).toContain('primary');
+    expect(document.querySelector('[aria-haspopup="menu"]')).toBeNull();
+    expect(groupTitles()).toEqual([]);
+    expect(text()).toContain('SSH · embedded terminal');
+  });
+
+  it('fields_are_grouped_per_connection', () => {
+    render(['c:h2'], { library: multiEntryLibrary() });
+    expect(groupTitles()).toEqual(['SSH · root', 'Console']);
+    const groups = [...document.querySelectorAll('.connection-group')];
+    expect(groups[0]!.querySelector('[aria-label="Default connection"]')).toBeTruthy();
+    expect(groups[1]!.querySelector('[aria-label="Default connection"]')).toBeNull();
+    expect(groups[1]!.classList.contains('selected')).toBe(true);
+    expect(groups[0]!.classList.contains('selected')).toBe(false);
+    expect(groups[1]!.textContent).toContain('3389');
+  });
+
+  it('Edit opens the selected connection’s tab, General for an entry row, its tab for one connection', () => {
+    const { editor, store } = render(['c:h2'], { library: multiEntryLibrary() });
+    click(buttonByText('Edit'));
+    expect(editor.entry).toEqual({ mode: 'edit', id: 'e1', connectionId: 'h2' });
+    store.setSelection(['e:e1']);
+    flushSync();
+    click(buttonByText('Edit'));
+    expect(editor.entry).toEqual({ mode: 'edit', id: 'e1' });
+    store.setSelection(['e:c1']);
+    flushSync();
+    click(buttonByText('Edit'));
+    expect(editor.entry).toEqual({ mode: 'edit', id: 'c1', connectionId: 'c1' });
+  });
+
+  it('offers Merge… unless read-only', () => {
+    const { deps } = render(['e:e1'], { library: multiEntryLibrary() });
+    click(buttonByText('Merge…'));
+    expect(deps.actions.mergeTarget).toBe('e1');
+    cleanupView();
+    render(['e:e1'], { library: multiEntryLibrary(), readOnly: true });
+    expect(() => buttonByText('Merge…')).toThrow();
   });
 });
 
@@ -221,7 +291,7 @@ describe('CredentialDetail', () => {
     });
 
     click(buttonByText('router'));
-    expect(store.selection).toEqual(['c:c4']);
+    expect(store.selection).toEqual(['e:c4']);
   });
 
   it('shows the empty state of an unused credential', async () => {

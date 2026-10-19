@@ -1,12 +1,12 @@
 //! What the webview receives. Every DTO is secret-free: sealed bytes and plaintexts never leave Rust, only
 //! `has…` flags do. Field names are camelCase, enums are their raw strings.
 
-use rd_core::draft::normalized_web_url;
+use rd_core::draft::web_url;
 use rd_core::import::{ImportKind, Skipped};
 use rd_core::shortcuts::{KeyShortcut, Platform, ShortcutCommand, ShortcutSettings};
 use rd_core::tree::{self, TreeNode};
 use rd_core::{
-    Connection, ConnectionType, Credential, Folder, LabelColor, Library, MikrotikMode, PortForward,
+    Connection, ConnectionType, Credential, Entry, Folder, LabelColor, Library, MikrotikMode, PortForward,
     RdpClient, SavedSplit, SshTerminal, Timestamp,
 };
 use rd_store::LockHolder;
@@ -38,6 +38,20 @@ pub struct ResolvedLoginDto {
 pub struct ConnectionDto {
     /// Record id.
     pub id: String,
+    /// Owning entry.
+    pub entry_id: String,
+    /// Optional label among the entry's connections; empty when unset.
+    pub label: String,
+    /// The label, else `<TYPE> · <username>`, else `<TYPE>`.
+    pub display_label: String,
+    /// Gets its own button on the entry's Details page.
+    pub show_as_button: bool,
+    /// Position among the entry's connections.
+    pub sort_order: i64,
+    /// Web: the URL scheme.
+    pub web_scheme: String,
+    /// Web: the path after host and port; empty for none.
+    pub web_path: String,
     /// Containing folder.
     pub folder_id: Option<String>,
     /// Linked credential.
@@ -47,7 +61,7 @@ pub struct ConnectionDto {
     pub kind: ConnectionType,
     /// Display name.
     pub name: String,
-    /// Host, or the URL for web connections.
+    /// Host (the entry's).
     pub host: String,
     /// Stored port; `None` means the type's default.
     pub port: Option<u16>,
@@ -96,8 +110,23 @@ impl ConnectionDto {
     #[must_use]
     pub fn new(connection: &Connection, library: &Library) -> Self {
         let resolved = library.resolved(connection);
+        let label = connection.label.trim();
+        let display_label = if !label.is_empty() {
+            label.to_owned()
+        } else if resolved.username.is_empty() {
+            connection.kind.label().to_owned()
+        } else {
+            format!("{} · {}", connection.kind.label(), resolved.username)
+        };
         Self {
             id: connection.id.clone(),
+            entry_id: connection.entry_id.clone(),
+            label: connection.label.clone(),
+            display_label,
+            show_as_button: connection.show_as_button,
+            sort_order: connection.sort_order,
+            web_scheme: connection.web_scheme.clone(),
+            web_path: connection.web_path.clone(),
             folder_id: connection.folder_id.clone(),
             credential_id: connection.credential_id.clone(),
             kind: connection.kind,
@@ -106,7 +135,14 @@ impl ConnectionDto {
             port: connection.port,
             effective_port: connection.effective_port(),
             web_url: (connection.kind == ConnectionType::Web)
-                .then(|| normalized_web_url(&connection.host))
+                .then(|| {
+                    web_url(
+                        &connection.web_scheme,
+                        &connection.host,
+                        connection.port,
+                        &connection.web_path,
+                    )
+                })
                 .flatten(),
             username: connection.username.clone(),
             domain: connection.domain.clone(),
@@ -131,6 +167,55 @@ impl ConnectionDto {
             folder_path: tree::folder_path(library, connection.folder_id.as_deref()),
             created_at: connection.created_at,
             updated_at: connection.updated_at,
+        }
+    }
+}
+
+/// A sidebar entry: the shared fields and its connections.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EntryDto {
+    /// Record id.
+    pub id: String,
+    /// Containing folder.
+    pub folder_id: Option<String>,
+    /// `Parent / Child`; empty at the root.
+    pub folder_path: String,
+    /// Display name.
+    pub name: String,
+    /// Host shared by every connection.
+    pub host: String,
+    /// Notes.
+    pub notes: String,
+    /// Tag color.
+    pub color: Option<LabelColor>,
+    /// Shown under Favorites.
+    pub is_favorite: bool,
+    /// The connection double-click opens (a stale stored one already replaced by the first).
+    pub default_connection_id: Option<String>,
+    /// Its connections in order.
+    pub connection_ids: Vec<String>,
+}
+
+impl EntryDto {
+    /// The DTO for one entry of `library`.
+    #[must_use]
+    pub fn new(entry: &Entry, library: &Library) -> Self {
+        Self {
+            id: entry.id.clone(),
+            folder_id: entry.folder_id.clone(),
+            folder_path: tree::folder_path(library, entry.folder_id.as_deref()),
+            name: entry.name.clone(),
+            host: entry.host.clone(),
+            notes: entry.notes.clone(),
+            color: entry.color,
+            is_favorite: entry.is_favorite,
+            default_connection_id: library.default_connection(&entry.id).map(|c| c.id.clone()),
+            connection_ids: library
+                .connections_of(&entry.id)
+                .iter()
+                .map(|c| c.id.clone())
+                .collect(),
         }
     }
 }
@@ -284,7 +369,7 @@ impl From<&SavedSplit> for SavedSplitDto {
     }
 }
 
-/// A sidebar tree node: a folder with its children, or a connection.
+/// A sidebar tree node: a folder with its children, or an entry.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum TreeNodeDto {
@@ -292,12 +377,12 @@ pub enum TreeNodeDto {
     Folder {
         /// Folder id.
         id: String,
-        /// Subfolders first, then connections.
+        /// Subfolders first, then entries.
         children: Vec<TreeNodeDto>,
     },
-    /// A connection row.
-    Connection {
-        /// Connection id.
+    /// An entry row.
+    Entry {
+        /// Entry id.
         id: String,
     },
 }
@@ -309,9 +394,7 @@ impl From<&TreeNode<'_>> for TreeNodeDto {
                 id: folder.id.clone(),
                 children: children.iter().map(Into::into).collect(),
             },
-            TreeNode::Connection(connection) => Self::Connection {
-                id: connection.id.clone(),
-            },
+            TreeNode::Entry(entry) => Self::Entry { id: entry.id.clone() },
         }
     }
 }
@@ -332,6 +415,8 @@ pub struct FlatFolderDto {
 pub struct LibraryDto {
     /// Folders in repository order.
     pub folders: Vec<FolderDto>,
+    /// Entries by name.
+    pub entries: Vec<EntryDto>,
     /// Connections by name.
     pub connections: Vec<ConnectionDto>,
     /// Credentials by name.
@@ -342,7 +427,7 @@ pub struct LibraryDto {
     pub saved_splits: Vec<SavedSplitDto>,
     /// The "Connections" tree.
     pub tree: Vec<TreeNodeDto>,
-    /// Favorite connection ids in natural name order.
+    /// Favorite entry ids in natural name order.
     pub favorites: Vec<String>,
     /// Every folder depth first for pickers and Move menus.
     pub flattened_folders: Vec<FlatFolderDto>,
@@ -358,6 +443,11 @@ impl LibraryDto {
                 .iter()
                 .map(|f| FolderDto::new(f, library))
                 .collect(),
+            entries: library
+                .entries
+                .iter()
+                .map(|e| EntryDto::new(e, library))
+                .collect(),
             connections: library
                 .connections
                 .iter()
@@ -371,7 +461,7 @@ impl LibraryDto {
             port_forwards: library.port_forwards.iter().map(Into::into).collect(),
             saved_splits: library.saved_splits.iter().map(Into::into).collect(),
             tree: tree::build(library).iter().map(Into::into).collect(),
-            favorites: tree::favorites(library).iter().map(|c| c.id.clone()).collect(),
+            favorites: tree::favorites(library).iter().map(|e| e.id.clone()).collect(),
             flattened_folders: tree::flattened_folders(library, None)
                 .into_iter()
                 .map(|(f, depth)| FlatFolderDto {
@@ -387,8 +477,8 @@ impl LibraryDto {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchResultDto {
-    /// Matching connections in natural name order.
-    pub connections: Vec<String>,
+    /// Matching entries in natural name order.
+    pub entries: Vec<String>,
     /// Matching credentials in library order.
     pub credentials: Vec<String>,
 }
@@ -537,7 +627,9 @@ pub fn shortcut_rows(settings: &ShortcutSettings) -> Vec<ShortcutDto> {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeleteCountsDto {
-    /// Connections deleted.
+    /// Entries deleted through their `e:` / `fav:` tags.
+    pub entries: usize,
+    /// Connections deleted, those of deleted entries included.
     pub connections: usize,
     /// Folders deleted (subfolders not counted).
     pub folders: usize,
@@ -545,6 +637,14 @@ pub struct DeleteCountsDto {
     pub credentials: usize,
     /// Saved splits deleted.
     pub splits: usize,
+}
+
+/// Result of a merge.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MergeResultDto {
+    /// Connections that moved into the target entry.
+    pub moved_connections: usize,
 }
 
 /// Result of a move.

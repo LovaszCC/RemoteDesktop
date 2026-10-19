@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { connection, sidebarLibrary } from '../testing/fixtures';
+import { connection, multiEntryLibrary, sidebarLibrary } from '../testing/fixtures';
 import {
   browserOptions,
   buildConnectionSave,
@@ -7,18 +7,25 @@ import {
   canSave,
   clearSecret,
   connectionFormFrom,
+  connectionTabLabel,
   credentialLabel,
   credentialOptions,
+  buildEntrySave,
+  entryFormFrom,
   errorField,
   folderOptions,
   fromPicker,
+  splitEntryHostUrl,
+  invalidPortKey,
   keepSecret,
   keepsStored,
   newConnectionForm,
   newCredentialForm,
+  newEntryForm,
   secretPlaceholder,
   secretState,
   secretUpdate,
+  splitPastedUrl,
   toPicker,
   type ConnectionForm,
 } from './model';
@@ -56,15 +63,16 @@ describe('secret fields', () => {
 
 function filled(type: ConnectionForm['type']): ConnectionForm {
   return {
-    ...newConnectionForm(type, 'f1'),
-    name: 'n',
-    host: 'h',
+    ...newConnectionForm(type),
     port: ' 2222 ',
     username: 'u',
     domain: 'CORP',
     sshKeyPath: '~/.ssh/id',
     rdpAdminSession: true,
     browserBundleId: 'org.example.browser',
+    webScheme: ' smb ',
+    webPath: '/share',
+    label: 'Main',
     password: { text: 'pw', stored: false, cleared: false },
     passphrase: { text: 'pp', stored: false, cleared: false },
   };
@@ -72,27 +80,39 @@ function filled(type: ConnectionForm['type']): ConnectionForm {
 
 describe('buildConnectionSave', () => {
   it('keeps the RDP fields and drops the SSH and web ones', () => {
-    const { draft, password, passphrase } = buildConnectionSave(filled('rdp'));
-    expect(draft).toMatchObject({ type: 'rdp', port: '2222', domain: 'CORP', rdpAdminSession: true });
+    const { id, draft, password, passphrase, isDefault } = buildConnectionSave(filled('rdp'), true);
+    expect(id).toBeNull();
+    expect(isDefault).toBe(true);
+    expect(draft).toMatchObject({
+      type: 'rdp',
+      port: '2222',
+      domain: 'CORP',
+      rdpAdminSession: true,
+      label: 'Main',
+      showAsButton: true,
+    });
     expect(draft.sshKeyPath).toBe('');
     expect(draft.browserBundleId).toBeNull();
+    expect(draft.webPath).toBe('');
     expect(password).toBe('pw');
     expect(passphrase).toBeNull();
   });
 
   it('keeps the key and passphrase for SSH types only', () => {
     for (const type of ['ssh', 'mikrotik'] as const) {
-      const { draft, passphrase } = buildConnectionSave(filled(type));
+      const { draft, passphrase } = buildConnectionSave(filled(type), false);
       expect(draft).toMatchObject({ sshKeyPath: '~/.ssh/id', domain: '', rdpAdminSession: false });
       expect(draft.browserBundleId).toBeNull();
       expect(passphrase).toBe('pp');
     }
   });
 
-  it('drops the port for web and keeps the browser', () => {
-    const { draft, passphrase } = buildConnectionSave(filled('web'));
+  it('keeps the port, scheme, path and browser for web', () => {
+    const { draft, passphrase } = buildConnectionSave(filled('web'), false);
     expect(draft).toMatchObject({
-      port: '',
+      port: '2222',
+      webScheme: 'smb',
+      webPath: '/share',
       browserBundleId: 'org.example.browser',
       domain: '',
       sshKeyPath: '',
@@ -108,10 +128,110 @@ describe('buildConnectionSave', () => {
       port: 2200,
     });
     expect(form.port).toBe('2200');
-    const save = buildConnectionSave(form);
+    const save = buildConnectionSave(form, false);
+    expect(save.id).toBe('c1');
     expect(save.password).toBeNull();
     expect(save.passphrase).toBeNull();
     expect(form.password.stored).toBe(true);
+  });
+});
+
+describe('entry form', () => {
+  it('build_entry_save_orders_and_marks_default', () => {
+    const library = multiEntryLibrary();
+    const entry = library.entries.find((e) => e.id === 'e1')!;
+    const connections = library.connections.filter((c) => c.entryId === 'e1');
+    const form = entryFormFrom({ ...entry, defaultConnectionId: 'h2' }, connections);
+    expect(form.defaultKey).toBe('h2');
+    const added = newConnectionForm('web');
+    form.connections = [form.connections[1]!, added, form.connections[0]!];
+    form.name = 'Home';
+    const save = buildEntrySave(form);
+    expect(save.entry).toEqual({
+      name: 'Home',
+      host: 'home.example.test',
+      folderId: null,
+      notes: '',
+      color: null,
+      isFavorite: false,
+    });
+    expect(save.connections.map((c) => [c.id, c.draft.type, c.isDefault])).toEqual([
+      ['h2', 'rdp', true],
+      [null, 'web', false],
+      ['h1', 'ssh', false],
+    ]);
+    form.defaultKey = added.key;
+    expect(buildEntrySave(form).connections.map((c) => c.isDefault)).toEqual([false, true, false]);
+  });
+
+  it('starts a new entry with one connection of the type, its default', () => {
+    const form = newEntryForm('ssh', 'f1');
+    expect(form).toMatchObject({ name: '', host: '', folderId: 'f1' });
+    expect(form.connections.map((c) => c.type)).toEqual(['ssh']);
+    expect(form.defaultKey).toBe(form.connections[0]!.key);
+    expect(newConnectionForm('ssh').key).not.toBe(form.connections[0]!.key);
+  });
+
+  it('labels a connection tab like the sidebar', () => {
+    const form = newConnectionForm('ssh');
+    expect(connectionTabLabel(form)).toBe('SSH');
+    expect(connectionTabLabel({ ...form, username: 'root' })).toBe('SSH · root');
+    const credential = sidebarLibrary().credentials[0]!;
+    expect(connectionTabLabel({ ...form, username: 'root' }, credential)).toBe('SSH · admin');
+    expect(connectionTabLabel({ ...form, label: ' Console ' })).toBe('Console');
+  });
+
+  it('finds the connection with an invalid port', () => {
+    const form = newEntryForm('ssh', null);
+    const rdp = { ...newConnectionForm('rdp'), port: '99999' };
+    form.connections.push(rdp);
+    expect(invalidPortKey(form)).toBe(rdp.key);
+    rdp.port = '3390';
+    form.connections[0]!.port = 'x';
+    expect(invalidPortKey(form)).toBe(form.connections[0]!.key);
+    form.connections[0]!.port = '';
+    expect(invalidPortKey(form)).toBeNull();
+  });
+});
+
+describe('splitPastedUrl', () => {
+  it('split_pasted_url_cases', () => {
+    const cases: [string, ReturnType<typeof splitPastedUrl>][] = [
+      [
+        'https://192.168.1.10:8443/admin',
+        { scheme: 'https', host: '192.168.1.10', port: 8443, path: '/admin' },
+      ],
+      [
+        'smb://homeserver.local/share',
+        { scheme: 'smb', host: 'homeserver.local', port: null, path: '/share' },
+      ],
+      ['http://user@host/x?y=1#z', { scheme: 'http', host: 'host', port: null, path: '/x?y=1#z' }],
+      ['https://[::1]:8443', { scheme: 'https', host: '[::1]', port: 8443, path: '' }],
+      ['https://user@[2001:db8::1]/x', { scheme: 'https', host: '[2001:db8::1]', port: null, path: '/x' }],
+      ['example.com', { scheme: 'https', host: 'example.com', port: null, path: '' }],
+      [
+        '  router.example.com/admin ',
+        { scheme: 'https', host: 'router.example.com', port: null, path: '/admin' },
+      ],
+      ['https://example.com:443', { scheme: 'https', host: 'example.com', port: 443, path: '' }],
+    ];
+    for (const [text, expected] of cases) expect(splitPastedUrl(text), text).toEqual(expected);
+    for (const bad of [
+      '',
+      'not a url',
+      'https://',
+      'https://host:port',
+      'https://host:',
+      'https://host:99999',
+      'https://h:0',
+      '1http://example.com',
+      'https:///path',
+      'exa\tmple.com',
+      'https://[::1',
+      'https://[]',
+    ]) {
+      expect(splitPastedUrl(bad), bad).toBeNull();
+    }
   });
 });
 
@@ -169,5 +289,25 @@ describe('validation and pickers', () => {
     ]);
     expect(fromPicker('')).toBeNull();
     expect(toPicker(null)).toBe('');
+  });
+});
+
+describe('splitEntryHostUrl', () => {
+  it('moves the URL parts of the entry host to the first web connection', () => {
+    const form = newEntryForm('ssh', null);
+    expect(splitEntryHostUrl(form, 'https://h.local/x')).toBe(false);
+    form.connections.push(newConnectionForm('web'), newConnectionForm('web'));
+    const [, web, second] = form.connections;
+    web!.port = '1';
+    expect(splitEntryHostUrl(form, 'h.local')).toBe(false);
+    expect(splitEntryHostUrl(form, 'fe80::1')).toBe(false);
+    expect(splitEntryHostUrl(form, 'a b/c')).toBe(false);
+    expect(form.host).toBe('');
+    expect(splitEntryHostUrl(form, ' smb://user@nas.local/share ')).toBe(true);
+    expect([form.host, web!.webScheme, web!.port, web!.webPath]).toEqual(['nas.local', 'smb', '', '/share']);
+    expect(splitEntryHostUrl(form, 'nas.local:8443')).toBe(true);
+    expect([form.host, web!.webScheme, web!.port, web!.webPath]).toEqual(['nas.local', 'https', '8443', '']);
+    expect(second!.webScheme).toBe('https');
+    expect(second!.port).toBe('');
   });
 });

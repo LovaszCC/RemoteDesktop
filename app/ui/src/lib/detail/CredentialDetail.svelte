@@ -140,7 +140,7 @@
               checked={picked.has(connection.id)}
               onchange={(e) => (picked = setPicked(picked, connection.id, e.currentTarget.checked))}
             />
-            <button type="button" class="row" onclick={() => deps.library.select(`c:${connection.id}`)}>
+            <button type="button" class="row" onclick={() => deps.library.selectConnection(connection.id)}>
               <ConnectionIcon type={connection.type} />
               <span>{connection.name}</span>
               <span class="muted">{connection.folderPath}</span>
