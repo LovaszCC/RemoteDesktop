@@ -15,6 +15,8 @@
     connection?: ConnectionDto;
     /** A port forward of the connection is starting or active: green dot and arrows. */
     forwardRunning?: boolean;
+    /** The connection has a live embedded session: green dot. */
+    sessionOpen?: boolean;
     folder?: FolderDto;
     credential?: CredentialDto;
     split?: SavedSplitDto;
@@ -38,6 +40,7 @@
     row,
     connection,
     forwardRunning = false,
+    sessionOpen = false,
     folder,
     credential,
     split,
@@ -126,6 +129,9 @@
       </span>
       {#if row.subtitle}<span class="subtitle">{row.subtitle}</span>{/if}
     </span>
+    {#if sessionOpen}
+      <span class="session-dot" title={t('Open session')} aria-label={t('Open session')} role="img"></span>
+    {/if}
     {#if forwardRunning}
       <span class="forward" title={t('Port forward active')} aria-label={t('Port forward active')} role="img">
         <span class="forward-dot"></span>
@@ -239,11 +245,15 @@
     gap: 3px;
     color: var(--label-green);
   }
-  .forward-dot {
+  .forward-dot,
+  .session-dot {
     width: 7px;
     height: 7px;
     border-radius: 50%;
     background: var(--label-green);
+  }
+  .session-dot {
+    flex: none;
   }
   .credential-icon {
     color: var(--label-orange);

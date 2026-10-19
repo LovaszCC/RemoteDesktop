@@ -30,12 +30,19 @@
   import LocalTerminalRow from './LocalTerminalRow.svelte';
   import SidebarRowView from './SidebarRowView.svelte';
   import { forwards as defaultForwards, type ForwardStore } from '../forwards/forwards.svelte';
+  import {
+    connectionTabs as defaultConnectionTabs,
+    type ConnectionTabs,
+  } from '../terminal/connectionTabs.svelte';
+  import { LOCAL_TERMINAL_ID } from '../terminal/local';
 
   interface Props {
     store?: LibraryStore;
     actions?: SidebarActions;
     /** Tunnel states for the port forward indicator. */
     forwards?: ForwardStore;
+    /** Open embedded sessions, for the open session dot. */
+    connectionTabs?: Pick<ConnectionTabs, 'isLive'>;
     readOnly?: boolean;
     platform?: Platform;
   }
@@ -44,6 +51,7 @@
     store = defaultLibrary,
     actions = sidebarActions,
     forwards = defaultForwards,
+    connectionTabs = defaultConnectionTabs,
     ...overrides
   }: Props = $props();
   const readOnly = $derived(overrides.readOnly ?? app.readOnly);
@@ -245,7 +253,7 @@
 </div>
 
 <div class="sidebar-fixed">
-  <LocalTerminalRow {actions} />
+  <LocalTerminalRow {actions} sessionOpen={connectionTabs.isLive(LOCAL_TERMINAL_ID)} />
 </div>
 
 <div
@@ -286,6 +294,7 @@
             {row}
             {connection}
             forwardRunning={connection?.type === 'ssh' && forwards.hasRunning(connection.id)}
+            sessionOpen={connection !== undefined && connectionTabs.isLive(connection.id)}
             folder={row.kind === 'folder' ? store.folder(row.id) : undefined}
             credential={row.kind === 'credential' ? store.credential(row.id) : undefined}
             {split}

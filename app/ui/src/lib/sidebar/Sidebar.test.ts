@@ -31,6 +31,7 @@ function render({
   readOnly = false,
   forwards = createForwardStore(fakeBridge()),
   sessions = undefined as SessionsStore | undefined,
+  live = [] as string[],
 } = {}) {
   const bridge = fakeBridge({
     settings_set: (args?: Record<string, unknown>) => settingsDto(args?.patch as object),
@@ -50,7 +51,14 @@ function render({
   });
   component = mount(Sidebar, {
     target: document.body,
-    props: { store, actions, platform, readOnly, forwards },
+    props: {
+      store,
+      actions,
+      platform,
+      readOnly,
+      forwards,
+      connectionTabs: { isLive: (id: string) => live.includes(id) },
+    },
   });
   flushSync();
   return { store, actions, toast, bridge };
@@ -243,6 +251,27 @@ describe('Local Terminal entry', () => {
     const open = items[0];
     if (open?.kind !== 'separator') open?.action?.();
     await vi.waitFor(() => expect(tabs.session('L1')).toBeTruthy());
+  });
+});
+
+describe('open session dot', () => {
+  const dot = (el: Element) => el.querySelector('[aria-label="Open session"]');
+
+  it('marks connections with a live embedded session, favourites too', () => {
+    render({ live: ['c1'] });
+    expect(dot(row('c:c1'))).toBeTruthy();
+    for (const tag of rowTags()) {
+      if (tag !== 'c:c1' && tag !== 'fav:c1') expect(dot(row(tag!)), tag).toBeNull();
+    }
+  });
+
+  it('marks the Local Terminal row while a local terminal runs', () => {
+    const local = () => document.querySelector('[data-local-terminal]')!;
+    render();
+    expect(dot(local())).toBeNull();
+    unmount(component!);
+    render({ live: ['local-terminal'] });
+    expect(dot(local())).toBeTruthy();
   });
 });
 
