@@ -31,11 +31,90 @@ impl Folder {
     }
 }
 
+/// A sidebar entry: one machine with its shared fields, owning one or more [`Connection`]s.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Entry {
+    /// Uppercase UUID; an upgraded entry has the id of its only connection.
+    pub id: String,
+    /// Containing folder, `None` at the root.
+    pub folder_id: Option<String>,
+    /// Display name.
+    pub name: String,
+    /// Host name or address, shared by every connection.
+    pub host: String,
+    /// Free-form notes.
+    pub notes: String,
+    /// Tag color, also the default color of the entry's tabs.
+    pub color: Option<LabelColor>,
+    /// Shown under Favorites.
+    pub is_favorite: bool,
+    /// The connection double-click opens; `None` (or a stale id) means the first one.
+    pub default_connection_id: Option<String>,
+    /// Creation time.
+    pub created_at: Timestamp,
+    /// Last change; the repository sets it on save.
+    pub updated_at: Timestamp,
+}
+
+impl Entry {
+    /// A new root entry with a fresh id and no default connection.
+    #[must_use]
+    pub fn new(name: impl Into<String>, host: impl Into<String>) -> Self {
+        let now = Timestamp::now();
+        Self {
+            id: new_id(),
+            folder_id: None,
+            name: name.into(),
+            host: host.into(),
+            notes: String::new(),
+            color: None,
+            is_favorite: false,
+            default_connection_id: None,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    /// The entry a lone connection stands for: the connection's id and shared fields, with it as the
+    /// default.
+    #[must_use]
+    pub fn for_connection(connection: &Connection) -> Self {
+        Self {
+            id: connection.entry_id.clone(),
+            folder_id: connection.folder_id.clone(),
+            name: connection.name.clone(),
+            host: connection.host.clone(),
+            notes: connection.notes.clone(),
+            color: connection.color,
+            is_favorite: connection.is_favorite,
+            default_connection_id: Some(connection.id.clone()),
+            created_at: connection.created_at,
+            updated_at: connection.updated_at,
+        }
+    }
+
+    /// Copies the shared fields (name, host, folder, notes, color, favorite) onto one of the entry's
+    /// connections.
+    pub fn overlay(&self, connection: &mut Connection) {
+        connection.folder_id.clone_from(&self.folder_id);
+        connection.name.clone_from(&self.name);
+        connection.host.clone_from(&self.host);
+        connection.notes.clone_from(&self.notes);
+        connection.color = self.color;
+        connection.is_favorite = self.is_favorite;
+    }
+}
+
 /// One saved connection. The auth fields may be overridden by a linked [`Credential`].
+///
+/// `folder_id`, `name`, `host`, `notes`, `color` and `is_favorite` mirror the owning [`Entry`]: the store
+/// overlays them from the entry on load and keeps the stored columns equal to it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Connection {
     /// Uppercase UUID.
     pub id: String,
+    /// Owning entry.
+    pub entry_id: String,
     /// Containing folder, `None` at the root.
     pub folder_id: Option<String>,
     /// Linked credential that overrides the auth fields.
@@ -74,6 +153,16 @@ pub struct Connection {
     pub color: Option<LabelColor>,
     /// Free-form notes.
     pub notes: String,
+    /// Optional label among the entry's connections; empty means "<TYPE> · <username>".
+    pub label: String,
+    /// Gets its own button on the entry's Details page.
+    pub show_as_button: bool,
+    /// Position among the entry's connections (ties sort by creation time).
+    pub sort_order: i64,
+    /// Web only: URL scheme, free text (`https`, `http`, `smb`, …).
+    pub web_scheme: String,
+    /// Web only: path after the host and port, empty for none.
+    pub web_path: String,
     /// Creation time.
     pub created_at: Timestamp,
     /// Last change; the repository sets it on save.
@@ -81,12 +170,15 @@ pub struct Connection {
 }
 
 impl Connection {
-    /// A new connection with a fresh id and the Swift defaults.
+    /// A new connection with a fresh id and the Swift defaults. It is its own entry (`entry_id == id`)
+    /// until the caller points it at another one.
     #[must_use]
     pub fn new(kind: ConnectionType, name: impl Into<String>, host: impl Into<String>) -> Self {
         let now = Timestamp::now();
+        let id = new_id();
         Self {
-            id: new_id(),
+            entry_id: id.clone(),
+            id,
             folder_id: None,
             credential_id: None,
             kind,
@@ -106,19 +198,26 @@ impl Connection {
             rdp_client: RdpClient::Embedded,
             color: None,
             notes: String::new(),
+            label: String::new(),
+            show_as_button: true,
+            sort_order: 0,
+            web_scheme: "https".to_owned(),
+            web_path: String::new(),
             created_at: now,
             updated_at: now,
         }
     }
 
-    /// A copy for "Duplicate": a fresh id, `copy_suffix` (the localised " (copy)") appended to the name,
-    /// created and updated now. Everything else, the folder, credential, favorite and secrets included, is
-    /// copied.
+    /// A copy for "Duplicate": a fresh id that is also its own entry, `copy_suffix` (the localised
+    /// " (copy)") appended to the name, created and updated now. Everything else, the folder, credential,
+    /// favorite and secrets included, is copied.
     #[must_use]
     pub fn duplicated(&self, copy_suffix: &str) -> Self {
         let now = Timestamp::now();
+        let id = new_id();
         Self {
-            id: new_id(),
+            entry_id: id.clone(),
+            id,
             name: format!("{}{copy_suffix}", self.name),
             created_at: now,
             updated_at: now,
@@ -322,17 +421,70 @@ mod tests {
         original.credential_id = Some("K".into());
         let copy = original.duplicated(" (copy)");
         assert_ne!(copy.id, original.id);
+        assert_eq!(copy.entry_id, copy.id);
         assert_eq!(copy.name, "dc (copy)");
         assert!(copy.created_at > original.created_at);
         assert_eq!(copy.updated_at, copy.created_at);
         let restored = Connection {
             id: original.id.clone(),
+            entry_id: original.entry_id.clone(),
             name: original.name.clone(),
             created_at: original.created_at,
             updated_at: original.updated_at,
             ..copy
         };
         assert_eq!(restored, original);
+    }
+
+    #[test]
+    fn new_connection_is_its_own_entry() {
+        let connection = Connection::new(ConnectionType::Web, "w", "w.example.com");
+        assert_eq!(connection.entry_id, connection.id);
+        assert!(connection.show_as_button);
+        assert_eq!(
+            (
+                connection.label.as_str(),
+                connection.sort_order,
+                connection.web_scheme.as_str()
+            ),
+            ("", 0, "https")
+        );
+        assert_eq!(connection.web_path, "");
+    }
+
+    #[test]
+    fn entry_for_a_connection_and_overlay() {
+        let mut connection = rdp();
+        connection.folder_id = Some("F".into());
+        connection.notes = "n".into();
+        connection.color = Some(LabelColor::Red);
+        connection.is_favorite = true;
+        let entry = Entry::for_connection(&connection);
+        assert_eq!(entry.id, connection.entry_id);
+        assert_eq!(
+            entry.default_connection_id.as_deref(),
+            Some(connection.id.as_str())
+        );
+        assert_eq!(
+            (entry.name.as_str(), entry.host.as_str()),
+            ("dc", "dc.example.com")
+        );
+        assert_eq!(entry.created_at, connection.created_at);
+
+        let mut other = Connection::new(ConnectionType::Ssh, "x", "y");
+        entry.overlay(&mut other);
+        assert_eq!(
+            (other.name.as_str(), other.host.as_str(), other.notes.as_str()),
+            ("dc", "dc.example.com", "n")
+        );
+        assert_eq!(other.folder_id.as_deref(), Some("F"));
+        assert_eq!(other.color, Some(LabelColor::Red));
+        assert!(other.is_favorite);
+        assert_eq!(other.username, "");
+
+        let fresh = Entry::new("e", "h");
+        assert_eq!(fresh.default_connection_id, None);
+        assert_ne!(fresh.id, Entry::new("e", "h").id);
     }
 
     #[test]

@@ -84,8 +84,9 @@ impl Folders<'_, '_> {
 }
 
 impl Database {
-    /// Writes an import in one transaction: nothing is written when any part fails. Folders of the same
-    /// name that already exist under the same parent are reused.
+    /// Writes an import in one transaction: nothing is written when any part fails. Each connection becomes
+    /// an entry of its own, under the same id. Folders of the same name that already exist under the same
+    /// parent are reused.
     ///
     /// # Errors
     /// If SQLite fails, for example for an unknown `parent_folder_id`.
@@ -227,6 +228,14 @@ mod tests {
             imported.iter().find(|c| c.name == "edge").unwrap().password_enc,
             None
         );
+        // Each imported connection is an entry of its own, under the same id and in the same folder.
+        for connection in &imported {
+            let entry = library.entry(&connection.id).unwrap();
+            assert_eq!(connection.entry_id, connection.id);
+            assert_eq!(entry.folder_id, connection.folder_id);
+            assert_eq!((&entry.name, &entry.host), (&connection.name, &connection.host));
+            assert_eq!(entry.default_connection_id.as_ref(), Some(&connection.id));
+        }
 
         let parsed = rd_core::import::ParsedImport {
             connections: items.to_vec(),

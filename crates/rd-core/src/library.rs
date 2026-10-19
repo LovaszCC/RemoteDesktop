@@ -2,14 +2,16 @@
 
 use std::collections::HashSet;
 
-use crate::model::{Connection, Credential, Folder, PortForward, SavedSplit};
+use crate::model::{Connection, Credential, Entry, Folder, PortForward, SavedSplit};
 
 /// Every record, each list in the repository's sort order.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Library {
     /// Folders by sort order, then name.
     pub folders: Vec<Folder>,
-    /// Connections by name.
+    /// Entries by name.
+    pub entries: Vec<Entry>,
+    /// Connections by name, each with its entry's shared fields.
     pub connections: Vec<Connection>,
     /// Credentials by name.
     pub credentials: Vec<Credential>,
@@ -20,6 +22,38 @@ pub struct Library {
 }
 
 impl Library {
+    /// The entry with `id`, if any.
+    #[must_use]
+    pub fn entry(&self, id: &str) -> Option<&Entry> {
+        self.entries.iter().find(|e| e.id == id)
+    }
+
+    /// The connections of an entry, by sort order, then creation time.
+    #[must_use]
+    pub fn connections_of(&self, entry_id: &str) -> Vec<&Connection> {
+        let mut connections: Vec<&Connection> = self
+            .connections
+            .iter()
+            .filter(|c| c.entry_id == entry_id)
+            .collect();
+        connections.sort_by_key(|c| (c.sort_order, c.created_at));
+        connections
+    }
+
+    /// The connection an entry opens by default: its stored default when that is still one of its
+    /// connections, otherwise the first of [`connections_of`](Self::connections_of).
+    #[must_use]
+    pub fn default_connection(&self, entry_id: &str) -> Option<&Connection> {
+        let connections = self.connections_of(entry_id);
+        let stored = self
+            .entry(entry_id)
+            .and_then(|e| e.default_connection_id.as_deref());
+        stored
+            .and_then(|id| connections.iter().find(|c| c.id == id))
+            .or_else(|| connections.first())
+            .copied()
+    }
+
     /// The credential with `id`, if any.
     #[must_use]
     pub fn credential(&self, id: Option<&str>) -> Option<&Credential> {
@@ -101,6 +135,7 @@ mod tests {
     fn connection(id: &str, folder: Option<&str>) -> Connection {
         let mut c = Connection::new(ConnectionType::Ssh, id, "h");
         c.id = id.into();
+        c.entry_id = id.into();
         c.folder_id = folder.map(Into::into);
         c
     }
@@ -159,6 +194,34 @@ mod tests {
         assert_eq!(lib.resolved(&lib.connections[1]), lib.connections[1]);
         assert_eq!(lib.connections_using(&credential.id).count(), 1);
         assert!(lib.credential(None).is_none());
+    }
+
+    #[test]
+    fn entry_connections_sort_and_default() {
+        let mut lib = library();
+        let mut entry = Entry::new("E", "h");
+        entry.id = "E".into();
+        let member = |id: &str, sort_order: i64, created: i64| {
+            let mut c = connection(id, None);
+            c.entry_id = "E".into();
+            c.sort_order = sort_order;
+            c.created_at = Timestamp::from_unix(created);
+            c
+        };
+        lib.connections
+            .extend([member("X", 1, 0), member("Y", 0, 5), member("Z", 0, 1)]);
+        lib.entries.push(entry);
+        let ids = |list: Vec<&Connection>| list.iter().map(|c| c.id.clone()).collect::<Vec<_>>();
+        assert_eq!(ids(lib.connections_of("E")), ["Z", "Y", "X"]);
+        assert_eq!(lib.default_connection("E").unwrap().id, "Z");
+        lib.entries[0].default_connection_id = Some("X".into());
+        assert_eq!(lib.default_connection("E").unwrap().id, "X");
+        lib.entries[0].default_connection_id = Some("A".into());
+        assert_eq!(lib.default_connection("E").unwrap().id, "Z");
+        assert_eq!(lib.entry("E").unwrap().name, "E");
+        assert!(lib.entry("nope").is_none());
+        assert!(lib.default_connection("nope").is_none());
+        assert_eq!(ids(lib.connections_of("A")), ["A"]);
     }
 
     #[test]

@@ -81,13 +81,85 @@ fn hex(bytes: &[u8]) -> String {
     })
 }
 
+/// The v13 rows are unchanged by the upgrade: the Swift columns hold the same values, and the migration
+/// list only gains `v14-entries`.
 #[test]
 fn reads_swift_rows_exactly() {
     let (_dir, db) = swift_copy();
     let expected = expected();
     let ours = dump(&db);
     for (table, rows) in expected["tables"].as_object().unwrap() {
-        assert_eq!(&ours[table], rows, "table {table}");
+        let rows = rows.as_array().unwrap();
+        let mut ours = ours[table].as_array().unwrap().clone();
+        if table == "grdb_migrations" {
+            assert_eq!(ours.pop(), Some(json!({ "identifier": "v14-entries" })));
+        }
+        let projected: Vec<Json> = ours
+            .iter()
+            .zip(rows)
+            .map(|(row, swift)| {
+                Json::Object(
+                    swift
+                        .as_object()
+                        .unwrap()
+                        .keys()
+                        .map(|k| (k.clone(), row[k].clone()))
+                        .collect(),
+                )
+            })
+            .collect();
+        assert_eq!(ours.len(), rows.len(), "table {table}");
+        assert_eq!(&projected, rows, "table {table}");
+    }
+}
+
+#[test]
+fn swift_library_upgrades_to_entries() {
+    let (_dir, db) = swift_copy();
+    let expected = expected();
+    let library = db.library().unwrap();
+    let swift = expected["tables"]["connection"].as_array().unwrap();
+    assert_eq!(library.entries.len(), swift.len());
+    assert_eq!(library.connections.len(), swift.len());
+    for row in swift {
+        let id = row["id"].as_str().unwrap();
+        let entry = library.entry(id).unwrap();
+        assert_eq!(entry.name, row["name"].as_str().unwrap(), "{id}");
+        assert_eq!(entry.host, row["host"].as_str().unwrap(), "{id}");
+        assert_eq!(entry.folder_id.as_deref(), row["folderId"].as_str(), "{id}");
+        assert_eq!(entry.notes, row["notes"].as_str().unwrap(), "{id}");
+        assert_eq!(
+            entry.is_favorite,
+            row["isFavorite"].as_i64().unwrap() == 1,
+            "{id}"
+        );
+        assert_eq!(entry.default_connection_id.as_deref(), Some(id));
+        let connections = library.connections_of(id);
+        assert_eq!(connections.len(), 1, "{id}");
+        assert_eq!(connections[0].id, id);
+        assert_eq!(connections[0].entry_id, id);
+        assert!(connections[0].show_as_button);
+        assert_eq!(library.default_connection(id).map(|c| c.id.as_str()), Some(id));
+    }
+    // Splits and forwards still point at existing connections.
+    for split in &library.saved_splits {
+        for id in &split.connection_ids {
+            assert!(library.connections.iter().any(|c| &c.id == id), "split {id}");
+        }
+    }
+    for forward in &library.port_forwards {
+        assert!(library.connections.iter().any(|c| c.id == forward.connection_id));
+    }
+    // And the secrets still open.
+    let vault = Vault::unlock(&db, expected["password"].as_str().unwrap()).unwrap();
+    let sealed: Vec<_> = library
+        .connections
+        .iter()
+        .filter_map(|c| c.password_enc.clone())
+        .collect();
+    assert!(!sealed.is_empty());
+    for secret in sealed {
+        vault.open(&secret).unwrap();
     }
 }
 
