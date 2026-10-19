@@ -16,7 +16,13 @@
 ![Windows](https://img.shields.io/badge/Windows-x64-0078D6?style=for-the-badge&logo=windows&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-x86__64-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![Rust](https://img.shields.io/badge/Rust-Tauri%202-CE422B?style=for-the-badge&logo=rust&logoColor=white)
-
+<br>
+<br>
+<br>
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/R7Z128YA8L)
+<br>
+<br>
+<br>
 **[⬇️ Download](https://github.com/LovaszCC/RemoteDesktop/releases/latest)** ·
 **[✨ Features](#-features)** ·
 **[🔐 Security](#-security)** ·
