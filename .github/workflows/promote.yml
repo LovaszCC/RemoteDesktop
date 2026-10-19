@@ -1,0 +1,39 @@
+# Publishing a draft release made by release.yml (the promote model) moves `main` to the released commit.
+# `main` = released code, `beta` = development. Fast-forward only: if `main` has commits the release
+# doesn't, this fails and someone looks at it; it never forces.
+name: Promote
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  main:
+    name: fast-forward main
+    if: ${{ !github.event.repository.private && !github.event.release.prerelease && github.event.release.tag_name != 'beta-latest' }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fast-forward main to the release
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          git fetch --tags --force origin
+          sha=$(git rev-parse "refs/tags/$TAG^{commit}")
+          git fetch origin main
+          if ! git merge-base --is-ancestor origin/main "$sha"; then
+            echo "::error::main has commits that $TAG ($sha) doesn't contain; not moving it. Fast-forward it by hand."
+            exit 1
+          fi
+          git push origin "$sha:refs/heads/main"
+          echo "main → $TAG (${sha::7})" >> "$GITHUB_STEP_SUMMARY"
