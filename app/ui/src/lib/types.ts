@@ -358,28 +358,6 @@ export interface MergeResultDto {
   movedConnections: number;
 }
 
-/** The pre-entries connection editor's fields (`save_connection`, `LegacyConnectionDraft`); `port` is
- * the typed text. */
-export interface LegacyConnectionDraft {
-  type: ConnectionType;
-  folderId?: string | null;
-  credentialId?: string | null;
-  name?: string;
-  host?: string;
-  port?: string;
-  username?: string;
-  domain?: string;
-  sshKeyPath?: string;
-  notes?: string;
-  isFavorite?: boolean;
-  rdpAdminSession?: boolean;
-  rdpClient?: RdpClient;
-  browserBundleId?: string | null;
-  mikrotikMode?: MikrotikMode;
-  sshTerminal?: SshTerminal;
-  color?: LabelColor | null;
-}
-
 export interface CredentialInput {
   name: string;
   username: string;

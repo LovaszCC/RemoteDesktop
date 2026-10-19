@@ -1,7 +1,7 @@
 //! Library commands. Every write refuses with `locked` or `readOnly` and emits `library-changed` after
 //! success.
 
-use rd_core::draft::{EntryDraft, LegacyConnectionDraft};
+use rd_core::draft::EntryDraft;
 use tauri::{AppHandle, State};
 
 use super::{Core, blocking, emit_library};
@@ -91,24 +91,6 @@ pub async fn duplicate_entry(
     write(&app, &core, move |c| c.duplicate_entry(&id, &copy_suffix)).await
 }
 
-// Compatibility with the pre-entries UI; removed in the entries UI task.
-/// Saves the pre-entries connection editor (one connection with its entry's shared fields); returns the
-/// connection id.
-#[tauri::command]
-pub async fn save_connection(
-    app: AppHandle,
-    core: State<'_, Core>,
-    id: Option<String>,
-    draft: LegacyConnectionDraft,
-    password: Option<String>,
-    passphrase: Option<String>,
-) -> Result<String, CommandError> {
-    write(&app, &core, move |c| {
-        c.save_connection(id.as_deref(), &draft, password.as_deref(), passphrase.as_deref())
-    })
-    .await
-}
-
 /// Saves the credential editor (same secret rule) and regenerates the unlocked key. Returns the id.
 #[tauri::command]
 pub async fn save_credential(
@@ -169,14 +151,9 @@ pub async fn move_items(
 pub async fn set_favorite(
     app: AppHandle,
     core: State<'_, Core>,
-    tag: Option<String>,
-    // Compatibility with the pre-entries UI; removed in the entries UI task.
-    connection_id: Option<String>,
+    tag: String,
     is_favorite: bool,
 ) -> Result<(), CommandError> {
-    let tag = tag
-        .or_else(|| connection_id.map(|id| format!("c:{id}")))
-        .unwrap_or_default();
     write(&app, &core, move |c| c.set_favorite(&tag, is_favorite)).await
 }
 
@@ -198,19 +175,6 @@ pub async fn set_credential(
         )
     })
     .await
-}
-
-// Compatibility with the pre-entries UI; removed in the entries UI task.
-/// Duplicates the entry of a connection with the localized `copySuffix`; returns the copied connection's
-/// id.
-#[tauri::command]
-pub async fn duplicate_connection(
-    app: AppHandle,
-    core: State<'_, Core>,
-    id: String,
-    copy_suffix: String,
-) -> Result<String, CommandError> {
-    write(&app, &core, move |c| c.duplicate_connection(&id, &copy_suffix)).await
 }
 
 /// Saves a new split (or replaces one with `id`) from up to four connections; returns the id.

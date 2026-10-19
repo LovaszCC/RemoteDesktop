@@ -3,7 +3,7 @@
 
 use std::collections::HashSet;
 
-use rd_core::draft::{ConnectionDraft, EntryDraft, LegacyConnectionDraft};
+use rd_core::draft::{ConnectionDraft, EntryDraft};
 use rd_core::tree::{self, SidebarTag};
 use rd_core::{
     Connection, Credential, Entry, Folder, LabelColor, Library, SavedSplit, Sealed, Timestamp, new_id,
@@ -304,61 +304,6 @@ impl AppCore {
         Ok((write.entry.id, connection_ids))
     }
 
-    // Compatibility with the pre-entries UI; removed in the entries UI task.
-    /// The pre-entries editor's save: one connection with its entry's shared fields. A new connection gets
-    /// its own entry; an existing one updates its entry's shared fields and keeps the entry's other
-    /// connections, its label and button flag. Returns the connection id.
-    ///
-    /// # Errors
-    /// As [`save_entry`](Self::save_entry).
-    pub fn save_connection(
-        &self,
-        id: Option<&str>,
-        draft: &LegacyConnectionDraft,
-        password: Option<&str>,
-        passphrase: Option<&str>,
-    ) -> Result<String, CommandError> {
-        let (entry, mut connection) = draft.split()?;
-        let edited = |draft: ConnectionDraft, id: Option<&str>| ConnectionSave {
-            id: id.map(str::to_owned),
-            draft,
-            password: password.map(str::to_owned),
-            passphrase: passphrase.map(str::to_owned),
-            is_default: false,
-        };
-        let Some(id) = id else {
-            let (_, ids) = self.save_entry_with_ids(None, &entry, &[edited(connection, None)])?;
-            return Ok(ids.into_iter().next().unwrap_or_default());
-        };
-        let library = self.load_library()?;
-        let existing = library
-            .connections
-            .iter()
-            .find(|c| c.id == id)
-            .ok_or_else(|| CommandError::not_found(id))?;
-        connection.label.clone_from(&existing.label);
-        connection.show_as_button = existing.show_as_button;
-        let saves: Vec<ConnectionSave> = library
-            .connections_of(&existing.entry_id)
-            .into_iter()
-            .map(|c| {
-                if c.id == id {
-                    edited(connection.clone(), Some(id))
-                } else {
-                    ConnectionSave {
-                        id: Some(c.id.clone()),
-                        draft: ConnectionDraft::from_connection(c),
-                        password: None,
-                        passphrase: None,
-                        is_default: false,
-                    }
-                }
-            })
-            .collect();
-        self.save_entry_with_ids(Some(&existing.entry_id), &entry, &saves)?;
-        Ok(id.to_owned())
-    }
-
     /// Merges the `sources` entries into `target`, in the order given: their connections (with their
     /// credentials, secrets and forwards) move to the end of the target's, the target's shared fields and
     /// default win, and each source's notes are appended as `Merged from <name> (<host>):` — the header
@@ -410,7 +355,7 @@ impl AppCore {
     }
 
     /// Saves the credential editor with the same secret rule as
-    /// [`save_connection`](Self::save_connection), regenerating the unlocked key copy. Returns the id.
+    /// [`save_entry`](Self::save_entry), regenerating the unlocked key copy. Returns the id.
     ///
     /// # Errors
     /// `locked`, `readOnly`, `emptyName`, `notFound`, `wrongKeyPassphrase`, `cannotReadKey` (detail: the
@@ -687,33 +632,6 @@ impl AppCore {
             copies.push(copy);
         }
         Ok(db.write_entry(&entry, &copies, &[])?.entry.id)
-    }
-
-    // Compatibility with the pre-entries UI; removed in the entries UI task.
-    /// Duplicates the entry of connection `id` (see [`duplicate_entry`](Self::duplicate_entry)). Returns the
-    /// copy of that connection.
-    ///
-    /// # Errors
-    /// `locked`, `readOnly`, `notFound` or `database`.
-    pub fn duplicate_connection(&self, id: &str, copy_suffix: &str) -> Result<String, CommandError> {
-        let library = self.load_library()?;
-        let original = library
-            .connections
-            .iter()
-            .find(|c| c.id == id)
-            .ok_or_else(|| CommandError::not_found(id))?;
-        let index = library
-            .connections_of(&original.entry_id)
-            .iter()
-            .position(|c| c.id == id)
-            .unwrap_or_default();
-        let copy = self.duplicate_entry(&original.entry_id, copy_suffix)?;
-        let library = self.load_library()?;
-        Ok(library
-            .connections_of(&copy)
-            .get(index)
-            .map(|c| c.id.clone())
-            .unwrap_or_default())
     }
 
     /// Saves a new split from up to [`MAX_SPLIT_PANES`] connections, or with `id` replaces an existing

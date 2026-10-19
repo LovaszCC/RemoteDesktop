@@ -49,7 +49,6 @@ describe('editor store', () => {
     expect(editor.entry).toEqual({ mode: 'edit', id: 'e1' });
     editor.openEntryEditor({ id: 'e1', connectionId: 'h2' });
     expect(editor.entry).toEqual({ mode: 'edit', id: 'e1', connectionId: 'h2' });
-    expect(editor.connection).toBe(editor.entry);
     editor.openCredentialEditor();
     expect(editor.credential).toEqual({ mode: 'new' });
     editor.openFolderEditor({ parentId: 'f1' });

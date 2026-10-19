@@ -20,10 +20,6 @@ export function createEditorStore() {
     get entry() {
       return entry;
     },
-    /** @deprecated The old name of `entry`, until the detail tests move to it. */
-    get connection() {
-      return entry;
-    },
     get credential() {
       return credential;
     },

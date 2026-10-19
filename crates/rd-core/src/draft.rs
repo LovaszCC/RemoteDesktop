@@ -101,35 +101,6 @@ pub struct ConnectionDraft {
     pub show_as_button: bool,
 }
 
-// Compatibility with the pre-entries UI; removed in the entries UI task.
-/// The pre-entries editor's draft: one connection together with its entry's shared fields. A web host
-/// holding a whole URL is split here.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LegacyConnectionDraft {
-    /// The connection's own fields.
-    #[serde(flatten)]
-    pub connection: ConnectionDraft,
-    /// Containing folder, `None` at the root.
-    #[serde(default)]
-    pub folder_id: Option<String>,
-    /// Display name; required.
-    #[serde(default)]
-    pub name: String,
-    /// Host (web: the host of the URL, or a whole URL that is split).
-    #[serde(default)]
-    pub host: String,
-    /// Free-form notes.
-    #[serde(default)]
-    pub notes: String,
-    /// Shown under Favorites.
-    #[serde(default)]
-    pub is_favorite: bool,
-    /// Tag color.
-    #[serde(default)]
-    pub color: Option<LabelColor>,
-}
-
 fn default_show_as_button() -> bool {
     true
 }
@@ -336,57 +307,6 @@ impl ConnectionDraft {
     }
 }
 
-// Compatibility with the pre-entries UI; removed in the entries UI task.
-impl LegacyConnectionDraft {
-    /// A blank draft for a new connection.
-    #[must_use]
-    pub fn new(kind: ConnectionType, folder_id: Option<String>) -> Self {
-        Self {
-            connection: ConnectionDraft::new(kind),
-            folder_id,
-            name: String::new(),
-            host: String::new(),
-            notes: String::new(),
-            is_favorite: false,
-            color: None,
-        }
-    }
-
-    /// The entry and connection drafts this stands for. A web host holding a whole URL (`://`, or a path)
-    /// is split: its host becomes the entry's, its scheme, port and path the connection's.
-    ///
-    /// # Errors
-    /// [`DraftError::EmptyName`], or [`DraftError::InvalidUrl`] for a URL that can't be split.
-    pub fn split(&self) -> Result<(EntryDraft, ConnectionDraft), DraftError> {
-        let entry = EntryDraft {
-            name: self.name.clone(),
-            host: self.host.clone(),
-            folder_id: self.folder_id.clone(),
-            notes: self.notes.clone(),
-            color: self.color,
-            is_favorite: self.is_favorite,
-        };
-        entry.validate()?;
-        let mut connection = self.connection.clone();
-        let host = trim(&self.host);
-        if connection.kind == ConnectionType::Web && (host.contains("://") || host.contains(['/', '?', '#']))
-        {
-            let parts = split_web_url(host).ok_or(DraftError::InvalidUrl)?;
-            connection.web_scheme = parts.scheme;
-            connection.port = parts.port.map(|p| p.to_string()).unwrap_or_default();
-            connection.web_path = parts.path;
-            return Ok((
-                EntryDraft {
-                    host: parts.host,
-                    ..entry
-                },
-                connection,
-            ));
-        }
-        Ok((entry, connection))
-    }
-}
-
 /// The parts of a web URL.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WebParts {
@@ -523,13 +443,6 @@ mod tests {
         ConnectionDraft::new(kind)
     }
 
-    fn legacy(kind: ConnectionType, host: &str) -> LegacyConnectionDraft {
-        let mut draft = LegacyConnectionDraft::new(kind, None);
-        draft.name = "srv".into();
-        host.clone_into(&mut draft.host);
-        draft
-    }
-
     fn parts(scheme: &str, host: &str, port: Option<u16>, path: &str) -> WebParts {
         WebParts {
             scheme: scheme.into(),
@@ -617,56 +530,6 @@ mod tests {
             split_stored_web_url("u@[::1]"),
             Some(parts("https", "u@[::1]", None, ""))
         );
-    }
-
-    #[test]
-    fn legacy_web_host_is_split_or_checked() {
-        let mut d = legacy(ConnectionType::Web, " smb://user@nas.local:445/share?x#y ");
-        d.connection.port = "junk".into();
-        let (entry, connection) = d.split().unwrap();
-        assert_eq!(entry.host, "nas.local");
-        assert_eq!(
-            (
-                connection.port.as_str(),
-                connection.web_scheme.as_str(),
-                connection.web_path.as_str()
-            ),
-            ("445", "smb", "/share?x#y")
-        );
-        let mut c = Connection::new(ConnectionType::Web, "w", "w");
-        connection.apply_to(&entry.host, &mut c).unwrap();
-        assert_eq!(
-            (c.port, c.web_scheme.as_str(), c.web_path.as_str()),
-            (Some(445), "smb", "/share?x#y")
-        );
-
-        for bad in ["https://", "http://:80", "a b/c"] {
-            d.host = bad.into();
-            assert_eq!(d.split().unwrap_err(), DraftError::InvalidUrl, "{bad}");
-        }
-        d.host = "a/b".into();
-        let (entry, connection) = d.split().unwrap();
-        assert_eq!(
-            (
-                entry.host.as_str(),
-                connection.web_path.as_str(),
-                connection.port.as_str()
-            ),
-            ("a", "/b", "")
-        );
-        // Other types and plain hosts pass through.
-        let plain = legacy(ConnectionType::Ssh, "h/x");
-        assert_eq!(plain.split().unwrap().0.host, "h/x");
-        let mut unnamed = legacy(ConnectionType::Ssh, "h");
-        unnamed.name = " ".into();
-        assert_eq!(unnamed.split().unwrap_err(), DraftError::EmptyName);
-        let parsed: LegacyConnectionDraft = serde_json::from_str(
-            r#"{"type":"web","name":"n","host":"h","folderId":"F","webScheme":"http","isFavorite":true}"#,
-        )
-        .unwrap();
-        assert_eq!(parsed.connection.web_scheme, "http");
-        assert!(parsed.is_favorite && parsed.connection.show_as_button);
-        assert_eq!(parsed.folder_id.as_deref(), Some("F"));
     }
 
     #[test]

@@ -32,7 +32,6 @@ import type {
   KeyShortcut,
   LaunchNoticeDto,
   LaunchOutcomeDto,
-  LegacyConnectionDraft,
   LibraryDto,
   ListingDto,
   LockChoice,
@@ -256,13 +255,6 @@ export function createApi(invoke: Invoke = tauriBridge.invoke) {
     /** Saves an entry with exactly `connections` in their order; returns the entry id. */
     saveEntry: (id: string | null, entry: EntryDraft, connections: ConnectionSave[]) =>
       call<string>('save_entry', { id, entry, connections }),
-    /** The pre-entries editor: one connection with its entry's shared fields; returns the connection id. */
-    saveConnection: (
-      id: string | null,
-      draft: LegacyConnectionDraft,
-      password: SecretUpdate = null,
-      passphrase: SecretUpdate = null,
-    ) => call<string>('save_connection', { id, draft, password, passphrase }),
     saveCredential: (
       id: string | null,
       credential: CredentialInput,
@@ -283,8 +275,6 @@ export function createApi(invoke: Invoke = tauriBridge.invoke) {
         tags: target.tags ?? null,
         connectionIds: target.connectionIds ?? null,
       }),
-    duplicateConnection: (id: string, copySuffix: string) =>
-      call<string>('duplicate_connection', { id, copySuffix }),
     /** Duplicates an entry with all its connections; returns the new entry id. */
     duplicateEntry: (id: string, copySuffix: string) => call<string>('duplicate_entry', { id, copySuffix }),
     /** Moves the `sources` entries' connections into `target` and deletes the emptied entries. */

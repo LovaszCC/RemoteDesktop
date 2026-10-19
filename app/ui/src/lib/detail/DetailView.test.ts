@@ -158,7 +158,7 @@ describe('DetailView', () => {
     const { editor } = render(['f:f1']);
     expect(text()).toContain('1 connection · Office');
     click(buttonByText('New SSH'));
-    expect(editor.connection).toEqual({ mode: 'new', type: 'ssh', folderId: 'f1' });
+    expect(editor.entry).toEqual({ mode: 'new', type: 'ssh', folderId: 'f1' });
   });
 
   it('shows a saved split', () => {

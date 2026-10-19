@@ -5,12 +5,11 @@ describe('api', () => {
   it('passes the command name and camelCase arguments', async () => {
     const invoke = vi.fn().mockResolvedValue('id-1');
     const api = createApi(invoke);
-    await api.saveConnection(null, { type: 'ssh', name: 'Box', host: 'box' });
-    expect(invoke).toHaveBeenLastCalledWith('save_connection', {
+    await api.saveEntry(null, { name: 'Box', host: 'box' }, []);
+    expect(invoke).toHaveBeenLastCalledWith('save_entry', {
       id: null,
-      draft: { type: 'ssh', name: 'Box', host: 'box' },
-      password: null,
-      passphrase: null,
+      entry: { name: 'Box', host: 'box' },
+      connections: [],
     });
     await api.changePassword('old', 'new');
     expect(invoke).toHaveBeenLastCalledWith('change_password', { current: 'old', new: 'new' });

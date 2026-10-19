@@ -466,38 +466,6 @@ fn tags_act_on_entries() {
 }
 
 #[test]
-fn compat_save_connection_edits_a_one_connection_entry() {
-    let env = Env::new();
-    let core = env.unlocked();
-    let mut legacy = rd_core::draft::LegacyConnectionDraft::new(ConnectionType::Web, None);
-    legacy.name = "NAS".into();
-    legacy.host = "smb://nas.local:445/share".into();
-    let id = core.save_connection(None, &legacy, None, None).unwrap();
-    let library = core.library();
-    let saved = connection(&library, &id);
-    assert_eq!(saved.web_url.as_deref(), Some("smb://nas.local:445/share"));
-    assert_eq!(entry(&library, &saved.entry_id).host, "nas.local");
-
-    legacy.name = "Renamed".into();
-    legacy.host = "nas.local".into();
-    legacy.connection.port = "445".into();
-    legacy.connection.web_scheme = "smb".into();
-    legacy.connection.web_path = "/share".into();
-    assert_eq!(core.save_connection(Some(&id), &legacy, None, None).unwrap(), id);
-    let copy = core.duplicate_connection(&id, " (copy)").unwrap();
-    let library = core.library();
-    assert_eq!(connection(&library, &id).name, "Renamed");
-    assert_eq!(connection(&library, &copy).name, "Renamed (copy)");
-    assert_eq!(library.entries.len(), 2);
-    assert_eq!(
-        core.save_connection(Some("missing"), &legacy, None, None)
-            .unwrap_err()
-            .code,
-        "notFound"
-    );
-}
-
-#[test]
 fn entry_draft_round_trips_camel_case() {
     let parsed: EntryDraft =
         serde_json::from_str(r#"{"name":"n","host":"h","folderId":"F","isFavorite":true}"#).unwrap();
