@@ -124,12 +124,12 @@ mod tests {
     }
 
     #[test]
-    fn the_committed_config_carries_the_placeholder() {
+    fn the_committed_config_carries_the_release_key() {
         let config: serde_json::Value = serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
         let pubkey = configured_pubkey(&config["plugins"]).expect("plugins.updater.pubkey");
         assert!(
-            pubkey.starts_with(PUBKEY_PLACEHOLDER) || pubkey_configured(pubkey),
-            "the updater pubkey is neither the placeholder nor a minisign key"
+            pubkey_configured(pubkey),
+            "the updater pubkey is not a minisign key; releases could never update themselves"
         );
         let endpoints = &config["plugins"]["updater"]["endpoints"];
         assert_eq!(
