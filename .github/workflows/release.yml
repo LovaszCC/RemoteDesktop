@@ -233,6 +233,8 @@ jobs:
           # linuxdeploy's bundled strip can't read newer ELF sections; the release profile strips already.
           # linuxdeploy and the AppImage tools unpack themselves instead of mounting: no FUSE (libfuse2) needed.
           if [ "$RUNNER_OS" = Linux ]; then export NO_STRIP=true APPIMAGE_EXTRACT_AND_RUN=1; args+=(--verbose); fi
+          # rpm versions can't contain '-', and the updater needs semver's "-beta.N": betas skip the rpm.
+          if [ "$RUNNER_OS" = Linux ] && [ "$BETA" = true ]; then args+=(--bundles appimage,deb); fi
           [ "$UPDATER_SIGN" = true ] || unset TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
           # One merged --config: the build's version (a beta's -beta.N included), updater artifacts when
           # signing, and for a beta the beta-latest update feed instead of the stable one.
@@ -251,7 +253,7 @@ jobs:
         shell: bash
         env:
           UPDATER: ${{ needs.prepare.outputs.sign }}
-        run: scripts/collect-bundles.sh ${{ matrix.target }} "$VERSION" dist
+        run: NO_RPM=${{ needs.prepare.outputs.beta }} scripts/collect-bundles.sh ${{ matrix.target }} "$VERSION" dist
 
       - name: Smoke test (macOS, from the DMG)
         if: runner.os == 'macOS'

@@ -6,7 +6,9 @@
 #   RemoteDesktop_<version>_windows_x64-setup.exe(.sig)
 #   RemoteDesktop_<version>_linux_amd64.AppImage(.sig) / .deb(.sig) / _linux_x86_64.rpm(.sig)
 #
-#   UPDATER=true|false scripts/collect-bundles.sh <target triple> <version> <out dir>
+#   UPDATER=true|false [NO_RPM=true] scripts/collect-bundles.sh <target triple> <version> <out dir>
+#
+# NO_RPM=true (beta builds): no .rpm is expected; rpm versions can't hold semver's "-beta.N".
 #
 # With UPDATER=true (the build made signed updater artifacts) every updatable bundle must have its .sig and
 # macOS must have its .app.tar.gz; with false those are skipped. Fails when an expected bundle is missing.
@@ -64,7 +66,9 @@ case "$target" in
   x86_64-unknown-linux-gnu)
     copy appimage "*.AppImage" "${name}_linux_amd64.AppImage" updatable
     copy deb "*.deb" "${name}_linux_amd64.deb" updatable
-    copy rpm "*.rpm" "${name}_linux_x86_64.rpm" updatable
+    if [ "${NO_RPM:-false}" != true ]; then
+      copy rpm "*.rpm" "${name}_linux_x86_64.rpm" updatable
+    fi
     ;;
   *)
     echo "::error::unsupported target $target" >&2
