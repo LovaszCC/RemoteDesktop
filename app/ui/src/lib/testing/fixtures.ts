@@ -81,6 +81,7 @@ export function settingsDto(overrides: Partial<SettingsDto> = {}): SettingsDto {
     lastUpdateCheck: null,
     expandedFolders: [],
     winboxPath: null,
+    selectionShows: 'details',
     ...overrides,
   };
 }

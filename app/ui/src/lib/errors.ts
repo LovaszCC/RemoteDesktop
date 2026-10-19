@@ -60,6 +60,7 @@ const CODE_KEYS: Record<string, string> = {
   emptyHost: 'The host is required.',
   invalidPort: 'The port must be a number from 1 to 65535.',
   invalidLanguage: 'Unknown language.',
+  invalidSetting: 'Unknown setting value.',
   unknownCommand: 'Unknown command.',
   wrongKeyPassphrase: 'Wrong key passphrase.',
   cannotReadKey: "Can't read the SSH key: %@",

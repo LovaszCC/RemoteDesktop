@@ -481,6 +481,8 @@ pub struct SettingsDto {
     pub expanded_folders: Vec<String>,
     /// WinBox set in Settings; `None` means auto-detect.
     pub winbox_path: Option<String>,
+    /// What a single click on a sidebar entry with an open connection shows: `details` or `tab`.
+    pub selection_shows: String,
 }
 
 /// One row of the shortcut settings.

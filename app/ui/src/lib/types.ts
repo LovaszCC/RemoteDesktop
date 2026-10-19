@@ -214,7 +214,11 @@ export interface SettingsDto {
   expandedFolders: string[];
   /** WinBox set in Settings; `null` means auto-detect. */
   winboxPath: string | null;
+  selectionShows: SelectionShows;
 }
+
+/** What a single click on a sidebar entry with an open connection shows: Details, or its only plain tab. */
+export type SelectionShows = 'details' | 'tab';
 
 export interface SettingsPatch {
   language?: Language;
@@ -225,6 +229,7 @@ export interface SettingsPatch {
   expandedFolders?: string[];
   /** `""` means auto-detect. */
   winboxPath?: string;
+  selectionShows?: SelectionShows;
 }
 
 export type ShortcutCommand =
