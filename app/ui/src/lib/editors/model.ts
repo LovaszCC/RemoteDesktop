@@ -129,7 +129,8 @@ export function newConnectionForm(type: ConnectionType): ConnectionForm {
     webScheme: 'https',
     webPath: '',
     label: '',
-    showAsButton: true,
+    // Off for new connections: an entry's only connection gets its Connect button anyway.
+    showAsButton: false,
     password: secretState(false),
     passphrase: secretState(false),
   };
