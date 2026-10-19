@@ -86,17 +86,21 @@ fn emit_library(app: &AppHandle, core: &AppCore) {
 pub struct PingReply {
     /// Product name of this build.
     pub product_name: &'static str,
-    /// App version from the workspace manifest.
-    pub version: &'static str,
+    /// This build's version (a beta build's includes `-beta.N`).
+    pub version: String,
+}
+
+fn ping_reply(version: String) -> PingReply {
+    PingReply {
+        product_name: APP_IDENTITY.product_name,
+        version,
+    }
 }
 
 /// Health check used by the UI on startup.
 #[tauri::command]
-pub fn ping() -> PingReply {
-    PingReply {
-        product_name: APP_IDENTITY.product_name,
-        version: env!("CARGO_PKG_VERSION"),
-    }
+pub fn ping(app: AppHandle) -> PingReply {
+    ping_reply(app.package_info().version.to_string())
 }
 
 #[cfg(test)]
@@ -105,8 +109,8 @@ mod tests {
 
     #[test]
     fn ping_serializes_camel_case() {
-        let json = serde_json::to_value(ping()).unwrap();
+        let json = serde_json::to_value(ping_reply("1.6.7-beta.3".into())).unwrap();
         assert_eq!(json["productName"], "RemoteDesktop");
-        assert_eq!(json["version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(json["version"], "1.6.7-beta.3");
     }
 }
