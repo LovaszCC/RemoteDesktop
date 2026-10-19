@@ -81,8 +81,8 @@ fn hex(bytes: &[u8]) -> String {
     })
 }
 
-/// The v13 rows are unchanged by the upgrade: the Swift columns hold the same values, and the migration
-/// list only gains `v14-entries`.
+/// The v13 rows are unchanged by the upgrade (a web row's URL is split into host and port now): the Swift
+/// columns hold the same values, and the migration list only gains `v14-entries`.
 #[test]
 fn reads_swift_rows_exactly() {
     let (_dir, db) = swift_copy();
@@ -94,22 +94,31 @@ fn reads_swift_rows_exactly() {
         if table == "grdb_migrations" {
             assert_eq!(ours.pop(), Some(json!({ "identifier": "v14-entries" })));
         }
+        // Web rows' host and port are split now; blank them on both sides.
+        let mask = |mut row: Json| {
+            if table == "connection" && row["type"] == "web" {
+                row["host"] = Json::Null;
+                row["port"] = Json::Null;
+            }
+            row
+        };
         let projected: Vec<Json> = ours
             .iter()
             .zip(rows)
             .map(|(row, swift)| {
-                Json::Object(
+                mask(Json::Object(
                     swift
                         .as_object()
                         .unwrap()
                         .keys()
                         .map(|k| (k.clone(), row[k].clone()))
                         .collect(),
-                )
+                ))
             })
             .collect();
+        let rows: Vec<Json> = rows.iter().cloned().map(mask).collect();
         assert_eq!(ours.len(), rows.len(), "table {table}");
-        assert_eq!(&projected, rows, "table {table}");
+        assert_eq!(projected, rows, "table {table}");
     }
 }
 
@@ -125,7 +134,13 @@ fn swift_library_upgrades_to_entries() {
         let id = row["id"].as_str().unwrap();
         let entry = library.entry(id).unwrap();
         assert_eq!(entry.name, row["name"].as_str().unwrap(), "{id}");
-        assert_eq!(entry.host, row["host"].as_str().unwrap(), "{id}");
+        let url = row["host"].as_str().unwrap();
+        let host = if row["type"] == "web" {
+            rd_core::draft::split_web_url(url).unwrap().host
+        } else {
+            url.to_owned()
+        };
+        assert_eq!(entry.host, host, "{id}");
         assert_eq!(entry.folder_id.as_deref(), row["folderId"].as_str(), "{id}");
         assert_eq!(entry.notes, row["notes"].as_str().unwrap(), "{id}");
         assert_eq!(

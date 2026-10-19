@@ -20,6 +20,20 @@ fn schema(conn: &Connection) -> Vec<(String, String, String, Option<String>)> {
         .unwrap()
 }
 
+/// Blanks the `host` and `port` of the web rows, which the v14 migration rewrites.
+fn mask_web_url(rows: &mut [Vec<rusqlite::types::Value>], columns: &[String]) {
+    use rusqlite::types::Value;
+    let index = |name: &str| columns.iter().position(|c| c == name).unwrap();
+    let (kind, host, port) = (index("type"), index("host"), index("port"));
+    for row in rows
+        .iter_mut()
+        .filter(|r| r[kind] == Value::from("web".to_owned()))
+    {
+        row[host] = Value::Null;
+        row[port] = Value::Null;
+    }
+}
+
 fn migrations(conn: &Connection) -> Vec<String> {
     conn.prepare("SELECT identifier FROM grdb_migrations ORDER BY rowid")
         .unwrap()
@@ -156,7 +170,14 @@ fn opening_a_swift_database_only_adds_v14() {
         if table == "grdb_migrations" {
             assert_eq!(ours.pop(), Some(vec!["v14-entries".to_owned().into()]));
         }
-        assert_eq!(ours, rows(&swift, &table, &old), "table {table}");
+        let mut theirs = rows(&swift, &table, &old);
+        if table == "connection" {
+            // Web rows' URL is split into host and port now; everything else is unchanged.
+            for set in [&mut ours, &mut theirs] {
+                mask_web_url(set, &old);
+            }
+        }
+        assert_eq!(ours, theirs, "table {table}");
         assert!(columns(&conn, &table).starts_with(&old), "table {table}");
     }
     assert!(Database::open_in_memory().unwrap().path().is_none());

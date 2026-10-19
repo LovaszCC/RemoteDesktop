@@ -7,6 +7,8 @@
 
 use rusqlite::{Connection, Transaction, params};
 
+use rd_core::draft::split_web_url;
+
 use crate::StoreError;
 
 /// A data step that runs after a migration's SQL, inside the same transaction.
@@ -118,25 +120,6 @@ UPDATE connection SET entryId = id;
     },
 ];
 
-/// The parts of a stored web URL: scheme, host, port and path.
-struct WebParts {
-    scheme: String,
-    host: String,
-    port: Option<i64>,
-    path: String,
-}
-
-/// How an upgraded web connection's `host` URL is split. For now the identity: the whole value stays the
-/// host, with the default scheme and no path.
-fn split_web_url(host: &str, port: Option<i64>) -> WebParts {
-    WebParts {
-        scheme: "https".to_owned(),
-        host: host.to_owned(),
-        port,
-        path: String::new(),
-    }
-}
-
 /// Rewrites each web connection's URL into the entry host and the connection's port, scheme and path.
 fn split_web_urls(tx: &Transaction<'_>) -> Result<(), StoreError> {
     let rows: Vec<(String, String, Option<i64>)> = tx
@@ -144,14 +127,18 @@ fn split_web_urls(tx: &Transaction<'_>) -> Result<(), StoreError> {
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
         .collect::<Result<_, _>>()?;
     for (id, host, port) in rows {
-        let parts = split_web_url(&host, port);
+        // The stored value was the whole URL; one that doesn't parse stays the host as typed.
+        let (scheme, host, port, path) = match split_web_url(&host) {
+            Some(parts) => (parts.scheme, parts.host, parts.port.map(i64::from), parts.path),
+            None => ("https".to_owned(), host, port, String::new()),
+        };
         tx.execute(
             "UPDATE connection SET host = ?1, port = ?2, webScheme = ?3, webPath = ?4 WHERE id = ?5",
-            params![parts.host, parts.port, parts.scheme, parts.path, id],
+            params![host, port, scheme, path, id],
         )?;
         tx.execute(
             "UPDATE entry SET host = ?1 WHERE id = (SELECT entryId FROM connection WHERE id = ?2)",
-            params![parts.host, id],
+            params![host, id],
         )?;
     }
     Ok(())
@@ -314,6 +301,88 @@ mod tests {
         String,
         String,
     );
+
+    /// id, host, port, webScheme, webPath, entry host.
+    type WebRow = (String, String, Option<i64>, String, String, String);
+
+    #[test]
+    fn v14_splits_web_urls() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrate_up_to(&mut conn, "v13-saved-split").unwrap();
+        for (id, kind, host) in [
+            ("A", "web", "https://192.168.1.10:8443/admin?x=1"),
+            ("B", "web", "smb://homeserver.local/share"),
+            ("C", "web", "router.example.com"),
+            ("D", "web", "not a url"),
+            ("E", "ssh", "https://kept.example.com/x"),
+        ] {
+            conn.execute(
+                "INSERT INTO connection (id, type, name, host, createdAt, updatedAt) \
+                 VALUES (?1, ?2, 'n', ?3, '2025-01-01 00:00:00.000', '2025-01-01 00:00:00.000')",
+                params![id, kind, host],
+            )
+            .unwrap();
+        }
+        migrate(&mut conn).unwrap();
+        let rows: Vec<WebRow> = conn
+            .prepare(
+                "SELECT c.id, c.host, c.port, c.webScheme, c.webPath, e.host \
+                 FROM connection c JOIN entry e ON e.id = c.entryId ORDER BY c.id",
+            )
+            .unwrap()
+            .query_map([], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?))
+            })
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        let text = |s: &str| s.to_owned();
+        assert_eq!(
+            rows,
+            vec![
+                (
+                    text("A"),
+                    text("192.168.1.10"),
+                    Some(8443),
+                    text("https"),
+                    text("/admin?x=1"),
+                    text("192.168.1.10")
+                ),
+                (
+                    text("B"),
+                    text("homeserver.local"),
+                    None,
+                    text("smb"),
+                    text("/share"),
+                    text("homeserver.local")
+                ),
+                (
+                    text("C"),
+                    text("router.example.com"),
+                    None,
+                    text("https"),
+                    String::new(),
+                    text("router.example.com")
+                ),
+                (
+                    text("D"),
+                    text("not a url"),
+                    None,
+                    text("https"),
+                    String::new(),
+                    text("not a url")
+                ),
+                (
+                    text("E"),
+                    text("https://kept.example.com/x"),
+                    None,
+                    text("https"),
+                    String::new(),
+                    text("https://kept.example.com/x")
+                ),
+            ]
+        );
+    }
 
     #[test]
     fn v14_creates_one_entry_per_connection() {

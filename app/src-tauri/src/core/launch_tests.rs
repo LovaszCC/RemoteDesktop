@@ -18,6 +18,7 @@ pub(super) enum Call {
         url: String,
         browser: Option<String>,
     },
+    Url(String),
     Copy(Vec<String>),
     Winbox {
         configured: Option<String>,
@@ -75,6 +76,10 @@ impl Launcher for Recorder {
             url: url.to_owned(),
             browser: browser_id.map(str::to_owned),
         })
+    }
+
+    fn open_url(&self, url: &str) -> Result<(), LaunchError> {
+        self.push(Call::Url(url.to_owned()))
     }
 
     fn copy_sequence(&self, values: Vec<Zeroizing<String>>) -> Result<(), LaunchError> {
@@ -144,13 +149,66 @@ fn web_opens_the_browser_then_copies_password_and_username() {
 }
 
 #[test]
+fn web_http_opens_in_the_browser() {
+    let env = Env::new();
+    let (core, recorder) = recording(&env, None);
+    let id = save(
+        &core,
+        ConnectionType::Web,
+        |d| {
+            d.port = "8443".into();
+            d.web_path = "/admin".into();
+            d.browser_bundle_id = Some("org.mozilla.firefox".into());
+        },
+        None,
+    );
+    assert_eq!(core.connect_web(&id), Ok(LaunchOutcomeDto::Launched));
+    assert_eq!(
+        recorder.calls(),
+        [Call::Web {
+            url: "https://host.example.com:8443/admin".into(),
+            browser: Some("org.mozilla.firefox".into()),
+        }]
+    );
+}
+
+#[test]
+fn web_non_http_scheme_opens_with_the_os() {
+    let env = Env::new();
+    let (core, recorder) = recording(&env, None);
+    let id = save(
+        &core,
+        ConnectionType::Web,
+        |d| {
+            d.web_scheme = "smb".into();
+            d.web_path = "/share".into();
+            d.username = "bob".into();
+        },
+        Some("pw"),
+    );
+    assert_eq!(core.connect_web(&id), Ok(LaunchOutcomeDto::LoginCopied));
+    assert_eq!(
+        recorder.calls(),
+        [
+            Call::Url("smb://host.example.com/share".into()),
+            Call::Copy(vec!["pw".into(), "bob".into()]),
+        ]
+    );
+}
+
+#[test]
 fn web_without_login_only_opens() {
     let env = Env::new();
     let (core, recorder) = recording(&env, None);
     let id = save(
         &core,
         ConnectionType::Web,
-        |d| d.host = "http://example.com:8080/x".into(),
+        |d| {
+            d.web_scheme = "http".into();
+            d.host = "example.com".into();
+            d.port = "8080".into();
+            d.web_path = "/x".into();
+        },
         None,
     );
     assert_eq!(core.connect_web(&id), Ok(LaunchOutcomeDto::Launched));

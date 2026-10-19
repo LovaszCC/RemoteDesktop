@@ -1,7 +1,7 @@
 //! What the webview receives. Every DTO is secret-free: sealed bytes and plaintexts never leave Rust, only
 //! `has…` flags do. Field names are camelCase, enums are their raw strings.
 
-use rd_core::draft::normalized_web_url;
+use rd_core::draft::web_url;
 use rd_core::import::{ImportKind, Skipped};
 use rd_core::shortcuts::{KeyShortcut, Platform, ShortcutCommand, ShortcutSettings};
 use rd_core::tree::{self, TreeNode};
@@ -106,7 +106,14 @@ impl ConnectionDto {
             port: connection.port,
             effective_port: connection.effective_port(),
             web_url: (connection.kind == ConnectionType::Web)
-                .then(|| normalized_web_url(&connection.host))
+                .then(|| {
+                    web_url(
+                        &connection.web_scheme,
+                        &connection.host,
+                        connection.port,
+                        &connection.web_path,
+                    )
+                })
                 .flatten(),
             username: connection.username.clone(),
             domain: connection.domain.clone(),

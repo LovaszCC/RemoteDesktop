@@ -116,7 +116,8 @@ impl AppCore {
         Ok(Target { connection, password })
     }
 
-    /// Opens a web connection in its browser (the default one when unset or unknown here), then copies the
+    /// Opens a web connection in its browser (the default one when unset or unknown here; a non-http scheme
+    /// goes to the OS handler instead), then copies the
     /// password and, a second later, the username, unmarked (Swift `WebLauncher.launch`).
     ///
     /// # Errors
@@ -125,11 +126,19 @@ impl AppCore {
     pub fn connect_web(&self, connection_id: &str) -> Result<LaunchOutcomeDto, CommandError> {
         let target = self.launch_target(connection_id, ConnectionType::Web)?;
         let connection = &target.connection;
-        let url = rd_core::draft::normalized_web_url(&connection.host).ok_or_else(|| {
-            CommandError::new("invalidUrl", "Invalid URL: %@").with_detail(&connection.host)
-        })?;
-        self.launcher
-            .open_web(&url, connection.browser_bundle_id.as_deref())?;
+        let url = rd_core::draft::web_url(
+            &connection.web_scheme,
+            &connection.host,
+            connection.port,
+            &connection.web_path,
+        )
+        .ok_or_else(|| CommandError::new("invalidUrl", "Invalid URL: %@").with_detail(&connection.host))?;
+        if rd_core::draft::is_http(&connection.web_scheme) {
+            self.launcher
+                .open_web(&url, connection.browser_bundle_id.as_deref())?;
+        } else {
+            self.launcher.open_url(&url)?;
+        }
         let sequence: Vec<Zeroizing<String>> =
             web::clipboard_sequence(&connection.username, target.password())
                 .into_iter()

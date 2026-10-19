@@ -23,7 +23,7 @@ pub struct ConnectionDraft {
     /// Display name; required.
     #[serde(default)]
     pub name: String,
-    /// Host, or the URL for web connections.
+    /// Host (web: the host of the URL, without scheme, port or path).
     #[serde(default)]
     pub host: String,
     /// Port as typed; empty means the type's default.
@@ -62,6 +62,16 @@ pub struct ConnectionDraft {
     /// Tag color.
     #[serde(default)]
     pub color: Option<LabelColor>,
+    /// Web only: the URL scheme, `https` by default.
+    #[serde(default = "default_web_scheme")]
+    pub web_scheme: String,
+    /// Web only: the path, with any `?query#fragment`; empty means none.
+    #[serde(default)]
+    pub web_path: String,
+}
+
+fn default_web_scheme() -> String {
+    "https".to_owned()
 }
 
 fn default_rdp_client() -> RdpClient {
@@ -118,10 +128,6 @@ fn trim(text: &str) -> &str {
     })
 }
 
-fn uses_port(kind: ConnectionType) -> bool {
-    kind != ConnectionType::Web
-}
-
 fn uses_ssh(kind: ConnectionType) -> bool {
     matches!(kind, ConnectionType::Ssh | ConnectionType::Mikrotik)
 }
@@ -148,6 +154,8 @@ impl ConnectionDraft {
             mikrotik_mode: default_mikrotik_mode(),
             ssh_terminal: default_ssh_terminal(),
             color: None,
+            web_scheme: default_web_scheme(),
+            web_path: String::new(),
         }
     }
 
@@ -172,6 +180,8 @@ impl ConnectionDraft {
             mikrotik_mode: connection.mikrotik_mode,
             ssh_terminal: connection.ssh_terminal,
             color: connection.color,
+            web_scheme: connection.web_scheme.clone(),
+            web_path: connection.web_path.clone(),
         }
     }
 
@@ -183,20 +193,23 @@ impl ConnectionDraft {
         if trim(&self.name).is_empty() {
             return Err(DraftError::EmptyName);
         }
-        if !uses_port(self.kind) {
-            return normalized_web_url(&self.host)
-                .map(|_| ())
-                .ok_or(DraftError::InvalidUrl);
-        }
-        if trim(&self.host).is_empty() {
+        if self.kind == ConnectionType::Web {
+            web_url(
+                trim(&self.web_scheme),
+                trim(&self.host),
+                None,
+                trim(&self.web_path),
+            )
+            .ok_or(DraftError::InvalidUrl)?;
+        } else if trim(&self.host).is_empty() {
             return Err(DraftError::EmptyHost);
         }
         self.parsed_port().map(|_| ())
     }
 
-    /// The port to store: `None` when empty or for web connections.
+    /// The port to store: `None` when empty.
     fn parsed_port(&self) -> Result<Option<u16>, DraftError> {
-        if !uses_port(self.kind) || self.port.is_empty() {
+        if self.port.is_empty() {
             return Ok(None);
         }
         self.port
@@ -210,7 +223,7 @@ impl ConnectionDraft {
 
     /// Validates, then writes the normalised fields into `connection` (Swift `AppState.save`).
     ///
-    /// Name, host, user, domain and key path are trimmed. The port is dropped for web connections, the domain
+    /// Name, host, user, domain and key path are trimmed. The domain
     /// is kept only for RDP, the key path and passphrase only for SSH types, the admin flag only for RDP and
     /// the browser only for web. The id, dates, password and passphrase are left to the caller, except that
     /// the passphrase is cleared for types that don't use SSH.
@@ -237,6 +250,13 @@ impl ConnectionDraft {
         if !ssh {
             connection.ssh_key_passphrase_enc = None;
         }
+        if self.kind == ConnectionType::Web {
+            trim(&self.web_scheme).clone_into(&mut connection.web_scheme);
+            trim(&self.web_path).clone_into(&mut connection.web_path);
+        } else {
+            connection.web_scheme = default_web_scheme();
+            connection.web_path = String::new();
+        }
         connection.is_favorite = self.is_favorite;
         connection.rdp_admin_session = self.kind == ConnectionType::Rdp && self.rdp_admin_session;
         connection.browser_bundle_id = if self.kind == ConnectionType::Web {
@@ -253,30 +273,41 @@ impl ConnectionDraft {
     }
 }
 
-/// The URL a web connection opens (Swift `WebLaunch.url(from:)`): trimmed, `https://` added when there is
-/// no `://`, and a host required. `None` for an empty value, one with whitespace, or one without a host.
+/// The parts of a web URL.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WebParts {
+    /// The scheme, as written (`https`, `smb`, ...).
+    pub scheme: String,
+    /// The host; an IPv6 address stays in brackets.
+    pub host: String,
+    /// The explicit port, if any.
+    pub port: Option<u16>,
+    /// The path with any `?query#fragment`; empty when there is none.
+    pub path: String,
+}
+
+/// Splits a typed web URL (Swift `WebLaunch.url(from:)`, reworked): any `scheme://` is accepted, none means
+/// `https`; a `user@` is dropped; the path keeps its `?query#fragment`. `None` for an empty value, one with
+/// whitespace, a bad scheme, a missing host or a port that isn't a number from 0 to 65535.
 #[must_use]
-pub fn normalized_web_url(value: &str) -> Option<String> {
-    let trimmed = value.trim();
+pub fn split_web_url(text: &str) -> Option<WebParts> {
+    let trimmed = text.trim();
     if trimmed.is_empty() || trimmed.chars().any(|c| c.is_whitespace() || c.is_control()) {
         return None;
     }
-    let with_scheme = if trimmed.contains("://") {
-        trimmed.to_owned()
-    } else {
-        format!("https://{trimmed}")
-    };
-    let (scheme, rest) = with_scheme.split_once("://")?;
+    let (scheme, rest) = trimmed.split_once("://").unwrap_or(("https", trimmed));
     let mut scheme_chars = scheme.chars();
     if !scheme_chars.next().is_some_and(|c| c.is_ascii_alphabetic())
         || !scheme_chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'))
     {
         return None;
     }
-    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    let end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
+    let (authority, path) = rest.split_at(end);
     let host_port = authority.rsplit_once('@').map_or(authority, |(_, h)| h);
-    let (host, port) = if let Some(bracketed) = host_port.strip_prefix('[') {
-        let (host, after) = bracketed.split_once(']')?;
+    let (host, port) = if host_port.starts_with('[') {
+        let close = host_port.find(']')?;
+        let (host, after) = host_port.split_at(close + 1);
         (host, after.strip_prefix(':'))
     } else {
         match host_port.split_once(':') {
@@ -284,10 +315,58 @@ pub fn normalized_web_url(value: &str) -> Option<String> {
             None => (host_port, None),
         }
     };
-    if host.is_empty() || port.is_some_and(|p| !p.chars().all(|c| c.is_ascii_digit())) {
+    if host.is_empty()
+        || host == "[]"
+        || (host_port.starts_with('[') && port.is_none() && host.len() != host_port.len())
+    {
         return None;
     }
-    Some(with_scheme)
+    let port = match port {
+        None => None,
+        Some(p) if !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()) => Some(p.parse().ok()?),
+        Some(_) => return None,
+    };
+    Some(WebParts {
+        scheme: scheme.to_owned(),
+        host: host.to_owned(),
+        port,
+        path: path.to_owned(),
+    })
+}
+
+/// Builds the URL from its parts; the port is written as given, even when it is the scheme's default, and the
+/// path is joined with a single `/`. `None` for an empty or whitespace scheme or host.
+#[must_use]
+pub fn web_url(scheme: &str, host: &str, port: Option<u16>, path: &str) -> Option<String> {
+    let (scheme, host) = (scheme.trim(), host.trim());
+    if scheme.is_empty()
+        || host.is_empty()
+        || scheme.chars().any(char::is_whitespace)
+        || host.chars().any(char::is_whitespace)
+    {
+        return None;
+    }
+    let mut url = format!("{scheme}://{host}");
+    if let Some(port) = port {
+        url.push(':');
+        url.push_str(&port.to_string());
+    }
+    if path.starts_with(['?', '#']) {
+        url.push_str(path);
+    } else {
+        let path = path.trim_start_matches('/');
+        if !path.is_empty() {
+            url.push('/');
+            url.push_str(path);
+        }
+    }
+    Some(url)
+}
+
+/// Whether `scheme` opens in a browser (`http` or `https`); other schemes go to the OS handler.
+#[must_use]
+pub fn is_http(scheme: &str) -> bool {
+    scheme.eq_ignore_ascii_case("http") || scheme.eq_ignore_ascii_case("https")
 }
 
 #[cfg(test)]
@@ -302,36 +381,86 @@ mod tests {
         draft
     }
 
-    /// `WebConnectionTests`: urlNormalisation.
-    #[test]
-    fn url_normalisation() {
-        assert_eq!(
-            normalized_web_url("router.example.com/admin").as_deref(),
-            Some("https://router.example.com/admin")
-        );
-        assert_eq!(
-            normalized_web_url("  http://192.0.2.1:8080/x ").as_deref(),
-            Some("http://192.0.2.1:8080/x")
-        );
-        assert_eq!(
-            normalized_web_url("https://example.com").as_deref(),
-            Some("https://example.com")
-        );
-        assert_eq!(normalized_web_url(""), None);
-        assert_eq!(normalized_web_url("not a url"), None);
-        assert_eq!(normalized_web_url("https://"), None);
+    fn parts(scheme: &str, host: &str, port: Option<u16>, path: &str) -> WebParts {
+        WebParts {
+            scheme: scheme.into(),
+            host: host.into(),
+            port,
+            path: path.into(),
+        }
     }
 
     #[test]
-    fn url_edge_cases() {
+    fn split_and_build_round_trip() {
+        let cases = [
+            (
+                "https://192.168.1.10:8443/admin",
+                parts("https", "192.168.1.10", Some(8443), "/admin"),
+            ),
+            (
+                "smb://homeserver.local/share",
+                parts("smb", "homeserver.local", None, "/share"),
+            ),
+            (
+                "http://user@host/x?y=1#z",
+                parts("http", "host", None, "/x?y=1#z"),
+            ),
+            ("https://[::1]:8443", parts("https", "[::1]", Some(8443), "")),
+            (
+                "https://user@[2001:db8::1]/x",
+                parts("https", "[2001:db8::1]", None, "/x"),
+            ),
+            ("example.com", parts("https", "example.com", None, "")),
+            (
+                "  router.example.com/admin ",
+                parts("https", "router.example.com", None, "/admin"),
+            ),
+        ];
+        for (text, expected) in cases {
+            let got = split_web_url(text).unwrap_or_else(|| panic!("{text}"));
+            assert_eq!(got, expected, "{text}");
+            let url = web_url(&got.scheme, &got.host, got.port, &got.path).unwrap();
+            assert_eq!(split_web_url(&url), Some(got), "{url}");
+        }
         assert_eq!(
-            normalized_web_url("https://user@[2001:db8::1]:8443/").as_deref(),
-            Some("https://user@[2001:db8::1]:8443/")
+            web_url("https", "example.com", Some(443), "").as_deref(),
+            Some("https://example.com:443")
         );
-        assert_eq!(normalized_web_url("https://host:port"), None);
-        assert_eq!(normalized_web_url("1http://example.com"), None);
-        assert_eq!(normalized_web_url("https:///path"), None);
-        assert_eq!(normalized_web_url("exa\tmple.com"), None);
+        assert_eq!(web_url("http", "h", None, "a/b").as_deref(), Some("http://h/a/b"));
+        assert_eq!(web_url("http", "h", None, "//a").as_deref(), Some("http://h/a"));
+        assert_eq!(
+            web_url("http", "h", None, "?q=1").as_deref(),
+            Some("http://h?q=1")
+        );
+    }
+
+    #[test]
+    fn split_and_build_reject_bad_input() {
+        for bad in [
+            "",
+            "not a url",
+            "https://",
+            "https://host:port",
+            "https://host:",
+            "https://host:99999",
+            "1http://example.com",
+            "https:///path",
+            "exa\tmple.com",
+            "https://[::1",
+            "https://[]",
+        ] {
+            assert_eq!(split_web_url(bad), None, "{bad:?}");
+        }
+        assert_eq!(web_url("", "h", None, ""), None);
+        assert_eq!(web_url("https", "  ", None, ""), None);
+        assert_eq!(web_url(" ", "h", None, ""), None);
+        assert_eq!(web_url("https", "a b", None, ""), None);
+    }
+
+    #[test]
+    fn http_schemes() {
+        assert!(is_http("http") && is_http("HTTPS"));
+        assert!(!is_http("smb") && !is_http(""));
     }
 
     #[test]
@@ -356,11 +485,19 @@ mod tests {
     }
 
     #[test]
-    fn web_validates_the_url_and_ignores_the_port() {
+    fn web_validates_the_url_parts() {
         let mut d = draft(ConnectionType::Web);
+        assert_eq!(d.validate(), Ok(()));
         d.port = "junk".into();
+        assert_eq!(d.validate(), Err(DraftError::InvalidPort));
+        d.port = "8443".into();
         assert_eq!(d.validate(), Ok(()));
         d.host = "not a url".into();
+        assert_eq!(d.validate(), Err(DraftError::InvalidUrl));
+        d.host = "  ".into();
+        assert_eq!(d.validate(), Err(DraftError::InvalidUrl));
+        d.host = "h".into();
+        d.web_scheme = " ".into();
         assert_eq!(d.validate(), Err(DraftError::InvalidUrl));
     }
 
@@ -404,15 +541,28 @@ mod tests {
     }
 
     #[test]
-    fn apply_web_keeps_browser_and_drops_port() {
+    fn apply_web_keeps_browser_port_scheme_and_path() {
         let mut d = draft(ConnectionType::Web);
         d.port = "8080".into();
+        d.web_scheme = " smb ".into();
+        d.web_path = " /share ".into();
         d.browser_bundle_id = Some("com.example.browser".into());
         let mut c = Connection::new(ConnectionType::Web, "w", "w");
         c.port = Some(1);
         d.apply_to(&mut c).unwrap();
-        assert_eq!(c.port, None);
+        assert_eq!(c.port, Some(8080));
+        assert_eq!((c.web_scheme.as_str(), c.web_path.as_str()), ("smb", "/share"));
         assert_eq!(c.browser_bundle_id.as_deref(), Some("com.example.browser"));
+        let round = ConnectionDraft::from_connection(&c);
+        assert_eq!(
+            (round.web_scheme.as_str(), round.web_path.as_str()),
+            ("smb", "/share")
+        );
+
+        let mut ssh = draft(ConnectionType::Ssh);
+        ssh.web_scheme = "smb".into();
+        ssh.apply_to(&mut c).unwrap();
+        assert_eq!((c.web_scheme.as_str(), c.web_path.as_str()), ("https", ""));
     }
 
     #[test]
