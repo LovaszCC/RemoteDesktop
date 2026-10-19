@@ -213,6 +213,7 @@ export function createApi(invoke: Invoke = tauriBridge.invoke) {
   return {
     // Session
     appStatus: () => call<AppStatusDto>('app_status'),
+    dismissHandover: () => call<AppStatusDto>('dismiss_handover'),
     createVault: (password: string, remember: boolean) =>
       call<AppStatusDto>('create_vault', { password, remember }),
     unlock: (password: string, remember: boolean) => call<AppStatusDto>('unlock', { password, remember }),

@@ -12,6 +12,14 @@ pub fn app_status(core: State<'_, Core>) -> AppStatusDto {
     core.status()
 }
 
+/// Hides the post-handover welcome banner.
+#[tauri::command]
+pub fn dismiss_handover(app: AppHandle, core: State<'_, Core>) -> AppStatusDto {
+    let status = core.dismiss_handover();
+    emit_status(&app, &core);
+    status
+}
+
 /// Sets up the vault of a new database. Errors: `noDatabase`, `readOnly`, `emptyPassword`.
 #[tauri::command]
 pub async fn create_vault(

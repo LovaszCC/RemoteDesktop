@@ -77,6 +77,8 @@ struct Inner {
     lock: Option<DbLock>,
     read_only: bool,
     phase: Phase,
+    /// The Swift settings were imported at this launch and the welcome banner hasn't been dismissed.
+    handover: bool,
 }
 
 /// The app core. One per process; shared by the Tauri commands behind an `Arc`.
@@ -141,6 +143,7 @@ impl AppCore {
                 lock: None,
                 read_only: false,
                 phase: failed("noPath", "No database is open."),
+                handover: false,
             }),
             keys,
             iterations,
@@ -173,7 +176,22 @@ impl AppCore {
             read_only: inner.read_only,
             remember_master_key: inner.settings.remember_master_key,
             platform: self.platform,
+            handover_notice: inner.handover,
         }
+    }
+
+    /// This launch is the first after the Swift app: the Swift settings were just imported, so the main
+    /// window shows the welcome banner.
+    pub fn mark_handover(&self) {
+        self.inner().handover = true;
+    }
+
+    /// Hides the welcome banner for the rest of this launch.
+    #[must_use]
+    pub fn dismiss_handover(&self) -> AppStatusDto {
+        let mut inner = self.inner();
+        inner.handover = false;
+        self.status_of(&inner)
     }
 
     /// The database file in use, if any.

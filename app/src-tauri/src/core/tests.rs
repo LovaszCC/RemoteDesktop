@@ -999,7 +999,49 @@ fn status_serializes_for_the_ui() {
     );
     assert_eq!(json["platform"], "macos");
     assert_eq!(json["rememberMasterKey"], true);
+    assert_eq!(json["handoverNotice"], false);
     assert_eq!(core.running_count(), 0);
+}
+
+#[test]
+fn the_first_launch_after_swift_opens_its_database_and_shows_the_banner_until_dismissed() {
+    // The Swift app's database, with a vault, somewhere other than the default path.
+    let swift = Env::new();
+    drop(swift.unlocked());
+    let plist = swift.dir.path().join("swift.plist");
+    let mut defaults = plist::Dictionary::new();
+    defaults.insert(
+        "databasePath".into(),
+        plist::Value::String(swift.db("connections.sqlite").display().to_string()),
+    );
+    defaults.insert(
+        "AppleLanguages".into(),
+        plist::Value::Array(vec![plist::Value::String("hu".into())]),
+    );
+    plist::Value::Dictionary(defaults).to_file_binary(&plist).unwrap();
+
+    let env = Env::new();
+    assert!(rd_platform::swift_defaults::import_swift_defaults(&env.settings_dir(), &plist).is_some());
+    let core = AppCore::with_options(
+        env.settings_dir(),
+        Box::new(env.keys.clone()),
+        1_000,
+        Platform::MacOS,
+    );
+    core.mark_handover();
+    core.open_current();
+
+    let status = core.status();
+    assert_eq!(status.phase, LOCKED, "the existing vault is found");
+    assert_eq!(
+        status.database_path,
+        Some(swift.db("connections.sqlite").display().to_string())
+    );
+    assert!(status.handover_notice);
+    assert_eq!(core.settings_get().language, "hu");
+
+    assert!(!core.dismiss_handover().handover_notice);
+    assert!(!core.status().handover_notice);
 }
 
 // Import

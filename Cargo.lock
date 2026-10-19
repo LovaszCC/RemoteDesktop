@@ -4409,6 +4409,7 @@ dependencies = [
  "base64 0.22.1",
  "dirs",
  "hostname",
+ "plist",
  "rd-core",
  "rd-platform",
  "rd-rdp",

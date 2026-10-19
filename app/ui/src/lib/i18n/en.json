@@ -595,6 +595,8 @@
   "Warning: the certificate is not for this host name.": "Warning: the certificate is not for this host name.",
   "Warning: you accepted a different certificate for this server before.": "Warning: you accepted a different certificate for this server before.",
   "Web": "Web",
+  "Welcome to the new RemoteDesktop. Your connections and settings were carried over.": "Welcome to the new RemoteDesktop. Your connections and settings were carried over.",
+  "Welcome to the new RemoteDesktop. Your connections and settings were carried over. Grant the Accessibility permission again for RDP password autofill.": "Welcome to the new RemoteDesktop. Your connections and settings were carried over. Grant the Accessibility permission again for RDP password autofill.",
   "WinBox groups become subfolders of the target folder.": "WinBox groups become subfolders of the target folder.",
   "WinBox only accepts the password on its command line: other users of this computer can see it in the process list while WinBox runs.": "WinBox only accepts the password on its command line: other users of this computer can see it in the process list while WinBox runs.",
   "WinBox path": "WinBox path",

@@ -191,5 +191,7 @@
   "Theme": "Theme",
   "System": "System",
   "Light": "Light",
-  "Dark": "Dark"
+  "Dark": "Dark",
+  "Welcome to the new RemoteDesktop. Your connections and settings were carried over.": "Welcome to the new RemoteDesktop. Your connections and settings were carried over.",
+  "Welcome to the new RemoteDesktop. Your connections and settings were carried over. Grant the Accessibility permission again for RDP password autofill.": "Welcome to the new RemoteDesktop. Your connections and settings were carried over. Grant the Accessibility permission again for RDP password autofill."
 }

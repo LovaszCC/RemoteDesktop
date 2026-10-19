@@ -457,6 +457,8 @@ pub struct AppStatusDto {
     pub remember_master_key: bool,
     /// `macos`, `windows` or `linux`.
     pub platform: Platform,
+    /// First launch after the Swift app (its settings were imported): show the welcome banner.
+    pub handover_notice: bool,
 }
 
 /// The settings the UI can show and change.

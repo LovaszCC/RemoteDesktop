@@ -36,6 +36,10 @@ export function createAppStore(deps: StoreDeps = {}) {
     get isUnlocked() {
       return status?.phase.kind === 'unlocked';
     },
+    /** The welcome banner of the first launch after the Swift app. */
+    get handoverNotice() {
+      return status?.handoverNotice ?? false;
+    },
 
     /** Subscribes to `app-status-changed` and loads the current status. */
     async start() {
@@ -55,6 +59,7 @@ export function createAppStore(deps: StoreDeps = {}) {
     unlock: async (password: string, remember: boolean) => apply(await api.unlock(password, remember)),
     lock: async () => apply(await api.lock()),
     changePassword: (current: string, next: string) => api.changePassword(current, next),
+    dismissHandover: async () => apply(await api.dismissHandover()),
 
     // Database
     openDatabase: async (path: string) => apply(await api.openDatabase(path)),

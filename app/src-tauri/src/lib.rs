@@ -53,10 +53,12 @@ fn on_window_destroyed(window: &tauri::Window) {
 }
 
 /// Every command the webview may invoke.
+#[allow(clippy::too_many_lines)] // one flat list of command paths
 fn invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
         commands::ping,
         commands::session::app_status,
+        commands::session::dismiss_handover,
         commands::session::create_vault,
         commands::session::unlock,
         commands::session::lock,
@@ -177,7 +179,16 @@ pub fn run() {
         // Used from Rust only (commands::updates); inert while the config has the placeholder key.
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
-            let core: Core = Arc::new(AppCore::new(settings_dir(), Box::new(KeyringCache::new())));
+            let settings_dir = settings_dir();
+            // First launch after the Swift app: carry its settings over (database path first) before the
+            // core reads settings.json.
+            let handover = rd_platform::swift_defaults::swift_defaults_path()
+                .and_then(|plist| rd_platform::swift_defaults::import_swift_defaults(&settings_dir, &plist))
+                .is_some();
+            let core: Core = Arc::new(AppCore::new(settings_dir, Box::new(KeyringCache::new())));
+            if handover {
+                core.mark_handover();
+            }
             core.open_current();
             let refresher = Arc::downgrade(&core);
             std::thread::spawn(move || {

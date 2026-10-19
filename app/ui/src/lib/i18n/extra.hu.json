@@ -191,5 +191,7 @@
   "Theme": "Téma",
   "System": "Rendszer",
   "Light": "Világos",
-  "Dark": "Sötét"
+  "Dark": "Sötét",
+  "Welcome to the new RemoteDesktop. Your connections and settings were carried over.": "Üdv az új RemoteDesktopban! A kapcsolataid és a beállításaid átkerültek.",
+  "Welcome to the new RemoteDesktop. Your connections and settings were carried over. Grant the Accessibility permission again for RDP password autofill.": "Üdv az új RemoteDesktopban! A kapcsolataid és a beállításaid átkerültek. Az RDP jelszókitöltéshez add meg újra az Accessibility engedélyt."
 }

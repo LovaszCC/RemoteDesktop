@@ -583,6 +583,8 @@
   "Warning: the certificate is not for this host name.": "Figyelem: a tanúsítvány nem erre a hostnévre szól.",
   "Warning: you accepted a different certificate for this server before.": "Figyelem: korábban más tanúsítványt fogadtál el ehhez a szerverhez.",
   "Web": "Böngésző",
+  "Welcome to the new RemoteDesktop. Your connections and settings were carried over.": "Üdv az új RemoteDesktopban! A kapcsolataid és a beállításaid átkerültek.",
+  "Welcome to the new RemoteDesktop. Your connections and settings were carried over. Grant the Accessibility permission again for RDP password autofill.": "Üdv az új RemoteDesktopban! A kapcsolataid és a beállításaid átkerültek. Az RDP jelszókitöltéshez add meg újra az Accessibility engedélyt.",
   "WinBox groups become subfolders of the target folder.": "A WinBox csoportokból almappák lesznek a célmappában.",
   "WinBox only accepts the password on its command line: other users of this computer can see it in the process list while WinBox runs.": "A WinBox csak a parancssorában fogadja el a jelszót: amíg fut, a gép többi felhasználója láthatja a folyamatlistában.",
   "WinBox path": "WinBox útvonal",
