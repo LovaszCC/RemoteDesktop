@@ -101,12 +101,41 @@ impl Library {
             .collect()
     }
 
-    /// [`connection_ids_for`](Self::connection_ids_for) over sidebar tags (`c:`, `fav:`, `f:`; others
-    /// ignored), like Swift `Library.connectionIds(forTags:)`.
+    /// [`connection_ids_for`](Self::connection_ids_for) over sidebar tags, like Swift
+    /// `Library.connectionIds(forTags:)`: `c:` is that connection, `e:` and `fav:` the entry's default
+    /// connection, `f:` every connection in the folder's subtree; other tags are ignored.
     #[must_use]
     pub fn connection_ids_for_tags<S: AsRef<str>>(&self, tags: &[S]) -> Vec<String> {
         let items = crate::tree::sidebar_items(tags);
-        self.connection_ids_for(&items.connection_ids, &items.folder_ids)
+        let picked = picked_connections(tags, |entry_id| self.default_connection(entry_id));
+        self.connection_ids_for(&picked, &items.folder_ids)
+    }
+
+    /// The SSH-capable connections behind sidebar tags, for a split (Swift `sshConnections(forTags:)`):
+    /// `c:` when that connection uses SSH, `e:` and `fav:` the entry's default connection when it uses SSH
+    /// and otherwise its first one that does, `f:` every SSH-capable connection in the folder's subtree.
+    #[must_use]
+    pub fn ssh_connection_ids_for_tags<S: AsRef<str>>(&self, tags: &[S]) -> Vec<String> {
+        let items = crate::tree::sidebar_items(tags);
+        let picked = picked_connections(tags, |entry_id| {
+            self.default_connection(entry_id)
+                .filter(|c| c.kind.uses_ssh())
+                .or_else(|| {
+                    self.connections_of(entry_id)
+                        .into_iter()
+                        .find(|c| c.kind.uses_ssh())
+                })
+        });
+        let ssh: HashSet<&str> = self
+            .connections
+            .iter()
+            .filter(|c| c.kind.uses_ssh())
+            .map(|c| c.id.as_str())
+            .collect();
+        self.connection_ids_for(&picked, &items.folder_ids)
+            .into_iter()
+            .filter(|id| ssh.contains(id.as_str()))
+            .collect()
     }
 
     /// The forwards of one connection.
@@ -115,6 +144,21 @@ impl Library {
             .iter()
             .filter(move |f| f.connection_id == connection_id)
     }
+}
+
+/// The `c:` connections and one connection per `e:` / `fav:` entry (chosen by `pick`), in tag order.
+fn picked_connections<'a, S: AsRef<str>>(
+    tags: &[S],
+    pick: impl Fn(&str) -> Option<&'a Connection>,
+) -> Vec<String> {
+    use crate::tree::SidebarTag;
+    tags.iter()
+        .filter_map(|t| match SidebarTag::parse(t.as_ref())? {
+            SidebarTag::Connection(id) => Some(id),
+            SidebarTag::Entry(id) | SidebarTag::Favorite(id) => pick(&id).map(|c| c.id.clone()),
+            _ => None,
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -178,6 +222,36 @@ mod tests {
         let ids = lib.connection_ids_for_tags(&["c:D", "fav:D", "f:F1", "c:B", "k:x"]);
         assert_eq!(ids, ["D", "B", "A"]);
         assert!(lib.connection_ids_for_tags(&["k:x"]).is_empty());
+    }
+
+    /// An entry with an RDP default and an SSH second connection.
+    fn two_way(lib: &mut Library) {
+        let mut entry = Entry::new("E", "h");
+        entry.id = "E".into();
+        entry.default_connection_id = Some("ER".into());
+        let mut rdp = connection("ER", None);
+        rdp.kind = ConnectionType::Rdp;
+        rdp.entry_id = "E".into();
+        let mut ssh = connection("ES", None);
+        ssh.entry_id = "E".into();
+        ssh.sort_order = 1;
+        lib.connections.extend([rdp, ssh]);
+        lib.entries.push(entry);
+    }
+
+    #[test]
+    fn entry_tags_pick_the_default_or_its_ssh_connection() {
+        let mut lib = library();
+        two_way(&mut lib);
+        assert_eq!(lib.connection_ids_for_tags(&["e:E", "fav:E", "e:D"]), ["ER", "D"]);
+        assert_eq!(
+            lib.ssh_connection_ids_for_tags(&["e:E", "c:ER", "e:D"]),
+            ["ES", "D"]
+        );
+        lib.connections[0].kind = ConnectionType::Web;
+        assert_eq!(lib.ssh_connection_ids_for_tags(&["f:F1", "e:A"]), ["B"]);
+        lib.connections.retain(|c| c.id != "ES");
+        assert!(lib.ssh_connection_ids_for_tags(&["e:E", "e:missing"]).is_empty());
     }
 
     #[test]

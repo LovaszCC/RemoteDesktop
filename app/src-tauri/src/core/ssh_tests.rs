@@ -17,6 +17,7 @@ use rd_store::MemoryKeyCache;
 use tempfile::TempDir;
 
 use super::ssh_unlock::tests::write_encrypted_key;
+use super::tests::{entry_draft, save_single};
 use super::*;
 
 const TIMEOUT: Duration = Duration::from_secs(10);
@@ -146,13 +147,19 @@ impl Lab {
     }
 
     fn ssh_connection(&self, credential: Option<&str>) -> String {
-        let mut draft = ConnectionDraft::new(ConnectionType::Ssh, None);
-        draft.name = "web".into();
-        draft.host = "h".into();
+        let mut draft = ConnectionDraft::new(ConnectionType::Ssh);
         draft.port = "2222".into();
         draft.username = "u".into();
         draft.credential_id = credential.map(Into::into);
-        self.core.save_connection(None, &draft, Some("pw"), None).unwrap()
+        save_single(
+            &self.core,
+            None,
+            &entry_draft("web", "h"),
+            draft,
+            Some("pw"),
+            None,
+        )
+        .unwrap()
     }
 
     fn open(&self, connection_id: &str) -> (String, Arc<Collect>) {
@@ -266,13 +273,17 @@ fn reconnect_resolves_again_in_the_same_session() {
     lab.core.ssh_input(&id, b"one\r").unwrap();
     sink.wait_exits(1);
 
-    let mut draft = ConnectionDraft::new(ConnectionType::Ssh, None);
-    draft.name = "web".into();
-    draft.host = "h2".into();
+    let mut draft = ConnectionDraft::new(ConnectionType::Ssh);
     draft.username = "v".into();
-    lab.core
-        .save_connection(Some(&connection), &draft, None, None)
-        .unwrap();
+    save_single(
+        &lab.core,
+        Some(&connection),
+        &entry_draft("web", "h2"),
+        draft,
+        None,
+        None,
+    )
+    .unwrap();
 
     lab.core.ssh_reconnect(&id, 80, 24).unwrap();
     let text = sink.wait_output("ARGS=v@h2");
@@ -337,12 +348,18 @@ fn a_refused_changed_host_key_is_removed_before_the_reconnect() {
     }
     lab.core
         .set_ssh_program(Some(refusing), Some(PathBuf::from("/opt/app/helper")));
-    let mut draft = ConnectionDraft::new(ConnectionType::Ssh, None);
-    draft.name = "changed".into();
-    draft.host = "127.0.0.1".into();
+    let mut draft = ConnectionDraft::new(ConnectionType::Ssh);
     draft.port = port.to_string();
     draft.username = "u".into();
-    let connection = lab.core.save_connection(None, &draft, None, None).unwrap();
+    let connection = save_single(
+        &lab.core,
+        None,
+        &entry_draft("changed", "127.0.0.1"),
+        draft,
+        None,
+        None,
+    )
+    .unwrap();
 
     assert_eq!(
         lab.core.ssh_replace_host_key("nope").unwrap_err().code,
@@ -458,10 +475,8 @@ fn only_unlocked_ssh_connections_open() {
         .unwrap_err();
     assert_eq!(err.code, "notFound");
 
-    let mut rdp = ConnectionDraft::new(ConnectionType::Rdp, None);
-    rdp.name = "rdp".into();
-    rdp.host = "h".into();
-    let rdp = lab.core.save_connection(None, &rdp, None, None).unwrap();
+    let rdp = ConnectionDraft::new(ConnectionType::Rdp);
+    let rdp = save_single(&lab.core, None, &entry_draft("rdp", "h"), rdp, None, None).unwrap();
     assert_eq!(
         lab.core
             .open_ssh_session(&rdp, 80, 24, |_| sink())
@@ -470,10 +485,16 @@ fn only_unlocked_ssh_connections_open() {
         "notSsh"
     );
 
-    let mut dash = ConnectionDraft::new(ConnectionType::Mikrotik, None);
-    dash.name = "router".into();
-    dash.host = "-oProxyCommand=x".into();
-    let dash = lab.core.save_connection(None, &dash, None, None).unwrap();
+    let dash = ConnectionDraft::new(ConnectionType::Mikrotik);
+    let dash = save_single(
+        &lab.core,
+        None,
+        &entry_draft("router", "-oProxyCommand=x"),
+        dash,
+        None,
+        None,
+    )
+    .unwrap();
     assert_eq!(
         lab.core
             .open_ssh_session(&dash, 80, 24, |_| sink())

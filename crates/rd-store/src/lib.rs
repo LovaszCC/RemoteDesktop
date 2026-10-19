@@ -23,4 +23,5 @@ pub use import::{ImportBatch, ImportCounts};
 pub use key_cache::{KeyCache, KeyCacheError, KeyringCache, MemoryKeyCache};
 pub use lock::{DbLock, LockHolder, LockStatus, REFRESH_EVERY, STALE_AFTER};
 pub use migrations::{MIGRATION_IDS, migrate_up_to};
+pub use repository::EntryWrite;
 pub use vault::{Vault, VaultError};

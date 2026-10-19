@@ -66,6 +66,23 @@ raw_enum! {
 }
 
 impl ConnectionType {
+    /// The type as the UI names it: `RDP`, `SSH`, `Web` or `MikroTik`.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Rdp => "RDP",
+            Self::Ssh => "SSH",
+            Self::Web => "Web",
+            Self::Mikrotik => "MikroTik",
+        }
+    }
+
+    /// SSH and MikroTik (whose SSH mode opens a terminal); these can be split panes and tunnel forwards.
+    #[must_use]
+    pub fn uses_ssh(self) -> bool {
+        matches!(self, Self::Ssh | Self::Mikrotik)
+    }
+
     /// Port used when the connection has none.
     #[must_use]
     pub fn default_port(self) -> u16 {

@@ -1,13 +1,13 @@
 //! Library commands. Every write refuses with `locked` or `readOnly` and emits `library-changed` after
 //! success.
 
-use rd_core::draft::ConnectionDraft;
+use rd_core::draft::{EntryDraft, LegacyConnectionDraft};
 use tauri::{AppHandle, State};
 
 use super::{Core, blocking, emit_library};
 use crate::clipboard;
-use crate::core::{AppCore, CommandError, CredentialInput, FolderInput};
-use crate::dto::{DeleteCountsDto, LibraryDto, MoveResultDto, SearchResultDto};
+use crate::core::{AppCore, CommandError, ConnectionSave, CredentialInput, FolderInput};
+use crate::dto::{DeleteCountsDto, LibraryDto, MergeResultDto, MoveResultDto, SearchResultDto};
 
 /// Runs a write on the blocking pool, then emits `library-changed`.
 pub(super) async fn write<T: Send + 'static>(
@@ -26,7 +26,7 @@ pub async fn library(core: State<'_, Core>) -> Result<LibraryDto, CommandError> 
     blocking(&core, |c| Ok(c.library())).await
 }
 
-/// Sidebar search: `{connections, credentials}` as ids.
+/// Sidebar search: `{entries, credentials}` as ids.
 #[tauri::command]
 pub async fn search(core: State<'_, Core>, query: String) -> Result<SearchResultDto, CommandError> {
     blocking(&core, move |c| Ok(c.search(&query))).await
@@ -52,14 +52,54 @@ pub async fn matching(
     blocking(&core, move |c| Ok(c.matching(&connection_ids, &query))).await
 }
 
-/// Saves the connection editor; `password`/`passphrase`: `null` keeps, `""` clears, a value sets. Returns
-/// the id.
+/// Saves the entry editor: the shared fields and exactly `connections` in their order (each with
+/// `password`/`passphrase`: `null` keeps, `""` clears, a value sets). Returns the entry id.
+#[tauri::command]
+pub async fn save_entry(
+    app: AppHandle,
+    core: State<'_, Core>,
+    id: Option<String>,
+    entry: EntryDraft,
+    connections: Vec<ConnectionSave>,
+) -> Result<String, CommandError> {
+    write(&app, &core, move |c| {
+        c.save_entry(id.as_deref(), &entry, &connections)
+    })
+    .await
+}
+
+/// Merges the `sources` entries into `target`; returns `{movedConnections}`.
+#[tauri::command]
+pub async fn merge_entries(
+    app: AppHandle,
+    core: State<'_, Core>,
+    target: String,
+    sources: Vec<String>,
+) -> Result<MergeResultDto, CommandError> {
+    write(&app, &core, move |c| c.merge_entries(&target, &sources)).await
+}
+
+/// Duplicates an entry with all its connections and the localized `copySuffix` (" (copy)"); returns the
+/// new entry id.
+#[tauri::command]
+pub async fn duplicate_entry(
+    app: AppHandle,
+    core: State<'_, Core>,
+    id: String,
+    copy_suffix: String,
+) -> Result<String, CommandError> {
+    write(&app, &core, move |c| c.duplicate_entry(&id, &copy_suffix)).await
+}
+
+// Compatibility with the pre-entries UI; removed in the entries UI task.
+/// Saves the pre-entries connection editor (one connection with its entry's shared fields); returns the
+/// connection id.
 #[tauri::command]
 pub async fn save_connection(
     app: AppHandle,
     core: State<'_, Core>,
     id: Option<String>,
-    draft: ConnectionDraft,
+    draft: LegacyConnectionDraft,
     password: Option<String>,
     passphrase: Option<String>,
 ) -> Result<String, CommandError> {
@@ -124,15 +164,20 @@ pub async fn move_items(
     .await
 }
 
-/// Stars or unstars a connection.
+/// Stars or unstars the entry behind `tag` (`e:`, `fav:` or `c:`).
 #[tauri::command]
 pub async fn set_favorite(
     app: AppHandle,
     core: State<'_, Core>,
-    connection_id: String,
+    tag: Option<String>,
+    // Compatibility with the pre-entries UI; removed in the entries UI task.
+    connection_id: Option<String>,
     is_favorite: bool,
 ) -> Result<(), CommandError> {
-    write(&app, &core, move |c| c.set_favorite(&connection_id, is_favorite)).await
+    let tag = tag
+        .or_else(|| connection_id.map(|id| format!("c:{id}")))
+        .unwrap_or_default();
+    write(&app, &core, move |c| c.set_favorite(&tag, is_favorite)).await
 }
 
 /// Links (`credentialId`) or unlinks (`null`) the connections behind `tags` and `connectionIds`; returns
@@ -155,7 +200,9 @@ pub async fn set_credential(
     .await
 }
 
-/// Duplicates a connection with the localized `copySuffix` (" (copy)"); returns the new id.
+// Compatibility with the pre-entries UI; removed in the entries UI task.
+/// Duplicates the entry of a connection with the localized `copySuffix`; returns the copied connection's
+/// id.
 #[tauri::command]
 pub async fn duplicate_connection(
     app: AppHandle,

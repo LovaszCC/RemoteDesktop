@@ -12,7 +12,7 @@ use rd_core::forward::PortForwardDraft;
 use rd_ssh::background::tunnel::ForwardState;
 
 use super::forwards::Paths;
-use super::tests::Env;
+use super::tests::{Env, entry_draft, save_single};
 use super::*;
 
 struct Notices {
@@ -56,12 +56,10 @@ fn hook(core: &AppCore) -> Notices {
 }
 
 fn ssh_connection(core: &AppCore, host: &str, port: u16) -> String {
-    let mut draft = ConnectionDraft::new(ConnectionType::Ssh, None);
-    draft.name = "gw".into();
-    draft.host = host.into();
+    let mut draft = ConnectionDraft::new(ConnectionType::Ssh);
     draft.port = port.to_string();
     draft.username = "tester".into();
-    core.save_connection(None, &draft, Some("secret"), None).unwrap()
+    save_single(core, None, &entry_draft("gw", host), draft, Some("secret"), None).unwrap()
 }
 
 fn forward(connection: &str, local: u16, host: &str, remote: &str) -> PortForwardDraft {
@@ -105,10 +103,8 @@ fn save_validates_and_edits_keep_the_id() {
     assert_eq!(refusal(&forward(&gw, 8080, "h", "0")), "invalidRemotePort");
     assert_eq!(refusal(&forward(&gw, 8080, "h", "x")), "invalidRemotePort");
     assert_eq!(refusal(&forward("missing", 8080, "h", "22")), "notFound");
-    let mut rdp = ConnectionDraft::new(ConnectionType::Rdp, None);
-    rdp.name = "dc".into();
-    rdp.host = "dc.example.com".into();
-    let rdp = core.save_connection(None, &rdp, None, None).unwrap();
+    let rdp = ConnectionDraft::new(ConnectionType::Rdp);
+    let rdp = save_single(&core, None, &entry_draft("dc", "dc.example.com"), rdp, None, None).unwrap();
     assert_eq!(refusal(&forward(&rdp, 8080, "h", "22")), "notSsh");
 
     let id = core
@@ -320,14 +316,18 @@ fn lab_sshd_tunnel_with_host_key_prompt() {
     let env = Env::new();
     let core = env.unlocked();
     let notices = hook(&core);
-    let mut draft = ConnectionDraft::new(ConnectionType::Ssh, None);
-    draft.name = "lab".into();
-    draft.host = host.into();
+    let mut draft = ConnectionDraft::new(ConnectionType::Ssh);
     draft.port = port.into();
     draft.username = "tester".into();
-    let gw = core
-        .save_connection(None, &draft, Some("tester-pass"), None)
-        .unwrap();
+    let gw = save_single(
+        &core,
+        None,
+        &entry_draft("lab", host),
+        draft,
+        Some("tester-pass"),
+        None,
+    )
+    .unwrap();
     let local = free_port();
     let id = core
         .port_forward_save(&forward(&gw, local, "127.0.0.1", "22"))

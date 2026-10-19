@@ -12,6 +12,17 @@ use crate::rows::{
 };
 use crate::{Database, StoreError};
 
+/// What [`Database::write_entry`] did.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EntryWrite {
+    /// The saved entry, with its new `updated_at`.
+    pub entry: Entry,
+    /// Connections deleted with their port forwards (dropped from the entry, or inside deleted entries).
+    pub deleted_connections: Vec<String>,
+    /// Entries deleted: emptied by the move of their connections, or asked for.
+    pub deleted_entries: Vec<String>,
+}
+
 impl Database {
     /// Every record, in the Swift app's sort orders. Each connection carries its entry's shared fields.
     ///
@@ -31,11 +42,17 @@ impl Database {
         .query_map([], connection_from_row)?
         .collect::<Result<_, _>>()?;
         let by_id: HashMap<&str, &Entry> = entries.iter().map(|e| (e.id.as_str(), e)).collect();
+        let mut missing: Vec<Entry> = Vec::new();
         for connection in &mut connections {
             if let Some(entry) = by_id.get(connection.entry_id.as_str()) {
                 entry.overlay(connection);
+            } else if !missing.iter().any(|e| e.id == connection.entry_id) {
+                // A row written without an entry (by another app) stands for its own entry.
+                missing.push(Entry::for_connection(connection));
             }
         }
+        let mut entries = entries;
+        entries.extend(missing);
         Ok(Library {
             folders: all(format!(
                 "SELECT {FOLDER_COLUMNS} FROM folder ORDER BY sortOrder, name COLLATE NOCASE"
@@ -167,6 +184,121 @@ impl Database {
         Ok(())
     }
 
+    /// Saves an entry together with exactly `connections`, in one transaction, stamping `updated_at` on the
+    /// entry and on every listed connection. The connections are written as given apart from their
+    /// `entry_id` (set to the entry's) and their shared fields (the entry's), so their port forwards stay.
+    ///
+    /// Connections the entry had that are not listed are deleted with their forwards. A listed connection
+    /// that belonged to another entry moves here; an entry left without connections that way, and every
+    /// entry in `remove_entries`, is deleted.
+    ///
+    /// # Errors
+    /// If SQLite fails (for example, an unknown folder or credential); nothing changes then.
+    pub fn write_entry(
+        &self,
+        entry: &Entry,
+        connections: &[Connection],
+        remove_entries: &[String],
+    ) -> Result<EntryWrite, StoreError> {
+        let now = Timestamp::now();
+        let mut saved = entry.clone();
+        saved.updated_at = now;
+        self.transaction(|tx| {
+            let mut previous: Vec<String> = remove_entries.to_vec();
+            for connection in connections {
+                if let Some(owner) = tx
+                    .query_row(
+                        "SELECT COALESCE(entryId, id) FROM connection WHERE id = ?1",
+                        [&connection.id],
+                        |r| r.get::<_, String>(0),
+                    )
+                    .optional()?
+                    && owner != saved.id
+                    && !previous.contains(&owner)
+                {
+                    previous.push(owner);
+                }
+            }
+            upsert_entry(tx, &saved)?;
+            let existing: Vec<String> = tx
+                .prepare("SELECT id FROM connection WHERE COALESCE(entryId, id) = ?1 ORDER BY id")?
+                .query_map([&saved.id], |r| r.get(0))?
+                .collect::<Result<_, _>>()?;
+            let mut deleted_connections = Vec::new();
+            for id in existing {
+                if !connections.iter().any(|c| c.id == id) {
+                    tx.execute("DELETE FROM connection WHERE id = ?1", [&id])?;
+                    deleted_connections.push(id);
+                }
+            }
+            for connection in connections {
+                let mut c = connection.clone();
+                c.entry_id.clone_from(&saved.id);
+                c.updated_at = now;
+                upsert_connection(tx, &c)?;
+            }
+            let mut deleted_entries = Vec::new();
+            for id in previous.iter().filter(|id| **id != saved.id) {
+                let gone: Vec<String> = tx
+                    .prepare("SELECT id FROM connection WHERE COALESCE(entryId, id) = ?1 ORDER BY id")?
+                    .query_map([id], |r| r.get(0))?
+                    .collect::<Result<_, _>>()?;
+                let removed = tx.execute(
+                    "DELETE FROM entry WHERE id = ?1 AND (?2 OR NOT EXISTS (SELECT 1 FROM connection WHERE entryId = ?1))",
+                    params![id, remove_entries.contains(id)],
+                )?;
+                if removed > 0 {
+                    deleted_entries.push(id.clone());
+                    deleted_connections.extend(gone);
+                }
+            }
+            Ok(EntryWrite {
+                entry: saved.clone(),
+                deleted_connections,
+                deleted_entries,
+            })
+        })
+    }
+
+    /// Moves an entry into a folder (the root with `None`), stamping `updated_at`.
+    ///
+    /// # Errors
+    /// [`StoreError::NotFound`], or a SQLite failure.
+    pub fn move_entry(&self, id: &str, folder_id: Option<&str>) -> Result<(), StoreError> {
+        let now = Timestamp::now().to_string();
+        self.transaction(|tx| {
+            if tx.execute(
+                "UPDATE entry SET folderId = ?1, updatedAt = ?2 WHERE id = ?3",
+                params![folder_id, now, id],
+            )? == 0
+            {
+                return Err(StoreError::NotFound);
+            }
+            tx.execute(
+                "UPDATE connection SET updatedAt = ?1 WHERE entryId = ?2",
+                params![now, id],
+            )?;
+            mirror_entry(tx, id)
+        })
+    }
+
+    /// Stars or unstars an entry; `updated_at` is left alone, as in the Swift app.
+    ///
+    /// # Errors
+    /// [`StoreError::NotFound`], or a SQLite failure.
+    pub fn set_entry_favorite(&self, id: &str, is_favorite: bool) -> Result<(), StoreError> {
+        self.transaction(|tx| {
+            if tx.execute(
+                "UPDATE entry SET isFavorite = ?1 WHERE id = ?2",
+                params![is_favorite, id],
+            )? == 0
+            {
+                return Err(StoreError::NotFound);
+            }
+            mirror_entry(tx, id)
+        })
+    }
+
     // Connections
 
     /// Inserts or updates a connection, stamping `updated_at`. Returns the saved record.
@@ -180,6 +312,13 @@ impl Database {
         let mut saved = connection.clone();
         saved.updated_at = Timestamp::now();
         self.transaction(|tx| {
+            let previous: Option<String> = tx
+                .query_row(
+                    "SELECT COALESCE(entryId, id) FROM connection WHERE id = ?1",
+                    [&saved.id],
+                    |r| r.get(0),
+                )
+                .optional()?;
             let existing = entry_in(tx, &saved.entry_id)?;
             let entry = Entry {
                 default_connection_id: existing
@@ -190,7 +329,15 @@ impl Database {
             };
             upsert_entry(tx, &entry)?;
             mirror_entry(tx, &entry.id)?;
-            upsert_connection(tx, &saved)
+            upsert_connection(tx, &saved)?;
+            // A connection moved to another entry leaves no empty entry behind.
+            if let Some(previous) = previous.filter(|p| *p != saved.entry_id) {
+                tx.execute(
+                    "DELETE FROM entry WHERE id = ?1 AND NOT EXISTS (SELECT 1 FROM connection WHERE entryId = ?1)",
+                    [&previous],
+                )?;
+            }
+            Ok(())
         })?;
         Ok(saved)
     }
@@ -236,44 +383,40 @@ impl Database {
         })
     }
 
-    /// Moves a connection's entry into a folder (the root with `None`), stamping `updated_at` on the entry
-    /// and the connection.
+    /// Moves a connection's entry into a folder (the root with `None`); see
+    /// [`move_entry`](Self::move_entry).
     ///
     /// # Errors
     /// [`StoreError::NotFound`], or a SQLite failure.
     pub fn move_connection(&self, id: &str, folder_id: Option<&str>) -> Result<(), StoreError> {
-        let now = Timestamp::now().to_string();
-        self.transaction(|tx| {
-            let entry_id = entry_id_of(tx, id)?;
-            tx.execute(
-                "UPDATE entry SET folderId = ?1, updatedAt = ?2 WHERE id = ?3",
-                params![folder_id, now, entry_id],
-            )?;
-            tx.execute(
-                "UPDATE connection SET folderId = ?1, updatedAt = ?2 WHERE id = ?3",
-                params![folder_id, now, id],
-            )?;
-            mirror_entry(tx, &entry_id)
-        })
+        let entry_id = entry_id_of(&self.conn(), id)?;
+        self.ensure_entry(id, &entry_id)?;
+        self.move_entry(&entry_id, folder_id)
     }
 
-    /// Stars or unstars a connection's entry; `updated_at` is left alone, as in the Swift app.
+    /// Stars or unstars a connection's entry; see [`set_entry_favorite`](Self::set_entry_favorite).
     ///
     /// # Errors
     /// [`StoreError::NotFound`], or a SQLite failure.
     pub fn set_favorite(&self, id: &str, is_favorite: bool) -> Result<(), StoreError> {
-        self.transaction(|tx| {
-            let entry_id = entry_id_of(tx, id)?;
-            tx.execute(
-                "UPDATE entry SET isFavorite = ?1 WHERE id = ?2",
-                params![is_favorite, entry_id],
+        let entry_id = entry_id_of(&self.conn(), id)?;
+        self.ensure_entry(id, &entry_id)?;
+        self.set_entry_favorite(&entry_id, is_favorite)
+    }
+
+    /// Writes the entry a row without one stands for, so entry-level writes have a record to change.
+    fn ensure_entry(&self, connection_id: &str, entry_id: &str) -> Result<(), StoreError> {
+        if self.entry(entry_id)?.is_none()
+            && let Some(connection) = self.connection(connection_id)?
+        {
+            let conn = self.conn();
+            upsert_entry(&conn, &Entry::for_connection(&connection))?;
+            conn.execute(
+                "UPDATE connection SET entryId = ?1 WHERE id = ?2 AND entryId IS NULL",
+                params![entry_id, connection_id],
             )?;
-            tx.execute(
-                "UPDATE connection SET isFavorite = ?1 WHERE id = ?2",
-                params![is_favorite, id],
-            )?;
-            mirror_entry(tx, &entry_id)
-        })
+        }
+        Ok(())
     }
 
     /// Links connections to a credential, or unlinks them with `None`. Unknown ids and connections that
@@ -811,6 +954,137 @@ mod tests {
             ["P2"]
         );
         assert_eq!(db.connection(&rdp.id).unwrap(), None);
+    }
+
+    fn forward(db: &Database, id: &str, connection: &str) {
+        db.save_port_forward(&PortForward {
+            id: id.into(),
+            connection_id: connection.into(),
+            name: String::new(),
+            local_port: 8080,
+            remote_host: "localhost".into(),
+            remote_port: 80,
+            created_at: Timestamp::now(),
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn write_entry_replaces_the_connection_list() {
+        let db = db();
+        let (ssh, rdp) = two_way_entry(&db);
+        forward(&db, "P1", &ssh.id);
+        forward(&db, "P2", &rdp.id);
+        let mut entry = db.entry(&ssh.entry_id).unwrap().unwrap();
+        entry.name = "Renamed".into();
+        let mut kept = db.connection(&ssh.id).unwrap().unwrap();
+        kept.label = "root".into();
+        let added = Connection::new(ConnectionType::Web, "ignored", "ignored");
+        let write = db.write_entry(&entry, &[kept, added.clone()], &[]).unwrap();
+        assert_eq!(write.deleted_connections, std::slice::from_ref(&rdp.id));
+        assert!(write.deleted_entries.is_empty());
+        assert!(write.entry.updated_at >= entry.updated_at);
+
+        let library = db.library().unwrap();
+        let ids: Vec<_> = library
+            .connections_of(&entry.id)
+            .iter()
+            .map(|c| (c.id.clone(), c.name.clone()))
+            .collect();
+        assert_eq!(
+            ids,
+            [
+                (ssh.id.clone(), "Renamed".into()),
+                (added.id.clone(), "Renamed".into())
+            ]
+        );
+        assert_eq!(mirrored(&db, &added.id).0, "Renamed");
+        assert_eq!(
+            library.connections.iter().find(|c| c.id == ssh.id).unwrap().label,
+            "root"
+        );
+        // The kept connection's forward stays; the deleted one's is gone.
+        let forwards: Vec<_> = library.port_forwards.iter().map(|f| f.id.as_str()).collect();
+        assert_eq!(forwards, ["P1"]);
+    }
+
+    #[test]
+    fn write_entry_moves_connections_and_deletes_emptied_entries() {
+        let db = db();
+        let (ssh, rdp) = two_way_entry(&db);
+        let lone = db
+            .save_connection(&Connection::new(ConnectionType::Ssh, "Lone", "lone.example.com"))
+            .unwrap();
+        let spare = db
+            .save_connection(&Connection::new(
+                ConnectionType::Ssh,
+                "Spare",
+                "spare.example.com",
+            ))
+            .unwrap();
+        forward(&db, "P1", &lone.id);
+        let entry = db.entry(&ssh.entry_id).unwrap().unwrap();
+        let connections = [ssh.clone(), rdp.clone(), lone.clone()];
+        let write = db
+            .write_entry(&entry, &connections, std::slice::from_ref(&spare.entry_id))
+            .unwrap();
+        assert_eq!(
+            write.deleted_entries,
+            [spare.entry_id.clone(), lone.entry_id.clone()]
+        );
+        assert_eq!(write.deleted_connections, std::slice::from_ref(&spare.id));
+        let library = db.library().unwrap();
+        assert_eq!(library.entries.len(), 1);
+        assert_eq!(library.connections_of(&entry.id).len(), 3);
+        let moved = library.connections.iter().find(|c| c.id == lone.id).unwrap();
+        assert_eq!(
+            (moved.name.as_str(), moved.host.as_str()),
+            ("Home Server", "home.example.com")
+        );
+        assert_eq!(library.port_forwards_for(&lone.id).count(), 1);
+    }
+
+    #[test]
+    fn rows_without_an_entry_read_and_write_as_their_own_entry() {
+        let db = db();
+        let lone = db
+            .save_connection(&Connection::new(ConnectionType::Ssh, "Lone", "lone.example.com"))
+            .unwrap();
+        db.conn()
+            .execute("UPDATE connection SET entryId = NULL", [])
+            .unwrap();
+        db.conn().execute("DELETE FROM entry", []).unwrap();
+        let library = db.library().unwrap();
+        assert_eq!(library.entries.len(), 1);
+        assert_eq!(library.entries[0].id, lone.id);
+        assert_eq!(library.default_connection(&lone.id).unwrap().id, lone.id);
+
+        db.set_favorite(&lone.id, true).unwrap();
+        let entry = db.entry(&lone.id).unwrap().unwrap();
+        assert!(entry.is_favorite);
+        db.move_connection(&lone.id, None).unwrap();
+        assert!(matches!(
+            db.move_entry("missing", None),
+            Err(StoreError::NotFound)
+        ));
+        assert!(matches!(
+            db.set_entry_favorite("missing", true),
+            Err(StoreError::NotFound)
+        ));
+    }
+
+    #[test]
+    fn save_connection_into_another_entry_leaves_no_empty_entry() {
+        let db = db();
+        let (ssh, _rdp) = two_way_entry(&db);
+        let mut lone = db
+            .save_connection(&Connection::new(ConnectionType::Ssh, "Lone", "lone.example.com"))
+            .unwrap();
+        let old_entry = lone.entry_id.clone();
+        lone.entry_id.clone_from(&ssh.entry_id);
+        db.save_connection(&lone).unwrap();
+        assert_eq!(db.entry(&old_entry).unwrap(), None);
+        assert_eq!(db.library().unwrap().connections_of(&ssh.entry_id).len(), 3);
     }
 
     #[test]

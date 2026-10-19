@@ -3,6 +3,8 @@
 //! shortcut operations in the submodules. The Tauri commands are thin wrappers that call these methods
 //! and emit events.
 
+#[cfg(test)]
+mod entries_tests;
 mod error;
 mod files;
 #[cfg(test)]
@@ -44,7 +46,7 @@ pub use files::{
 };
 pub use forwards::{ForwardNotice, ForwardNotifier, ForwardStatusDto, HostKeyPromptDto};
 pub use launch::{LaunchNoticeDto, LaunchNotifier, LaunchOutcomeDto, WinboxStatusDto};
-pub use library::{CredentialInput, FolderInput};
+pub use library::{ConnectionSave, CredentialInput, FolderInput};
 pub use rdp::{
     RdpCertPromptDto, RdpCredentialsAnswer, RdpCredentialsPromptDto, RdpEngineInfoDto, RdpInput, RdpNotice,
     RdpNotifier, RdpRun, RdpSink, RdpStarter, TypeClipboardDto,
