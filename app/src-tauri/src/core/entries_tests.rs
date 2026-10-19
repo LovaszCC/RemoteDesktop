@@ -17,6 +17,14 @@ fn connection_save(id: Option<&str>, kind: ConnectionType, username: &str) -> Co
         draft,
         password: None,
         passphrase: None,
+        is_default: false,
+    }
+}
+
+fn default_save(id: Option<&str>, kind: ConnectionType, username: &str) -> ConnectionSave {
+    ConnectionSave {
+        is_default: true,
+        ..connection_save(id, kind, username)
     }
 }
 
@@ -63,15 +71,14 @@ fn save_entry_creates_and_edits_connections() {
     assert!(connection(&library, &ssh_id).has_password);
 
     // Rename and make RDP the default: both connections take the new name.
-    let mut renamed = entry_draft("Renamed", "home.example.com");
-    renamed.default_connection_id = Some(rdp_id.clone());
+    let renamed = entry_draft("Renamed", "home.example.com");
     let same = core
         .save_entry(
             Some(&id),
             &renamed,
             &[
                 connection_save(Some(&ssh_id), ConnectionType::Ssh, "root"),
-                connection_save(Some(&rdp_id), ConnectionType::Rdp, "kiki"),
+                default_save(Some(&rdp_id), ConnectionType::Rdp, "kiki"),
             ],
         )
         .unwrap();
@@ -260,7 +267,7 @@ fn duplicate_entry_copies_all_connections() {
     let core = env.unlocked();
     let mut draft = entry_draft("Box", "box.example.com");
     draft.is_favorite = true;
-    let mut rdp = connection_save(None, ConnectionType::Rdp, "kiki");
+    let mut rdp = default_save(None, ConnectionType::Rdp, "kiki");
     rdp.draft.label = "Console".into();
     rdp.draft.show_as_button = false;
     let id = core
@@ -271,19 +278,6 @@ fn duplicate_entry_copies_all_connections() {
         )
         .unwrap();
     let original = entry(&core.library(), &id).clone();
-    draft.default_connection_id = Some(original.connection_ids[1].clone());
-    core.save_entry(
-        Some(&id),
-        &draft,
-        &[
-            connection_save(Some(&original.connection_ids[0]), ConnectionType::Ssh, "root"),
-            ConnectionSave {
-                id: Some(original.connection_ids[1].clone()),
-                ..connection_save(None, ConnectionType::Rdp, "kiki")
-            },
-        ],
-    )
-    .unwrap();
 
     let copy_id = core.duplicate_entry(&id, " (copy)").unwrap();
     assert_ne!(copy_id, id);
@@ -308,7 +302,14 @@ fn duplicate_entry_copies_all_connections() {
     assert_eq!(copy.default_connection_id.as_ref(), Some(&copy.connection_ids[1]));
     let copied_rdp = connection(&library, &copy.connection_ids[1]);
     assert_eq!(copied_rdp.name, "Box (copy)");
-    assert_eq!(copied_rdp.display_label, "RDP · kiki");
+    assert_eq!(
+        (copied_rdp.display_label.as_str(), copied_rdp.show_as_button),
+        ("Console", false)
+    );
+    assert_eq!(
+        connection(&library, &copy.connection_ids[0]).display_label,
+        "SSH · root"
+    );
     assert_eq!(entry(&library, &id).connection_ids, original.connection_ids);
     assert_eq!(
         core.duplicate_entry("missing", " (copy)").unwrap_err().code,
@@ -363,17 +364,20 @@ fn split_tag_picks_the_default_ssh_connection() {
     assert_eq!(split(&tag("e", &id)), [connections[1].clone()]);
     assert!(split(&tag("e", &rdp_only)).is_empty());
 
-    let mut draft = entry_draft("Entry", "host.example.com");
-    draft.default_connection_id = Some(connections[2].clone());
-    let kinds = [ConnectionType::Rdp, ConnectionType::Ssh, ConnectionType::Mikrotik];
-    let saves: Vec<_> = connections
-        .iter()
-        .zip(kinds)
-        .map(|(c, kind)| connection_save(Some(c), kind, ""))
-        .collect();
-    core.save_entry(Some(&id), &draft, &saves).unwrap();
-    assert_eq!(split(&tag("e", &id)), [connections[2].clone()]);
-    assert_eq!(split(&tag("fav", &id)), [connections[2].clone()]);
+    // An SSH-capable default is the one.
+    let router = core
+        .save_entry(
+            None,
+            &entry_draft("Router", "router.example.com"),
+            &[
+                connection_save(None, ConnectionType::Ssh, ""),
+                default_save(None, ConnectionType::Mikrotik, ""),
+            ],
+        )
+        .unwrap();
+    let mikrotik = entry(&core.library(), &router).connection_ids[1].clone();
+    assert_eq!(split(&tag("e", &router)), std::slice::from_ref(&mikrotik));
+    assert_eq!(split(&tag("fav", &router)), std::slice::from_ref(&mikrotik));
     // A connection row is itself; an RDP one has no place in a split.
     assert_eq!(split(&tag("c", &connections[1])), [connections[1].clone()]);
     assert!(split(&tag("c", &connections[0])).is_empty());
@@ -495,13 +499,10 @@ fn compat_save_connection_edits_a_one_connection_entry() {
 
 #[test]
 fn entry_draft_round_trips_camel_case() {
-    let parsed: EntryDraft = serde_json::from_str(
-        r#"{"name":"n","host":"h","folderId":"F","isFavorite":true,"defaultConnectionId":"C"}"#,
-    )
-    .unwrap();
+    let parsed: EntryDraft =
+        serde_json::from_str(r#"{"name":"n","host":"h","folderId":"F","isFavorite":true}"#).unwrap();
     assert_eq!(parsed.folder_id.as_deref(), Some("F"));
     assert!(parsed.is_favorite);
-    assert_eq!(parsed.default_connection_id.as_deref(), Some("C"));
     let save: ConnectionSave = serde_json::from_str(
         r#"{"id":null,"draft":{"type":"ssh","label":"L","showAsButton":false},"password":"pw"}"#,
     )
@@ -509,4 +510,157 @@ fn entry_draft_round_trips_camel_case() {
     assert_eq!(save.draft.label, "L");
     assert!(!save.draft.show_as_button);
     assert_eq!(save.password.as_deref(), Some("pw"));
+    assert!(!save.is_default);
+    let flagged: ConnectionSave =
+        serde_json::from_str(r#"{"draft":{"type":"rdp"},"isDefault":true}"#).unwrap();
+    assert!(flagged.is_default);
+}
+
+#[test]
+fn new_connection_can_be_the_default() {
+    let env = Env::new();
+    let core = env.unlocked();
+    let id = core
+        .save_entry(
+            None,
+            &entry_draft("Box", "box.example.com"),
+            &[
+                connection_save(None, ConnectionType::Ssh, "root"),
+                default_save(None, ConnectionType::Rdp, "kiki"),
+            ],
+        )
+        .unwrap();
+    let created = entry(&core.library(), &id).clone();
+    assert_eq!(
+        created.default_connection_id.as_ref(),
+        Some(&created.connection_ids[1])
+    );
+
+    // Added in an edit and flagged: the new one wins over the stored default.
+    let ssh = created.connection_ids[0].clone();
+    let rdp = created.connection_ids[1].clone();
+    core.save_entry(
+        Some(&id),
+        &entry_draft("Box", "box.example.com"),
+        &[
+            connection_save(Some(&ssh), ConnectionType::Ssh, "root"),
+            connection_save(Some(&rdp), ConnectionType::Rdp, "kiki"),
+            default_save(None, ConnectionType::Web, ""),
+        ],
+    )
+    .unwrap();
+    let edited = entry(&core.library(), &id).clone();
+    assert_eq!(edited.connection_ids.len(), 3);
+    assert_eq!(
+        edited.default_connection_id.as_ref(),
+        Some(&edited.connection_ids[2])
+    );
+
+    // Nothing flagged: the stored default stays.
+    core.save_entry(
+        Some(&id),
+        &entry_draft("Box", "box.example.com"),
+        &[
+            connection_save(Some(&edited.connection_ids[2]), ConnectionType::Web, ""),
+            connection_save(Some(&ssh), ConnectionType::Ssh, "root"),
+        ],
+    )
+    .unwrap();
+    let kept = entry(&core.library(), &id).clone();
+    assert_eq!(kept.connection_ids[0], edited.connection_ids[2]);
+    assert_eq!(
+        kept.default_connection_id.as_ref(),
+        Some(&edited.connection_ids[2])
+    );
+    let ordered = kept.connection_ids.clone();
+    core.save_entry(
+        Some(&id),
+        &entry_draft("Box", "box.example.com"),
+        &[
+            connection_save(Some(&ordered[1]), ConnectionType::Ssh, "root"),
+            connection_save(Some(&ordered[0]), ConnectionType::Web, ""),
+        ],
+    )
+    .unwrap();
+    assert_eq!(
+        entry(&core.library(), &id).default_connection_id.as_ref(),
+        Some(&ordered[0])
+    );
+}
+
+#[test]
+fn multiple_defaults_are_refused() {
+    let env = Env::new();
+    let core = env.unlocked();
+    let (id, connections) = entry_with(&core, &[ConnectionType::Ssh, ConnectionType::Rdp]);
+    let before = core.library();
+    let both = [
+        default_save(Some(&connections[0]), ConnectionType::Ssh, "changed"),
+        default_save(Some(&connections[1]), ConnectionType::Rdp, ""),
+    ];
+    assert_eq!(
+        core.save_entry(Some(&id), &entry_draft("Entry", "h"), &both)
+            .unwrap_err()
+            .code,
+        "multipleDefaults"
+    );
+    let new = [
+        default_save(None, ConnectionType::Ssh, ""),
+        default_save(None, ConnectionType::Rdp, ""),
+    ];
+    assert_eq!(
+        core.save_entry(None, &entry_draft("New", "h"), &new)
+            .unwrap_err()
+            .code,
+        "multipleDefaults"
+    );
+    assert_eq!(core.library(), before);
+}
+
+#[test]
+fn failed_save_writes_nothing() {
+    let env = Env::new();
+    let core = env.unlocked();
+    let (id, connections) = entry_with(&core, &[ConnectionType::Ssh, ConnectionType::Rdp]);
+    let before = core.library();
+    // The credential is unknown: the foreign key fails inside the transaction, after the entry was
+    // written and the RDP connection deleted.
+    let mut linked = connection_save(None, ConnectionType::Web, "");
+    linked.draft.credential_id = Some("missing-credential".into());
+    let saves = [
+        connection_save(Some(&connections[0]), ConnectionType::Ssh, "changed"),
+        linked,
+    ];
+    assert_eq!(
+        core.save_entry(Some(&id), &entry_draft("Renamed", "h"), &saves)
+            .unwrap_err()
+            .code,
+        "database"
+    );
+    // An unknown folder fails the same way.
+    let mut moved = entry_draft("Renamed", "h");
+    moved.folder_id = Some("missing-folder".into());
+    assert_eq!(
+        core.save_entry(
+            Some(&id),
+            &moved,
+            &[connection_save(Some(&connections[0]), ConnectionType::Ssh, "")]
+        )
+        .unwrap_err()
+        .code,
+        "database"
+    );
+    assert_eq!(core.library(), before);
+}
+
+#[test]
+fn merge_with_no_sources_changes_nothing() {
+    let env = Env::new();
+    let core = env.unlocked();
+    let (id, _) = entry_with(&core, &[ConnectionType::Ssh]);
+    let before = core.library();
+    let result = core.merge_entries(&id, &[]).unwrap();
+    assert_eq!(result.moved_connections, 0);
+    assert_eq!(core.library(), before);
+    assert_eq!(core.merge_entries("missing", &[]).unwrap_err().code, "notFound");
 }

@@ -124,6 +124,7 @@ pub(super) fn save_single(
         draft,
         password: password.map(Into::into),
         passphrase: passphrase.map(Into::into),
+        is_default: false,
     };
     let entry_id = core.save_entry(entry_id.as_deref(), entry, &[save])?;
     Ok(core
@@ -145,6 +146,7 @@ pub(super) fn entry_with(core: &AppCore, kinds: &[ConnectionType]) -> (String, V
             draft: ConnectionDraft::new(kind),
             password: None,
             passphrase: None,
+            is_default: false,
         })
         .collect();
     let id = core

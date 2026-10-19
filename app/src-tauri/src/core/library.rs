@@ -65,6 +65,9 @@ pub struct ConnectionSave {
     /// Key passphrase update.
     #[serde(default)]
     pub passphrase: Option<String>,
+    /// Becomes the entry's default connection (at most one per save).
+    #[serde(default)]
+    pub is_default: bool,
 }
 
 /// Swift `.whitespaces` trim (spaces and tabs).
@@ -216,11 +219,12 @@ impl AppCore {
 
     /// Saves the entry editor: the shared fields and exactly `connections`, in their order, in one
     /// transaction. Connections of the entry missing from the list are deleted and their forwards
-    /// stopped. The requested default is kept when it is one of the saved connections, otherwise the first
-    /// one is. Returns the entry id.
+    /// stopped. The connection flagged `isDefault` (new or existing) becomes the default; with none
+    /// flagged the stored default is kept while it is still listed, otherwise the first one is. Returns the
+    /// entry id.
     ///
     /// # Errors
-    /// `locked`, `readOnly`, `emptyName`, `noConnections`, a draft code (`invalidUrl`, `emptyHost`,
+    /// `locked`, `readOnly`, `emptyName`, `noConnections`, `multipleDefaults`, a draft code (`invalidUrl`, `emptyHost`,
     /// `invalidPort`), `notFound` (the entry, or a connection that isn't the entry's or is listed twice) or
     /// `database`.
     pub fn save_entry(
@@ -246,6 +250,12 @@ impl AppCore {
             draft.validate()?;
             if connections.is_empty() {
                 return Err(no_connections());
+            }
+            if connections.iter().filter(|c| c.is_default).count() > 1 {
+                return Err(CommandError::new(
+                    "multipleDefaults",
+                    "Only one connection can be the default.",
+                ));
             }
             for save in connections {
                 save.draft.validate(&draft.host)?;
@@ -279,12 +289,13 @@ impl AppCore {
                 connection.sort_order = i64::try_from(index).unwrap_or(i64::MAX);
                 saved.push(connection);
             }
-            entry.default_connection_id = draft
+            let flagged = connections.iter().position(|c| c.is_default);
+            let stored = entry
                 .default_connection_id
                 .as_ref()
-                .filter(|wanted| saved.iter().any(|c| &c.id == *wanted))
-                .or(Some(&saved[0].id))
-                .cloned();
+                .and_then(|id| saved.iter().position(|c| &c.id == id));
+            let default = flagged.or(stored).unwrap_or(0);
+            entry.default_connection_id = Some(saved[default].id.clone());
             let write = db.write_entry(&entry, &saved, &[])?;
             (write, saved.into_iter().map(|c| c.id).collect::<Vec<_>>())
         };
@@ -307,12 +318,13 @@ impl AppCore {
         password: Option<&str>,
         passphrase: Option<&str>,
     ) -> Result<String, CommandError> {
-        let (mut entry, mut connection) = draft.split()?;
+        let (entry, mut connection) = draft.split()?;
         let edited = |draft: ConnectionDraft, id: Option<&str>| ConnectionSave {
             id: id.map(str::to_owned),
             draft,
             password: password.map(str::to_owned),
             passphrase: passphrase.map(str::to_owned),
+            is_default: false,
         };
         let Some(id) = id else {
             let (_, ids) = self.save_entry_with_ids(None, &entry, &[edited(connection, None)])?;
@@ -326,9 +338,6 @@ impl AppCore {
             .ok_or_else(|| CommandError::not_found(id))?;
         connection.label.clone_from(&existing.label);
         connection.show_as_button = existing.show_as_button;
-        entry.default_connection_id = library
-            .default_connection(&existing.entry_id)
-            .map(|c| c.id.clone());
         let saves: Vec<ConnectionSave> = library
             .connections_of(&existing.entry_id)
             .into_iter()
@@ -341,6 +350,7 @@ impl AppCore {
                         draft: ConnectionDraft::from_connection(c),
                         password: None,
                         passphrase: None,
+                        is_default: false,
                     }
                 }
             })
@@ -367,6 +377,9 @@ impl AppCore {
         }
         let library = db.library()?;
         let mut entry = entry_of(&library, target)?;
+        if sources.is_empty() {
+            return Ok(MergeResultDto::default());
+        }
         let mut source_ids: Vec<String> = Vec::new();
         for id in sources {
             if !source_ids.contains(id) {
@@ -387,7 +400,10 @@ impl AppCore {
         }
         entry.notes = merged_notes(&entry.notes, &entry.host, &source_entries);
         entry.default_connection_id = library.default_connection(target).map(|c| c.id.clone());
-        db.write_entry(&entry, &connections, &source_ids)?;
+        let write = db.write_entry(&entry, &connections, &source_ids)?;
+        drop(inner);
+        // A source row's connections all move, but stop whatever the write did delete.
+        self.stop_forwards_of(&write.deleted_connections);
         Ok(MergeResultDto {
             moved_connections: connections.len() - kept,
         })

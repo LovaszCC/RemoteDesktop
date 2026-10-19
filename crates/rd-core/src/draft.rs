@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::model::{Connection, ConnectionType, Entry, LabelColor, MikrotikMode, RdpClient, SshTerminal};
 
-/// The entry editor's shared fields: what every connection of the entry has in common.
+/// The entry editor's shared fields: what every connection of the entry has in common. The default
+/// connection is chosen per connection (`ConnectionSave.isDefault`).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct EntryDraft {
@@ -23,8 +24,6 @@ pub struct EntryDraft {
     pub color: Option<LabelColor>,
     /// Shown under Favorites.
     pub is_favorite: bool,
-    /// The connection double-click opens; one that isn't saved with the entry falls back to the first.
-    pub default_connection_id: Option<String>,
 }
 
 impl EntryDraft {
@@ -366,7 +365,6 @@ impl LegacyConnectionDraft {
             notes: self.notes.clone(),
             color: self.color,
             is_favorite: self.is_favorite,
-            default_connection_id: None,
         };
         entry.validate()?;
         let mut connection = self.connection.clone();
@@ -739,7 +737,6 @@ mod tests {
             notes: " keep ".into(),
             color: Some(LabelColor::Red),
             is_favorite: true,
-            default_connection_id: Some("C".into()),
         };
         assert_eq!(draft.validate(), Ok(()));
         let mut entry = Entry::new("old", "old");
