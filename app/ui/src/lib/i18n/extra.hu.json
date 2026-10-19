@@ -224,5 +224,15 @@
     "one": "Összevonva — %lld kapcsolat áthelyezve",
     "other": "Összevonva — %lld kapcsolat áthelyezve"
   },
-  "All connections": "Minden kapcsolat"
+  "All connections": "Minden kapcsolat",
+  "An entry needs at least one connection.": "Egy elemnek legalább egy kapcsolat kell.",
+  "An entry can't be merged into itself.": "Egy elem nem vonható össze önmagával.",
+  "Only one connection can be the default.": "Csak egy kapcsolat lehet az alapértelmezett.",
+  "This database needs an upgrade, which can't be done while it is open on another computer. Close it there, or update the app there first, then retry.": "Ezt az adatbázist frissíteni kell, de ez nem lehetséges, amíg egy másik számítógépen meg van nyitva. Zárd be ott, vagy előbb ott frissítsd az appot, aztán próbáld újra.",
+  "Delete “%@” and its %lld connections?": {
+    "one": "Törlöd a(z) „%@” elemet és %lld kapcsolatát?",
+    "other": "Törlöd a(z) „%@” elemet és %lld kapcsolatát?"
+  },
+  "Edit entry": "Elem szerkesztése",
+  "New entry": "Új elem"
 }

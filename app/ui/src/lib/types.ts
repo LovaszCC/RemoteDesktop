@@ -222,7 +222,7 @@ export interface LockHolderDto {
   ageSeconds: number;
 }
 
-export type NoDatabaseCode = 'openFailed' | 'noPath' | 'lockCancelled';
+export type NoDatabaseCode = 'openFailed' | 'noPath' | 'lockCancelled' | 'readOnlyNeedsUpgrade';
 
 export type Phase =
   | { kind: 'noDatabase'; code: NoDatabaseCode; error: string }
@@ -377,6 +377,9 @@ export interface FolderInput {
 }
 
 export interface DeleteCountsDto {
+  /** Entries deleted through their `e:` / `fav:` tags. */
+  entries: number;
+  /** Connections deleted, those of deleted entries included. */
   connections: number;
   folders: number;
   credentials: number;

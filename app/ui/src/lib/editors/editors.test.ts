@@ -103,7 +103,7 @@ describe('EntryEditor', () => {
       { request: { mode: 'new', type: 'ssh', folderId: 'f2' }, onclose: () => (closed = true) },
       { replies: { save_entry: 'new-id' } },
     );
-    expect(text()).toContain('New SSH connection');
+    expect(text()).toContain('New entry');
     expect(tabLabels()).toEqual(['General', 'SSH', 'Add connection']);
     expect(selectedTab()).toBe('General');
     expect(buttonByText('Create').disabled).toBe(true);
@@ -213,6 +213,58 @@ describe('EntryEditor', () => {
     expect(input('Host / IP').value).toBe('other.example');
   });
 
+  it('splits a full URL pasted into the General host of a web entry', () => {
+    renderView(EntryEditor, edit('c5'));
+    expect(text()).toContain('Edit entry');
+    paste(input('Host / IP'), 'http://nas.local:8080/admin?x=1');
+    expect(input('Host / IP').value).toBe('nas.local');
+    click(tab('Web'));
+    expect([input('Scheme').value, input('Port').value, input('Path').value]).toEqual([
+      'http',
+      '8080',
+      '/admin?x=1',
+    ]);
+    // A plain host is pasted as text.
+    click(tab('General'));
+    paste(input('Host / IP'), 'other.local');
+    expect(input('Host / IP').value).toBe('nas.local');
+  });
+
+  it('splits a typed full URL in the General host on Save', async () => {
+    const { bridge } = renderView(EntryEditor, edit('c5'), { replies: { save_entry: 'c5' } });
+    type(input('Host / IP'), 'smb://files.local/share');
+    click(buttonByText('Save'));
+    await settle();
+    const call = bridge.invoke.mock.calls.find(([command]) => command === 'save_entry');
+    const sent = call?.[1] as { entry: { host: string }; connections: ConnectionSave[] };
+    expect(sent.entry.host).toBe('files.local');
+    expect(sent.connections[0]!.draft).toMatchObject({ webScheme: 'smb', port: '', webPath: '/share' });
+  });
+
+  it('leaves a URL in the host of an entry without a web connection to Rust', async () => {
+    const { bridge } = renderView(EntryEditor, edit('c1'), { replies: { save_entry: 'c1' } });
+    type(input('Host / IP'), 'https://web01.local/x');
+    click(buttonByText('Save'));
+    await settle();
+    expect(bridge.invoke).toHaveBeenCalledWith(
+      'save_entry',
+      expect.objectContaining({ entry: expect.objectContaining({ host: 'https://web01.local/x' }) }),
+    );
+  });
+
+  it('disables removing the last connection', () => {
+    renderView(EntryEditor, edit('c1'));
+    click(tab('SSH'));
+    expect(buttonByText('Remove this connection').disabled).toBe(true);
+  });
+
+  it('closes for an entry that does not exist', async () => {
+    let closed = false;
+    renderView(EntryEditor, { request: { mode: 'edit', id: 'gone' }, onclose: () => (closed = true) });
+    await settle();
+    expect(closed).toBe(true);
+  });
+
   it('pastes a plain path as text', () => {
     renderView(EntryEditor, edit('c5'));
     click(tab('Web'));
@@ -320,7 +372,7 @@ describe('EntryEditor', () => {
     code = 'noConnections';
     click(buttonByText('Save'));
     await settle();
-    expect(document.querySelector('.failure')?.textContent).toBe('noConnections');
+    expect(document.querySelector('.failure')?.textContent).toBe('An entry needs at least one connection.');
   });
 
   it('clears a stored password explicitly', async () => {

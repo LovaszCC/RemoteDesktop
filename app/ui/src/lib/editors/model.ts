@@ -321,6 +321,28 @@ export function splitPastedUrl(text: string): WebParts | null {
   return { scheme, host, port, path };
 }
 
+/** Whether `text` is more than a host: it has a scheme, a path, a query, a fragment or a port. */
+function hasUrlParts(text: string): boolean {
+  const parts = splitPastedUrl(text);
+  return parts !== null && (/:\/\/|[/?#]/.test(text.trim()) || parts.port !== null);
+}
+
+/**
+ * A full URL in the General host of an entry with a web connection (pasted, or typed and saved): its host
+ * becomes the entry's, its scheme, port and path the first web connection's, overwriting them like a paste
+ * into the web fields. `false` (nothing changed) without a web connection or for a plain host.
+ */
+export function splitEntryHostUrl(form: EntryForm, text: string): boolean {
+  const web = form.connections.find((c) => c.type === 'web');
+  if (!web || !hasUrlParts(text)) return false;
+  const parts = splitPastedUrl(text)!;
+  form.host = parts.host;
+  web.webScheme = parts.scheme;
+  web.port = parts.port === null ? '' : String(parts.port);
+  web.webPath = parts.path;
+  return true;
+}
+
 /** The URL a web connection opens, for the preview: `scheme://host[:port][/path]`. */
 export function webUrlPreview(scheme: string, host: string, port: string, path: string): string {
   const trimmedPath = path.trim();

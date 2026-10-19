@@ -15,6 +15,7 @@ import {
   errorField,
   folderOptions,
   fromPicker,
+  splitEntryHostUrl,
   invalidPortKey,
   keepSecret,
   keepsStored,
@@ -288,5 +289,25 @@ describe('validation and pickers', () => {
     ]);
     expect(fromPicker('')).toBeNull();
     expect(toPicker(null)).toBe('');
+  });
+});
+
+describe('splitEntryHostUrl', () => {
+  it('moves the URL parts of the entry host to the first web connection', () => {
+    const form = newEntryForm('ssh', null);
+    expect(splitEntryHostUrl(form, 'https://h.local/x')).toBe(false);
+    form.connections.push(newConnectionForm('web'), newConnectionForm('web'));
+    const [, web, second] = form.connections;
+    web!.port = '1';
+    expect(splitEntryHostUrl(form, 'h.local')).toBe(false);
+    expect(splitEntryHostUrl(form, 'fe80::1')).toBe(false);
+    expect(splitEntryHostUrl(form, 'a b/c')).toBe(false);
+    expect(form.host).toBe('');
+    expect(splitEntryHostUrl(form, ' smb://user@nas.local/share ')).toBe(true);
+    expect([form.host, web!.webScheme, web!.port, web!.webPath]).toEqual(['nas.local', 'smb', '', '/share']);
+    expect(splitEntryHostUrl(form, 'nas.local:8443')).toBe(true);
+    expect([form.host, web!.webScheme, web!.port, web!.webPath]).toEqual(['nas.local', 'https', '8443', '']);
+    expect(second!.webScheme).toBe('https');
+    expect(second!.port).toBe('');
   });
 });

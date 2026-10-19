@@ -37,6 +37,9 @@ export function commandTitle(command: string): string {
   return key ? t(key) : command;
 }
 
+const READ_ONLY_NEEDS_UPGRADE =
+  "This database needs an upgrade, which can't be done while it is open on another computer. Close it there, or update the app there first, then retry.";
+
 /**
  * Fallback catalog key per code, for messages that aren't catalog keys themselves. Rust's English
  * message wins when it is a key (e.g. `wrongPassword` is "Wrong password" on unlock but "The current
@@ -93,6 +96,10 @@ const CODE_KEYS: Record<string, string> = {
   appNotInstalled: '%@ is not installed.',
   launchFailed: "Couldn't launch: %@",
   wrongType: "This connection can't be opened this way.",
+  noConnections: 'An entry needs at least one connection.',
+  mergeIntoSelf: "An entry can't be merged into itself.",
+  multipleDefaults: 'Only one connection can be the default.',
+  readOnlyNeedsUpgrade: READ_ONLY_NEEDS_UPGRADE,
 };
 
 /** Codes whose detail is technical context appended in parentheses rather than a placeholder value. */
@@ -125,6 +132,7 @@ const NO_DATABASE_KEYS: Record<NoDatabaseCode, string> = {
   openFailed: "Can't open the database: %@",
   noPath: 'No database is open.',
   lockCancelled: 'The database is in use on another computer.',
+  readOnlyNeedsUpgrade: READ_ONLY_NEEDS_UPGRADE,
 };
 
 const OPEN_FAILED_PREFIX = "Can't open the database: ";

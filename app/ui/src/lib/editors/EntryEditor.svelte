@@ -12,7 +12,7 @@
   import { viewDeps } from '../detail/deps';
   import { errorMessage } from '../errors';
   import { t } from '../i18n/index.svelte';
-  import { CONNECTION_TYPES, NEW_TITLES, typeName } from '../sidebar/model';
+  import { CONNECTION_TYPES, typeName } from '../sidebar/model';
   import type { EntryEditorRequest } from '../stores/editor.svelte';
   import type { ConnectionType } from '../types';
   import ConnectionFields from './ConnectionFields.svelte';
@@ -29,6 +29,7 @@
     invalidPortKey,
     newConnectionForm,
     newEntryForm,
+    splitEntryHostUrl,
     toPicker,
   } from './model';
 
@@ -44,14 +45,17 @@
   const GENERAL = 'general';
   const ADD = 'add';
 
-  const newType = untrack(() => (request.mode === 'new' ? request.type : null));
-  const isNew = newType !== null;
+  const isNew = untrack(() => request.mode === 'new');
   const editedId = untrack(() => (request.mode === 'edit' ? request.id : null));
+  const editedEntry = untrack(() => (editedId === null ? undefined : deps.library.entry(editedId)));
+  // An unknown entry (deleted meanwhile, a stale id) gets a blank form; the effect below closes the sheet.
   let form = $state(
     untrack(() =>
       request.mode === 'new'
         ? newEntryForm(request.type, request.folderId)
-        : entryFormFrom(deps.library.entry(request.id)!, deps.library.connectionsOf(request.id)),
+        : editedEntry
+          ? entryFormFrom(editedEntry, deps.library.connectionsOf(request.id))
+          : newEntryForm('ssh', null),
     ),
   );
   let selected = $state(
@@ -136,6 +140,16 @@
     hostOffers = {};
   }
 
+  /** A full URL pasted into the General host of an entry with a web connection is split. */
+  function pastedIntoHost(event: ClipboardEvent) {
+    const text = event.clipboardData?.getData('text/plain') ?? '';
+    if (!splitEntryHostUrl(form, text)) return;
+    event.preventDefault();
+    edited('host');
+    edited('port');
+    hostOffers = {};
+  }
+
   function edited(field: 'name' | 'host' | 'port') {
     if (errors[field]) errors = { ...errors, [field]: undefined };
   }
@@ -177,6 +191,8 @@
     saving = true;
     errors = {};
     failure = null;
+    // A typed full URL in the host is split the same way as a pasted one.
+    if (splitEntryHostUrl(form, form.host)) hostOffers = {};
     const { entry, connections } = buildEntrySave(form);
     try {
       const savedId = await deps.api.saveEntry(editedId, entry, connections);
@@ -190,7 +206,7 @@
   }
 </script>
 
-<Modal title={newType ? t(NEW_TITLES[newType]) : t('Edit connection')} {onclose} width={540}>
+<Modal title={isNew ? t('New entry') : t('Edit entry')} {onclose} width={540}>
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <form
     class="editor"
@@ -228,6 +244,7 @@
               placeholder="server.local"
               invalid={!!errors.host}
               oninput={() => edited('host')}
+              onpaste={pastedIntoHost}
             />
           </FormRow>
           <FormRow label={t('Folder')}>
@@ -272,6 +289,7 @@
               onpastehost={(host) => pastedHost(connection.key, host)}
               onusehost={useHost}
               onsetdefault={() => (form.defaultKey = connection.key)}
+              canremove={form.connections.length > 1}
               onremove={() => removeConnection(connection.key)}
               onportinput={() => edited('port')}
             />

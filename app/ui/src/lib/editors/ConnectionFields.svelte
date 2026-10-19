@@ -44,6 +44,8 @@
     onpastehost: (host: string) => void;
     onusehost: (host: string) => void;
     onsetdefault: () => void;
+    /** `false` on an entry's last connection: an entry keeps at least one. */
+    canremove?: boolean;
     onremove: () => void;
     /** The port was edited (clears its error). */
     onportinput?: () => void;
@@ -59,6 +61,7 @@
     onpastehost,
     onusehost,
     onsetdefault,
+    canremove = true,
     onremove,
     onportinput,
   }: Props = $props();
@@ -256,7 +259,9 @@
 
   <div class="connection-actions">
     <Button disabled={isDefault} onclick={onsetdefault}>{t('Set as default')}</Button>
-    <Button variant="destructive" onclick={onremove}>{t('Remove this connection')}</Button>
+    <Button variant="destructive" disabled={!canremove} onclick={onremove}
+      >{t('Remove this connection')}</Button
+    >
   </div>
 </div>
 
