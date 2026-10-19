@@ -74,9 +74,11 @@ when there's a new version it downloads it, installs it and restarts. No install
 If you share your database file between computers, keep the app on all of them up to date: once a newer
 version has opened the file, an older one won't touch it and asks you to update first.
 
-Want new features before they're released? The
-[beta-latest](https://github.com/LovaszCC/RemoteDesktop/releases/tag/beta-latest) build is updated with
-every change. It's less tested, and for now you have to install new beta builds by hand.
+Want new features before they're released? Install the
+[beta-latest](https://github.com/LovaszCC/RemoteDesktop/releases/tag/beta-latest) build by hand once; from
+then on it updates itself to each newer beta (not to stable releases; install a stable release by hand to
+go back). Betas are less tested, and please don't use one with a database you share with people on the
+stable version: once a beta has opened it, their app will ask them to update first.
 
 ### 🔁 Coming from the old macOS app
 

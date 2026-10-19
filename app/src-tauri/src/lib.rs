@@ -186,7 +186,12 @@ pub fn run() {
             let handover = rd_platform::swift_defaults::swift_defaults_path()
                 .and_then(|plist| rd_platform::swift_defaults::import_swift_defaults(&settings_dir, &plist))
                 .is_some();
-            let core: Core = Arc::new(AppCore::new(settings_dir, Box::new(KeyringCache::new())));
+            // The build's version, not the crate's: a beta build is `X.Y.Z-beta.N` (tauri --config override),
+            // and the database version guard must stamp that.
+            let core: Core = Arc::new(
+                AppCore::new(settings_dir, Box::new(KeyringCache::new()))
+                    .with_app_version(&app.package_info().version.to_string()),
+            );
             if handover {
                 core.mark_handover();
             }

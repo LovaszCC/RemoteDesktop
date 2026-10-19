@@ -350,7 +350,7 @@ fn updates_item(app: &AppHandle, model: &MenuModel) -> tauri::Result<MenuItem<Wr
 fn app_menu(app: &AppHandle, model: &MenuModel) -> tauri::Result<Submenu<Wry>> {
     let about = AboutMetadata {
         name: Some(APP_IDENTITY.product_name.to_owned()),
-        version: Some(env!("CARGO_PKG_VERSION").to_owned()),
+        version: Some(app.package_info().version.to_string()),
         ..AboutMetadata::default()
     };
     let items: Items = vec![
