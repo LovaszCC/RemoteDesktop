@@ -441,6 +441,13 @@ pub enum Phase {
         /// Writes are refused.
         read_only: bool,
     },
+    /// A newer app version has used the database: it isn't opened until this app is updated.
+    NeedsUpdate {
+        /// The newest version that opened the file.
+        database_version: String,
+        /// This app's version.
+        app_version: String,
+    },
 }
 
 /// The app's state for the root view.

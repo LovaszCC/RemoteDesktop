@@ -231,6 +231,95 @@ fn an_unopenable_database_shows_the_error_screen() {
     );
 }
 
+/// A core pretending to be app `version`, on the settings' database, opened.
+fn versioned(env: &Env, version: &str) -> AppCore {
+    let core = AppCore::with_options(
+        env.settings_dir(),
+        Box::new(env.keys.clone()),
+        1_000,
+        Platform::MacOS,
+    )
+    .with_app_version(version);
+    core.open_current();
+    core
+}
+
+fn stamp(path: &Path) -> Option<String> {
+    rd_store::stored_app_version(path).unwrap()
+}
+
+fn set_stamp(path: &Path, version: &str) {
+    let db = rd_store::Database::open(path).unwrap();
+    db.set_meta(rd_store::APP_VERSION_KEY, version.as_bytes())
+        .unwrap();
+}
+
+#[test]
+fn opening_stamps_the_database_with_the_newest_app_version() {
+    let env = Env::new();
+    let path = env.db("connections.sqlite");
+    drop(env.unlocked());
+    assert_eq!(stamp(&path).as_deref(), Some(env!("CARGO_PKG_VERSION")));
+
+    drop(versioned(&env, "99.0.0"));
+    assert_eq!(stamp(&path).as_deref(), Some("99.0.0"));
+    set_stamp(&path, "1.0.0");
+    let core = versioned(&env, "1.2.0");
+    assert_eq!(phase(&core), UNLOCKED);
+    assert_eq!(stamp(&path).as_deref(), Some("1.2.0"));
+}
+
+#[test]
+fn an_older_app_is_refused_without_touching_the_database() {
+    let env = Env::new();
+    let path = env.db("connections.sqlite");
+    drop(env.unlocked());
+    set_stamp(&path, "9.0.0");
+    let before = std::fs::read(&path).unwrap();
+
+    let core = versioned(&env, "1.6.6");
+    assert_eq!(
+        phase(&core),
+        Phase::NeedsUpdate {
+            database_version: "9.0.0".into(),
+            app_version: "1.6.6".into()
+        }
+    );
+    assert!(!DbLock::path_for(&path).exists(), "no lock is taken");
+    assert_eq!(std::fs::read(&path).unwrap(), before, "the file is untouched");
+    assert_eq!(
+        core.save_folder(&FolderInput::default()).unwrap_err().code,
+        "locked"
+    );
+    assert_eq!(
+        serde_json::to_value(core.status()).unwrap()["phase"],
+        serde_json::json!({"kind": "needsUpdate", "databaseVersion": "9.0.0", "appVersion": "1.6.6"})
+    );
+
+    // Retry after the database was used with this version again (e.g. a restored backup).
+    set_stamp(&path, "1.6.6");
+    assert_eq!(core.open_current().phase, UNLOCKED);
+
+    // The same build as the stamp opens it and keeps the stamp.
+    drop(core);
+    set_stamp(&path, "9.0.0");
+    assert_eq!(phase(&versioned(&env, "9.0.0")), UNLOCKED);
+    assert_eq!(stamp(&path).as_deref(), Some("9.0.0"));
+}
+
+#[test]
+fn a_read_only_open_does_not_stamp() {
+    let env = Env::new();
+    let path = env.db("connections.sqlite");
+    drop(env.unlocked());
+    set_stamp(&path, "1.0.0");
+    write_foreign_lock(&path);
+    let core = versioned(&env, "2.0.0");
+    assert!(matches!(phase(&core), Phase::LockConflict { .. }));
+    core.resolve_db_lock(LockChoice::ReadOnly).unwrap();
+    assert_eq!(stamp(&path).as_deref(), Some("1.0.0"));
+}
+
 #[test]
 fn change_password_checks_the_current_one_and_rekeys() {
     let env = Env::new();

@@ -64,6 +64,12 @@ pub async fn change_password(
     blocking(&core, move |c| c.change_password(&current, &new)).await
 }
 
+/// Quits like the menu's Quit (the "Update required" screen has no menu path of its own).
+#[tauri::command]
+pub fn app_quit(app: AppHandle) {
+    crate::quit::request_quit(&app);
+}
+
 /// How many sessions, forwards and transfers would be closed by quitting.
 #[tauri::command]
 pub fn running_count(core: State<'_, Core>) -> usize {
