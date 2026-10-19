@@ -310,7 +310,15 @@ export function createSessionsStore(deps: Partial<SessionsDeps> = {}) {
       handles.set(id, handle);
       states = { ...states, [id]: newSessionState(id, connection.id, name) };
       if (options.pane) panes.add(id);
-      else tabs.openSession({ id, title: name, type: connection.type, color: connection.color });
+      else
+        tabs.openSession({
+          id,
+          title: name,
+          type: connection.type,
+          color: connection.color,
+          // Local terminals number themselves ("Local Terminal 2").
+          ...(local ? {} : { group: connection.id }),
+        });
       const queued = pending.get(id) ?? [];
       pending.delete(id);
       for (const event of queued) handleEvent(event);

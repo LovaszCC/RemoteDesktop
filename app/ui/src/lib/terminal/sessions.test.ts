@@ -98,6 +98,17 @@ describe('sessions store', () => {
     expect(terminal.made[0]!.handle.write).toHaveBeenCalledWith(bytes);
   });
 
+  it('opens a second session of a connection next to the first, numbered', async () => {
+    const { sessions, tabs } = setup();
+    await sessions.open(connection);
+    await sessions.open({ ...connection, id: 'c2', name: 'db01' });
+    await sessions.open(connection);
+    expect(tabs.ids).toEqual(['S1', 'S3', 'S2']);
+    expect(tabs.sessions.map((s) => tabs.displayTitle(s))).toEqual(['web01', 'web01 (2)', 'db01']);
+    sessions.handleEvent(event({ kind: 'title', title: 'root@web01: ~' }, 'S3'));
+    expect(tabs.displayTitle(tabs.session('S3')!)).toBe('root@web01: ~ (2)');
+  });
+
   it('opens numbered local terminals that reconnect and close like SSH sessions', async () => {
     let n = 0;
     const { sessions, tabs, bridge, channels } = setup({

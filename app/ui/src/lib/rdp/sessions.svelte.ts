@@ -158,7 +158,13 @@ export function createRdpSessionsStore(deps: Partial<RdpSessionsDeps> = {}) {
       const id = sessionId;
       surfaces.set(id, surface);
       states = { ...states, [id]: newRdpState(id, connection.id, connection.name) };
-      tabs.openSession({ id, title: connection.name, type: connection.type, color: connection.color });
+      tabs.openSession({
+        id,
+        title: connection.name,
+        type: connection.type,
+        color: connection.color,
+        group: connection.id,
+      });
       for (; unacked > 0; unacked -= 1) ack(id);
       const queued = pending.get(id) ?? [];
       pending.delete(id);

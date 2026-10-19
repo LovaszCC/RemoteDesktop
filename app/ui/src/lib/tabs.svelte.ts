@@ -16,9 +16,12 @@ export class SessionTabs {
   /** Names the user gave to open tabs. */
   customTitles = $state<Record<string, string>>({});
 
-  /** Adds a session tab (once) and makes it active. */
-  open(id: string) {
-    if (!this.ids.includes(id)) this.ids = [...this.ids, id];
+  /** Adds a session tab (once), right after `after` when that tab is open, else at the end; activates it. */
+  open(id: string, after?: string) {
+    if (!this.ids.includes(id)) {
+      const index = after === undefined ? -1 : this.ids.indexOf(after);
+      this.ids = index < 0 ? [...this.ids, id] : insertAt(this.ids, index + 1, id);
+    }
     this.active = id;
   }
 
@@ -92,6 +95,10 @@ export class SessionTabs {
   }
 }
 
+function insertAt<T>(list: readonly T[], index: number, item: T): T[] {
+  return [...list.slice(0, index), item, ...list.slice(index)];
+}
+
 function without<T>(record: Record<string, T>, key: string): Record<string, T> {
   if (!(key in record)) return record;
   const rest = { ...record };
@@ -113,6 +120,10 @@ export interface TabSession {
   split?: boolean;
   /** A split tab with a broadcasting pane: orange tint. */
   broadcasting?: boolean;
+  /** The connection the tab belongs to: its tabs sit next to each other and are numbered. */
+  group?: string;
+  /** Set by `openSession` for a grouped tab: 2 and up add ` (2)`… to the automatic title. */
+  ordinal?: number;
 }
 
 export class TabsStore extends SessionTabs {
@@ -150,10 +161,24 @@ export class TabsStore extends SessionTabs {
     return this.sessions.find((s) => s.id === id);
   }
 
-  /** Adds a session and activates its tab. */
+  /**
+   * Adds a session and activates its tab. A grouped one opens right after the group's last tab and takes
+   * the lowest free number of its group; anything else goes to the end.
+   */
   openSession(session: TabSession) {
-    if (!this.session(session.id)) this.sessions = [...this.sessions, session];
-    this.open(session.id);
+    if (this.session(session.id)) return this.open(session.id);
+    const group = session.group === undefined ? [] : this.sessions.filter((s) => s.group === session.group);
+    const last = group.at(-1);
+    let next = session;
+    if (session.group !== undefined) {
+      const used = group.map((s) => s.ordinal ?? 1);
+      let ordinal = 1;
+      while (used.includes(ordinal)) ordinal += 1;
+      next = { ...session, ordinal };
+    }
+    const index = last ? this.sessions.indexOf(last) : -1;
+    this.sessions = index < 0 ? [...this.sessions, next] : insertAt(this.sessions, index + 1, next);
+    this.open(session.id, last?.id);
   }
 
   /**
@@ -161,8 +186,14 @@ export class TabsStore extends SessionTabs {
    * nobody hears about a closed tab. Unknown `old` ids are ignored.
    */
   replaceSession(old: string, next: TabSession) {
-    if (!this.session(old) || this.session(next.id)) return;
-    this.sessions = this.sessions.map((s) => (s.id === old ? next : s));
+    const current = this.session(old);
+    if (!current || this.session(next.id)) return;
+    // A reconnect keeps the tab's group and number; turning it into a split leaves the group.
+    const kept =
+      next.split || next.group !== undefined || current.group === undefined
+        ? next
+        : { ...next, group: current.group, ordinal: current.ordinal };
+    this.sessions = this.sessions.map((s) => (s.id === old ? kept : s));
     this.replace(old, next.id);
   }
 
@@ -179,9 +210,10 @@ export class TabsStore extends SessionTabs {
     if (this.active !== null) this.closeSession(this.active);
   }
 
-  /** The shown title of a session tab. */
+  /** The shown title of a session tab: the user's name, else the automatic one with its number. */
   displayTitle(session: TabSession): string {
-    return this.title(session.id, session.title);
+    const ordinal = session.ordinal ?? 1;
+    return this.title(session.id, ordinal > 1 ? `${session.title} (${ordinal})` : session.title);
   }
 
   /** The shown colour of a session tab. */

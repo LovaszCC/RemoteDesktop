@@ -162,6 +162,48 @@ describe('TabsStore', () => {
     expect(closed).toEqual(['s1']);
   });
 
+  it('opens a connection’s tabs next to each other, numbered with the lowest free number', () => {
+    const store = new TabsStore();
+    const open = (id: string, group?: string) =>
+      store.openSession({ id, title: group ?? id, type: 'ssh', color: null, ...(group ? { group } : {}) });
+    open('a1', 'web');
+    open('b1', 'db');
+    open('x');
+    open('a2', 'web');
+    expect(store.ids).toEqual(['a1', 'a2', 'b1', 'x']);
+    expect(store.sessions.map((s) => s.id)).toEqual(store.ids);
+    expect(store.active).toBe('a2');
+    expect(store.sessions.map((s) => store.displayTitle(s))).toEqual(['web', 'web (2)', 'db', 'x']);
+
+    open('a3', 'web');
+    store.closeSession('a2');
+    open('a4', 'web');
+    expect(store.ids).toEqual(['a1', 'a3', 'a4', 'b1', 'x']);
+    expect(store.sessions.map((s) => store.displayTitle(s)).slice(0, 3)).toEqual([
+      'web',
+      'web (3)',
+      'web (2)',
+    ]);
+
+    // A remote title change keeps the number; the user's name replaces it.
+    store.updateSession('a3', { title: 'root@web' });
+    expect(store.displayTitle(store.session('a3')!)).toBe('root@web (3)');
+    store.rename('a3', 'logs');
+    expect(store.displayTitle(store.session('a3')!)).toBe('logs');
+  });
+
+  it('keeps the group and number through a reconnect, but not when the tab becomes a split', () => {
+    const store = new TabsStore();
+    store.openSession({ id: 'a1', title: 'web', type: 'ssh', color: null, group: 'web' });
+    store.openSession({ id: 'a2', title: 'web', type: 'ssh', color: null, group: 'web' });
+    store.replaceSession('a2', { id: 'a2b', title: 'web', type: 'ssh', color: null });
+    expect(store.session('a2b')).toMatchObject({ group: 'web', ordinal: 2 });
+    expect(store.ids).toEqual(['a1', 'a2b']);
+    store.replaceSession('a1', { id: 'split', title: 'Split', type: 'ssh', color: null, split: true });
+    expect(store.session('split')?.group).toBeUndefined();
+    expect(store.displayTitle(store.session('split')!)).toBe('Split');
+  });
+
   it('openTestTab adds a fake session', () => {
     const store = new TabsStore();
     openTestTab(store);
