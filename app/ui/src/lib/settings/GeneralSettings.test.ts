@@ -73,6 +73,22 @@ describe('GeneralSettings embedded RDP', () => {
   });
 });
 
+describe('GeneralSettings sidebar', () => {
+  it('chooses what a click on an entry with an open connection shows', async () => {
+    const { bridge } = await render('macos');
+    const select = document.querySelector<HTMLSelectElement>(
+      'select[aria-label="Clicking an entry with an open connection shows"]',
+    )!;
+    expect(select.value).toBe('details');
+    expect([...select.options].map((o) => o.textContent?.trim())).toEqual(['Details', 'Its tab']);
+    select.value = 'tab';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await settle();
+    expect(bridge.invoke).toHaveBeenCalledWith('settings_set', { patch: { selectionShows: 'tab' } });
+    expect(select.value).toBe('tab');
+  });
+});
+
 describe('GeneralSettings WinBox', () => {
   it('shows the detected WinBox and discloses the argv password', async () => {
     await render('macos');

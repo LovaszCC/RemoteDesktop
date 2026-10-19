@@ -3,6 +3,7 @@
 import { flushSync, mount, unmount, type Component } from 'svelte';
 import { createApi } from '../api';
 import { VIEW_DEPS, type ViewDeps } from '../detail/deps';
+import type { OpenTab } from '../terminal/connectionTabs.svelte';
 import { createForwardStore } from '../forwards/forwards.svelte';
 import { createSidebarActions } from '../sidebar/actions.svelte';
 import { createAlertStore } from '../stores/alert.svelte';
@@ -21,6 +22,8 @@ export interface ViewOptions {
   replies?: Parameters<typeof fakeBridge>[0];
   readOnly?: boolean;
   platform?: Platform;
+  /** What `connectionTabs.openTabs` answers, by connection id. */
+  openTabs?: Record<string, OpenTab[]>;
 }
 
 let mounted: ReturnType<typeof mount> | undefined;
@@ -35,8 +38,15 @@ export function cleanupView() {
 export function renderView<P extends Record<string, unknown>>(
   component: Component<P>,
   props: P,
-  { library = sidebarLibrary(), replies = {}, readOnly = false, platform = 'macos' }: ViewOptions = {},
+  {
+    library = sidebarLibrary(),
+    replies = {},
+    readOnly = false,
+    platform = 'macos',
+    openTabs = {},
+  }: ViewOptions = {},
 ) {
+  const selected: (string | null)[] = [];
   const bridge = fakeBridge({ set_credential: 1, copy_text: undefined, installed_browsers: [], ...replies });
   const api = createApi(bridge.invoke);
   const store = createLibraryStore({ ...bridge, searchDelay: 0 });
@@ -65,6 +75,8 @@ export function renderView<P extends Record<string, unknown>>(
     alerts,
     forwards,
     browsers: createBrowsersStore(bridge),
+    connectionTabs: { openTabs: (id) => openTabs[id] ?? [] },
+    tabs: { select: (id) => selected.push(id) },
     readOnly,
     platform,
   };
@@ -74,7 +86,7 @@ export function renderView<P extends Record<string, unknown>>(
     context: new Map([[VIEW_DEPS, deps]]),
   });
   flushSync();
-  return { bridge, deps, store, toast, alerts, editor, forwards };
+  return { bridge, deps, store, toast, alerts, editor, forwards, selected };
 }
 
 /** Lets pending promises settle, then flushes Svelte. */

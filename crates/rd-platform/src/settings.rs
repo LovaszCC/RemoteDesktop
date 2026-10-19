@@ -40,6 +40,9 @@ pub struct Settings {
     pub expanded_folders: Vec<String>,
     /// WinBox: an `.app`, an executable or (Linux) a `winbox64.exe` for Wine; `None` means auto-detect.
     pub winbox_path: Option<PathBuf>,
+    /// What a single click on a sidebar entry with an open connection shows: `details` or `tab` (its only
+    /// plain tab).
+    pub selection_shows: String,
 }
 
 impl Default for Settings {
@@ -54,6 +57,7 @@ impl Default for Settings {
             language: "en".to_owned(),
             expanded_folders: Vec::new(),
             winbox_path: None,
+            selection_shows: "details".to_owned(),
         }
     }
 }
@@ -152,6 +156,7 @@ mod tests {
             language: "hu".into(),
             expanded_folders: vec!["A".into(), "B".into()],
             winbox_path: Some(PathBuf::from("/opt/winbox/WinBox")),
+            selection_shows: "tab".into(),
         };
         settings.save(&nested).unwrap();
         assert_eq!(Settings::load(&nested), settings);
@@ -179,6 +184,7 @@ mod tests {
                 "language",
                 "lastUpdateCheck",
                 "rememberMasterKey",
+                "selectionShows",
                 "winboxPath"
             ]
         );

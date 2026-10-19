@@ -24,13 +24,14 @@
     type TerminalsStore,
   } from '../stores/terminals.svelte';
   import { toast as defaultToast, type ToastStore } from '../stores/toast.svelte';
-  import type { Language, PickMode, RdpEngineInfoDto, WinboxStatusDto } from '../types';
+  import type { Language, PickMode, RdpEngineInfoDto, SelectionShows, WinboxStatusDto } from '../types';
   import { updateStatusText } from '../updates/model';
   import { updates as defaultUpdates, type UpdateStore } from '../updates/updates.svelte';
   import {
     LANGUAGE_OPTIONS,
     canChangePassword,
     lastCheckedText,
+    selectionShowsOptions,
     revealLabel,
     rememberKeyLabel,
     winboxDetectedText,
@@ -102,6 +103,8 @@
   }
 
   const setLanguage = (language: Language) => perform(() => settings.setLanguage(language));
+  const setSelectionShows = (selectionShows: SelectionShows) =>
+    perform(() => settings.update({ selectionShows }));
   const setTerminal = (externalTerminal: string) => perform(() => settings.update({ externalTerminal }));
   const setChecks = (checkForUpdatesAutomatically: boolean) =>
     perform(() => settings.update({ checkForUpdatesAutomatically }));
@@ -171,6 +174,20 @@
         options={LANGUAGE_OPTIONS}
         label={t('Language')}
         onchange={(v) => void setLanguage(v)}
+      />
+    </FormRow>
+  </FormSection>
+
+  <FormSection title={t('Sidebar')}>
+    <FormRow
+      label={t('Clicking an entry with an open connection shows')}
+      hint={t('With more than one open tab, or only in a split view, Details is shown.')}
+    >
+      <Select
+        value={values?.selectionShows ?? 'details'}
+        options={selectionShowsOptions()}
+        label={t('Clicking an entry with an open connection shows')}
+        onchange={(v) => void setSelectionShows(v)}
       />
     </FormRow>
   </FormSection>

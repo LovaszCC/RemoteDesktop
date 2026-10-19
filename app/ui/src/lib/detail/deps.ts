@@ -12,6 +12,8 @@ import { editor, type EditorStore } from '../stores/editor.svelte';
 import { library, type LibraryStore } from '../stores/library.svelte';
 import { settings, type SettingsStore } from '../stores/settings.svelte';
 import { toast, type ToastStore } from '../stores/toast.svelte';
+import { tabs, type TabsStore } from '../tabs.svelte';
+import { connectionTabs, type ConnectionTabs } from '../terminal/connectionTabs.svelte';
 import type { Platform } from '../types';
 
 export interface ViewDeps {
@@ -24,6 +26,9 @@ export interface ViewDeps {
   alerts: AlertStore;
   forwards: ForwardStore;
   browsers: BrowsersStore;
+  /** The tabs a connection is open in (the Details page lists them). */
+  connectionTabs: Pick<ConnectionTabs, 'openTabs'>;
+  tabs: Pick<TabsStore, 'select'>;
   readonly readOnly: boolean;
   readonly platform: Platform;
 }
@@ -40,6 +45,8 @@ const defaults: ViewDeps = {
   alerts,
   forwards,
   browsers,
+  connectionTabs,
+  tabs,
   get readOnly() {
     return app.readOnly;
   },

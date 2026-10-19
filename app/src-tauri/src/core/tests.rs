@@ -912,6 +912,30 @@ fn settings_patch_is_validated_and_persisted() {
         })
         .unwrap();
     assert_eq!(cleared.external_terminal, None);
+
+    assert_eq!(core.settings_get().selection_shows, "details");
+    let tab = core
+        .settings_set(&SettingsPatch {
+            selection_shows: Some("tab".into()),
+            ..SettingsPatch::default()
+        })
+        .unwrap();
+    assert_eq!(tab.selection_shows, "tab");
+    assert_eq!(Settings::load(&env.settings_dir()).selection_shows, "tab");
+    let err = core
+        .settings_set(&SettingsPatch {
+            selection_shows: Some("bogus".into()),
+            check_for_updates_automatically: Some(true),
+            ..SettingsPatch::default()
+        })
+        .unwrap_err();
+    assert_eq!(err.code, "invalidSetting");
+    assert_eq!(
+        core.settings_get().selection_shows,
+        "tab",
+        "nothing changes on error"
+    );
+    assert!(!core.settings_get().check_for_updates_automatically);
 }
 
 #[test]

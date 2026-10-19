@@ -34,13 +34,17 @@
   import TerminalSessionView from '../terminal/TerminalSessionView.svelte';
   import SplitView from '../terminal/SplitView.svelte';
   import { splits } from '../terminal/splits.svelte';
+  import { connectionTabs } from '../terminal/connectionTabs.svelte';
   import TabBar from './TabBar.svelte';
   import { onDestroy, untrack } from 'svelte';
 
-  // A sidebar selection change shows the Details tab (Swift `selection.didSet`).
+  // A sidebar selection change shows the Details tab (Swift `selection.didSet`), or with Settings →
+  // Sidebar → "Its tab" the selected connection's only tab.
   $effect(() => {
-    void library.selection;
-    untrack(() => tabs.select(null));
+    const selection = library.selection;
+    untrack(() =>
+      tabs.select(connectionTabs.tabForSelection(selection, settings.settings?.selectionShows ?? 'details')),
+    );
   });
 
   // Automatic tab colours follow the connections' colours.

@@ -193,5 +193,11 @@
   "Light": "Világos",
   "Dark": "Sötét",
   "Welcome to the new RemoteDesktop. Your connections and settings were carried over.": "Üdv az új RemoteDesktopban! A kapcsolataid és a beállításaid átkerültek.",
-  "Welcome to the new RemoteDesktop. Your connections and settings were carried over. Grant the Accessibility permission again for RDP password autofill.": "Üdv az új RemoteDesktopban! A kapcsolataid és a beállításaid átkerültek. Az RDP jelszókitöltéshez add meg újra az Accessibility engedélyt."
+  "Welcome to the new RemoteDesktop. Your connections and settings were carried over. Grant the Accessibility permission again for RDP password autofill.": "Üdv az új RemoteDesktopban! A kapcsolataid és a beállításaid átkerültek. Az RDP jelszókitöltéshez add meg újra az Accessibility engedélyt.",
+  "Sidebar": "Oldalsáv",
+  "Clicking an entry with an open connection shows": "Nyitott kapcsolatú elemre kattintva",
+  "Its tab": "A kapcsolat füle",
+  "With more than one open tab, or only in a split view, Details is shown.": "Ha több füle van nyitva, vagy csak split nézetben fut, a Részletek jelenik meg.",
+  "Unknown setting value.": "Ismeretlen beállítási érték.",
+  "Open tabs": "Nyitott fülek"
 }

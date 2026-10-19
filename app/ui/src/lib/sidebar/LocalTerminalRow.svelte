@@ -8,7 +8,14 @@
   import type { SidebarActions } from './actions.svelte';
   import { localTerminalMenu } from './menus';
 
-  let { actions }: { actions: Pick<SidebarActions, 'openLocalTerminal'> } = $props();
+  let {
+    actions,
+    sessionOpen = false,
+  }: {
+    actions: Pick<SidebarActions, 'openLocalTerminal'>;
+    /** A local terminal is running: green dot. */
+    sessionOpen?: boolean;
+  } = $props();
 
   const open = () => void actions.openLocalTerminal();
 </script>
@@ -39,6 +46,9 @@
 >
   <span class="icon"><Terminal size={15} strokeWidth={1.75} /></span>
   <span class="name">{t('Local Terminal')}</span>
+  {#if sessionOpen}
+    <span class="session-dot" title={t('Open session')} aria-label={t('Open session')} role="img"></span>
+  {/if}
 </div>
 
 <style>
@@ -72,6 +82,13 @@
   }
   .row:focus-visible .icon {
     color: #fff;
+  }
+  .session-dot {
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--label-green);
   }
   .name {
     overflow: hidden;

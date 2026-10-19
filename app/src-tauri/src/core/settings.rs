@@ -10,6 +10,9 @@ use crate::dto::{SettingsDto, ShortcutDto, shortcut_rows};
 /// The languages the UI ships.
 pub const LANGUAGES: [&str; 2] = ["en", "hu"];
 
+/// What a single click on a sidebar entry with an open connection shows.
+pub const SELECTION_SHOWS: [&str; 2] = ["details", "tab"];
+
 /// The settings the UI may change; absent fields stay as they are.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -26,6 +29,8 @@ pub struct SettingsPatch {
     pub expanded_folders: Option<Vec<String>>,
     /// WinBox path; `""` means auto-detect.
     pub winbox_path: Option<String>,
+    /// `details` or `tab`.
+    pub selection_shows: Option<String>,
 }
 
 impl AppCore {
@@ -44,6 +49,7 @@ impl AppCore {
             last_update_check: settings.last_update_check,
             expanded_folders: settings.expanded_folders.clone(),
             winbox_path: settings.winbox_path.as_ref().map(|p| p.display().to_string()),
+            selection_shows: settings.selection_shows.clone(),
         }
     }
 
@@ -63,13 +69,18 @@ impl AppCore {
     /// Applies and saves a patch. Turning "remember" on or off while unlocked updates the keyring at once.
     ///
     /// # Errors
-    /// `invalidLanguage` or `settingsWrite`; nothing changes on `invalidLanguage`.
+    /// `invalidLanguage`, `invalidSetting` or `settingsWrite`; nothing changes on the first two.
     pub fn settings_set(&self, patch: &SettingsPatch) -> Result<SettingsDto, CommandError> {
         let mut inner = self.inner();
         if let Some(language) = &patch.language
             && !LANGUAGES.contains(&language.as_str())
         {
             return Err(CommandError::new("invalidLanguage", "Unknown language.").with_detail(language));
+        }
+        if let Some(shows) = &patch.selection_shows
+            && !SELECTION_SHOWS.contains(&shows.as_str())
+        {
+            return Err(CommandError::new("invalidSetting", "Unknown setting value.").with_detail(shows));
         }
         if let Some(language) = &patch.language {
             inner.settings.language.clone_from(language);
@@ -100,6 +111,9 @@ impl AppCore {
         if let Some(winbox) = &patch.winbox_path {
             let winbox = winbox.trim();
             inner.settings.winbox_path = (!winbox.is_empty()).then(|| std::path::PathBuf::from(winbox));
+        }
+        if let Some(shows) = &patch.selection_shows {
+            inner.settings.selection_shows.clone_from(shows);
         }
         Self::save_settings(&inner)?;
         Ok(Self::settings_dto(&inner))

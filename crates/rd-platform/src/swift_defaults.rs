@@ -163,6 +163,7 @@ mod tests {
                 language: "hu".into(),
                 expanded_folders: vec!["A1".into(), "B2".into()],
                 winbox_path: None,
+                selection_shows: "details".into(),
             }
         );
     }

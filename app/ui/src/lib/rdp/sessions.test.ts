@@ -77,6 +77,15 @@ describe('rdp sessions store', () => {
     expect(sessions.surface('S1')).toBeDefined();
   });
 
+  it('opens a second session of a connection next to the first, numbered', async () => {
+    const { sessions, tabs } = setup();
+    await sessions.open(connection);
+    await sessions.open({ ...connection, id: 'c2', name: 'Other' });
+    await sessions.open(connection);
+    expect(tabs.ids).toEqual(['S1', 'S3', 'S2']);
+    expect(tabs.sessions.map((s) => tabs.displayTitle(s))).toEqual(['Desk', 'Desk (2)', 'Other']);
+  });
+
   it('paints each frame and acknowledges it, also frames that came before the open answered', async () => {
     let resolveOpen: (value: { sessionId: string }) => void = () => {};
     const { sessions, bridge, channels, surfaces } = setup({

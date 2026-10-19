@@ -3,13 +3,21 @@
 import { t } from '../i18n/index.svelte';
 import { relativeAge } from '../format';
 import { modifierBits, shortcutFromEvent, type KeyEventLike } from '../shortcuts/keys';
-import type { KeyShortcut, Platform, ShortcutDto, Timestamp } from '../types';
+import type { KeyShortcut, Platform, SelectionShows, ShortcutDto, Timestamp } from '../types';
 
 /** The language picker: native names, not translated (Swift `AppLanguage.displayName`). */
 export const LANGUAGE_OPTIONS = [
   { value: 'en', label: 'English' },
   { value: 'hu', label: 'Magyar' },
 ] as const;
+
+/** "Clicking an entry with an open connection shows": Details (the default) or the connection's tab. */
+export function selectionShowsOptions(): { value: SelectionShows; label: string }[] {
+  return [
+    { value: 'details', label: t('Details') },
+    { value: 'tab', label: t('Its tab') },
+  ];
+}
 
 export interface PasswordChange {
   current: string;
