@@ -2,7 +2,7 @@
 # Copies the release bundles of one target out of target/<triple>/release/bundle into <out dir> under
 # space-free release asset names, with their updater signatures (.sig) when they were made:
 #
-#   RemoteDesktop_<version>_macos_<arch>.dmg / .app.tar.gz(.sig)
+#   RemoteDesktop_<version>_macos_<arch>.dmg(.sha256, for the Swift updater) / .app.tar.gz(.sig)
 #   RemoteDesktop_<version>_windows_x64-setup.exe(.sig)
 #   RemoteDesktop_<version>_linux_amd64.AppImage(.sig) / .deb(.sig) / _linux_x86_64.rpm(.sig)
 #
@@ -50,6 +50,10 @@ case "$target" in
   aarch64-apple-darwin | x86_64-apple-darwin)
     arch=${target%%-*}
     copy dmg "*.dmg" "${name}_macos_${arch}.dmg"
+    # The Swift app's updater (1.6.4 and older) takes the release's first `.dmg` plus its `.dmg.sha256`, a
+    # `shasum -a 256` line (`<hex>  <name>`); without it, Swift installs can't download the handover release.
+    (cd "$out" && shasum -a 256 "${name}_macos_${arch}.dmg" > "${name}_macos_${arch}.dmg.sha256")
+    echo "$out/${name}_macos_${arch}.dmg.sha256"
     if [ "$updater" = true ]; then
       copy macos "*.app.tar.gz" "${name}_macos_${arch}.app.tar.gz" updatable
     fi
