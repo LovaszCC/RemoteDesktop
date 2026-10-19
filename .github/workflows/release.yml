@@ -1,34 +1,30 @@
-# Builds, signs (updater only), smoke tests and publishes RemoteDesktop.
+# Builds, signs (updater), smoke tests and publishes RemoteDesktop. The promote model: every build happens
+# once, on the merge commit of a PR merged into `beta`; nothing builds on a plain push or a tag.
 #
-#   push tag v1.2.3              → tests, bundles for 3 OSes, smoke tests, then a DRAFT GitHub release
-#                                  "v1.2.3" with the bundles, their .sig files and latest.json
-#   Run workflow (dry_run: true) → tests, bundles, smoke tests; bundles uploaded as workflow artifacts,
-#                                  no release (the default; works on any branch)
-#   PR merged into beta          → tests, bundles, smoke tests, then the rolling "beta-latest" PRE-release
-#                                  is replaced with these bundles (no latest.json: the updater ignores it)
+#   PR merged into beta, no GitHub release v<Cargo version> yet (the release PR bumped the version)
+#                                → tests, signed bundles of exactly that version, smoke tests, then a DRAFT
+#                                  release v<version> (target: the merge commit) with latest.json. The user
+#                                  publishes it by hand; that creates the tag, and promote.yml moves `main`.
+#   PR merged into beta, release v<Cargo version> exists
+#                                → a beta of the next patch, <X.Y.Z+1>-beta.<run>, signed, with the updater
+#                                  pointed at beta-latest; the rolling "beta-latest" pre-release is replaced,
+#                                  latest.json included, so installed betas update to it.
+#   Run workflow                 → dry run: tests, bundles, smoke tests; bundles as workflow artifacts only.
 #
-# Branch pushes never run it: a change that goes through a PR is built when the PR is merged, and a direct
-# push (docs, small fixes) builds nothing. Releases are tags on `main` (`main` = released, `beta` = dev).
+# scripts/release-version.mjs picks the mode and version. Runs on GitHub-hosted runners in the public
+# LovaszCC/RemoteDesktop repository; in a private copy every job is skipped.
 #
-# Runs on GitHub-hosted runners in the public LovaszCC/RemoteDesktop repository. In a private copy every job
-# is skipped, so it never spends paid minutes.
-#
-# Updater signatures need the TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD secrets. A
-# dry run without them skips the updater artifacts with a notice; a real release fails fast instead.
+# Updater signatures need the TAURI_SIGNING_PRIVATE_KEY (and, if the key has one,
+# TAURI_SIGNING_PRIVATE_KEY_PASSWORD) secrets. A dry run without them skips the updater artifacts with a
+# notice; a merged PR fails fast instead.
 name: Release
 
 on:
-  push:
-    tags: ["v*"]
   pull_request:
     types: [closed]
     branches: [beta]
   workflow_dispatch:
     inputs:
-      dry_run:
-        description: Dry run (build and smoke test only, no release). A real release needs a v* tag ref.
-        type: boolean
-        default: true
       skip_tests:
         description: Skip the CI test stage (dry runs only; for iterating on packaging).
         type: boolean
@@ -38,7 +34,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  # Merged PRs build one after the other, so the newest beta (or the release) always lands last.
+  group: ${{ github.event_name == 'pull_request' && 'release-beta' || format('release-{0}', github.ref) }}
   cancel-in-progress: false
 
 env:
@@ -47,7 +44,7 @@ env:
   CARGO_PROFILE_TEST_DEBUG: 0
 
 jobs:
-  # Version, mode and the fail-fast checks of a real release.
+  # Mode, version and the fail-fast checks of a signed build.
   prepare:
     name: prepare
     # A PR closed without merging builds nothing.
@@ -59,10 +56,14 @@ jobs:
     defaults:
       run:
         shell: bash
+    # Drafts are only visible with push access.
+    permissions:
+      contents: write
     outputs:
       version: ${{ steps.mode.outputs.version }}
       dry_run: ${{ steps.mode.outputs.dry_run }}
       beta: ${{ steps.mode.outputs.beta }}
+      release: ${{ steps.mode.outputs.release }}
       sign: ${{ steps.mode.outputs.sign }}
     steps:
       - uses: actions/checkout@v4
@@ -70,67 +71,58 @@ jobs:
           # A merged PR builds its merge commit on beta (the PR's merge ref may be gone by then).
           ref: ${{ github.event.pull_request.merged && github.event.pull_request.merge_commit_sha || '' }}
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+
       - name: Version and mode
         id: mode
         env:
           EVENT: ${{ github.event_name }}
-          DRY_RUN_INPUT: ${{ inputs.dry_run }}
           HAS_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
-          [ -n "$version" ] || { echo "::error::no [workspace.package] version in Cargo.toml"; exit 1; }
-          # Real only for a pushed tag or an explicit dispatch with dry_run unchecked; everything else is dry.
-          if { [ "$EVENT" = push ] && [ "$GITHUB_REF_TYPE" = tag ]; } \
-            || { [ "$EVENT" = workflow_dispatch ] && [ "$DRY_RUN_INPUT" = false ]; }; then
+          cargo_version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
+          [ -n "$cargo_version" ] || { echo "::error::no [workspace.package] version in Cargo.toml"; exit 1; }
+          if [ "$EVENT" = pull_request ]; then
+            exists=false
+            gh release view "v$cargo_version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 && exists=true
+            eval "$(node scripts/release-version.mjs "$cargo_version" "$exists" "$GITHUB_RUN_NUMBER")"
             dry_run=false
-          else
-            dry_run=true
-          fi
-
-          if [ "$dry_run" = false ]; then
             problems=0
-            if [ "$GITHUB_REF_TYPE" != tag ]; then
-              echo "::error::A real release runs on a v* tag (push the tag, or dispatch the workflow on the tag)."
-              problems=1
-            elif [ "$GITHUB_REF_NAME" != "v$version" ]; then
-              echo "::error::Tag $GITHUB_REF_NAME doesn't match the workspace version $version (Cargo.toml)."
-              problems=1
-            fi
             if [ "$HAS_KEY" != true ]; then
               echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set: the updater artifacts can't be signed. Set it with gh secret set."
               problems=1
             fi
             if grep -q REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY app/src-tauri/tauri.conf.json; then
-              echo "::error::app/src-tauri/tauri.conf.json still has the placeholder updater pubkey; this release could never update itself."
+              echo "::error::app/src-tauri/tauri.conf.json still has the placeholder updater pubkey; builds could never update themselves."
               problems=1
             fi
             [ "$problems" = 0 ] || exit 1
-          elif [ "$HAS_KEY" != true ]; then
-            echo "::notice title=Updater artifacts skipped::TAURI_SIGNING_PRIVATE_KEY is not set, so this dry run builds the bundles without updater signatures (.sig) and latest.json."
+          else
+            mode=dry
+            version=$cargo_version
+            dry_run=true
+            [ "$HAS_KEY" = true ] || echo "::notice title=Updater artifacts skipped::TAURI_SIGNING_PRIVATE_KEY is not set, so this dry run builds the bundles without updater signatures (.sig) and latest.json."
           fi
 
-          # A PR merged into beta builds like a dry run, then replaces the beta pre-release.
-          beta=false
-          if [ "$EVENT" = pull_request ]; then beta=true; fi
-
-          sign=$HAS_KEY
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "dry_run=$dry_run" >> "$GITHUB_OUTPUT"
-          echo "beta=$beta" >> "$GITHUB_OUTPUT"
-          echo "sign=$sign" >> "$GITHUB_OUTPUT"
           {
-            echo "### RemoteDesktop $version"
-            echo "- dry run: $dry_run"
-            echo "- beta pre-release: $beta"
-            echo "- updater signatures: $sign"
+            echo "version=$version"
+            echo "dry_run=$dry_run"
+            echo "beta=$([ "$mode" = beta ] && echo true || echo false)"
+            echo "release=$([ "$mode" = release ] && echo true || echo false)"
+            echo "sign=$HAS_KEY"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### RemoteDesktop $version ($mode)"
+            echo "- Cargo.toml version: $cargo_version"
+            echo "- updater signatures: $HAS_KEY"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 26
-
-      - name: latest.json generator tests
-        run: node --test scripts/make-latest-json.test.mjs
+      - name: Script tests
+        run: |
+          node --test scripts/make-latest-json.test.mjs
+          node --test scripts/release-version.test.mjs
 
   # The CI workflow: lint, unit tests and compile checks on all three OSes.
   test:
@@ -233,6 +225,7 @@ jobs:
         env:
           # Not "SIGN": linuxdeploy-plugin-appimage GPG-signs the AppImage whenever SIGN is set.
           UPDATER_SIGN: ${{ needs.prepare.outputs.sign }}
+          BETA: ${{ needs.prepare.outputs.beta }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
@@ -240,11 +233,18 @@ jobs:
           # linuxdeploy's bundled strip can't read newer ELF sections; the release profile strips already.
           # linuxdeploy and the AppImage tools unpack themselves instead of mounting: no FUSE (libfuse2) needed.
           if [ "$RUNNER_OS" = Linux ]; then export NO_STRIP=true APPIMAGE_EXTRACT_AND_RUN=1; args+=(--verbose); fi
-          if [ "$UPDATER_SIGN" = true ]; then
-            args+=(--config '{"bundle":{"createUpdaterArtifacts":true}}')
-          else
-            unset TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-          fi
+          [ "$UPDATER_SIGN" = true ] || unset TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+          # One merged --config: the build's version (a beta's -beta.N included), updater artifacts when
+          # signing, and for a beta the beta-latest update feed instead of the stable one.
+          config=$(node -e '
+            const [version, sign, beta, repo] = process.argv.slice(1);
+            const config = { version, bundle: { createUpdaterArtifacts: sign === "true" } };
+            if (beta === "true") config.plugins = { updater: { endpoints: [
+              `https://github.com/${repo}/releases/download/beta-latest/latest.json`] } };
+            console.log(JSON.stringify(config));
+          ' "$VERSION" "$UPDATER_SIGN" "$BETA" "$GITHUB_REPOSITORY")
+          echo "tauri config: $config"
+          args+=(--config "$config")
           pnpm -C app/ui tauri build "${args[@]}"
 
       - name: Collect bundles
@@ -286,12 +286,12 @@ jobs:
           if-no-files-found: error
           retention-days: ${{ needs.prepare.outputs.dry_run == 'true' && 7 || 30 }}
 
-  # Only for a real release: a draft for a human to review and publish (publishing makes it "latest",
-  # which is what the in-app updater reads).
+  # Release mode: a draft for the user to review and publish (publishing creates the tag on the merge commit
+  # and makes it "latest", which is what stable apps' updater reads; promote.yml then moves `main`).
   release:
     name: draft release
     needs: [prepare, build]
-    if: needs.prepare.outputs.dry_run == 'false'
+    if: needs.prepare.outputs.release == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 20
     defaults:
@@ -302,6 +302,7 @@ jobs:
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
       GH_TOKEN: ${{ github.token }}
+      COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -326,7 +327,7 @@ jobs:
 
       - name: Draft release
         run: |
-          gh release create "v$VERSION" dist/* --draft --verify-tag \
+          gh release create "v$VERSION" dist/* --draft --target "$COMMIT_SHA" \
             --title "RemoteDesktop $VERSION" --generate-notes
 
       - name: latest.json
@@ -341,9 +342,10 @@ jobs:
             echo "the in-app updater only sees published (not pre-release) releases."
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # Push to beta: the rolling "beta-latest" pre-release, always the latest green beta. Pre-releases have no
-  # latest.json and are never "latest", so neither the Swift app's updater (releases/latest) nor the Tauri
-  # updater ever offers it. The tag isn't "beta": a tag named like the branch makes `beta` ambiguous.
+  # Beta mode: the rolling "beta-latest" pre-release, always the latest green beta. Its latest.json feeds
+  # beta builds only (their updater endpoint points here); pre-releases are never "latest", so stable apps
+  # and the Swift updater never see it. The tag isn't "beta": a tag named like the branch makes `beta`
+  # ambiguous.
   beta:
     name: beta pre-release
     needs: [prepare, build]
@@ -364,6 +366,14 @@ jobs:
       # The merge commit on beta (a merged PR's GITHUB_SHA is its merge ref, not the beta commit).
       COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merged && github.event.pull_request.merge_commit_sha || '' }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+
       - uses: actions/download-artifact@v4
         with:
           pattern: bundles-*
@@ -376,14 +386,23 @@ jobs:
           if command -v sha256sum >/dev/null; then sum=(sha256sum); else sum=(shasum -a 256); fi
           "${sum[@]}" -- * > "RemoteDesktop_${VERSION}_SHA256SUMS.txt"
 
+      - name: latest.json
+        run: |
+          echo "Beta ${VERSION} (${COMMIT_SHA::7})." > update-notes.md
+          node scripts/make-latest-json.mjs dist "$VERSION" \
+            "https://github.com/${GITHUB_REPOSITORY}/releases/download/beta-latest" update-notes.md > dist/latest.json
+          cat dist/latest.json
+
       - name: Replace the beta pre-release
         run: |
           short=${COMMIT_SHA::7}
           {
             echo "Automatic build of the \`beta\` branch (${short}, CI run ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})."
             echo
-            echo "Beta: test build of the next release, replaced whenever a PR is merged into beta. It uses the"
-            echo "same database and settings as the released app. macOS: not notarized, Open Anyway on first launch."
+            echo "Beta: test build of the next release, replaced whenever a PR is merged into beta. Installed by"
+            echo "hand, it then updates itself to newer betas (not to stable releases). It uses the same database"
+            echo "and settings as the released app: don't open a database shared with stable users, they would be"
+            echo "asked to update. macOS: not notarized, Open Anyway on first launch."
             echo "Windows: SmartScreen → More info → Run anyway."
           } > notes.md
           gh release delete beta-latest --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes 2>/dev/null || true
