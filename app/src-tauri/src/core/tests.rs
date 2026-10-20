@@ -601,7 +601,7 @@ fn lock_conflict_offers_read_only_open_anyway_and_cancel() {
         })
         .unwrap_err(),
         core.set_favorite(&format!("c:{id}"), true).unwrap_err(),
-        core.delete_items(&tags(&["c:x"])).unwrap_err(),
+        core.delete_items(&tags(&["c:x"]), false).unwrap_err(),
         core.duplicate_entry(&entry_of(&core, &id), " (copy)")
             .unwrap_err(),
         core.merge_entries("a", &["b".into()]).unwrap_err(),
@@ -848,15 +848,18 @@ fn bulk_delete_counts_each_kind() {
         .unwrap();
 
     let counts = core
-        .delete_items(&tags(&[
-            &format!("c:{loose}"),
-            &format!("fav:{}", entry_of(&core, &loose)),
-            &format!("f:{parent}"),
-            &format!("k:{key}"),
-            &format!("s:{split}"),
-            "c:missing",
-            "bogus",
-        ]))
+        .delete_items(
+            &tags(&[
+                &format!("c:{loose}"),
+                &format!("fav:{}", entry_of(&core, &loose)),
+                &format!("f:{parent}"),
+                &format!("k:{key}"),
+                &format!("s:{split}"),
+                "c:missing",
+                "bogus",
+            ]),
+            false,
+        )
         .unwrap();
     assert_eq!(
         counts,
@@ -874,6 +877,34 @@ fn bulk_delete_counts_each_kind() {
     assert_eq!(library.connections.len(), 1);
     assert_eq!(library.connections[0].id, inside);
     assert_eq!(library.connections[0].folder_id, None, "entries move to the root");
+}
+
+#[test]
+fn folder_delete_can_take_the_entries_inside() {
+    let env = Env::new();
+    let core = env.unlocked();
+    let parent = folder(&core, "Parent", None);
+    let child = folder(&core, "Child", Some(&parent));
+    let other = folder(&core, "Other", None);
+    connection(&core, "top", Some(&parent));
+    connection(&core, "deep", Some(&child));
+    let kept = connection(&core, "kept", Some(&other));
+    let loose = connection(&core, "loose", None);
+
+    let counts = core.delete_items(&tags(&[&format!("f:{parent}")]), true).unwrap();
+    assert_eq!((counts.folders, counts.entries, counts.connections), (1, 2, 2));
+    let library = core.library();
+    let mut left: Vec<_> = library.connections.iter().map(|c| c.id.clone()).collect();
+    left.sort();
+    let mut expected = vec![kept, loose];
+    expected.sort();
+    assert_eq!(left, expected);
+    assert_eq!(library.folders.len(), 1, "only Other is left");
+
+    // Without folders the flag changes nothing.
+    let counts = core.delete_items(&tags(&["bogus"]), true).unwrap();
+    assert_eq!(counts, DeleteCountsDto::default());
+    assert_eq!(core.library().connections.len(), 2);
 }
 
 #[test]

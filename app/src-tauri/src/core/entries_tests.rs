@@ -449,7 +449,7 @@ fn tags_act_on_entries() {
     );
 
     // Deleting the entry deletes its connections.
-    let counts = core.delete_items(&[tag, format!("e:{id}")]).unwrap();
+    let counts = core.delete_items(&[tag, format!("e:{id}")], false).unwrap();
     assert_eq!((counts.entries, counts.connections), (1, 2));
     let library = core.library();
     assert_eq!(
@@ -459,7 +459,7 @@ fn tags_act_on_entries() {
     assert!(library.connections.iter().all(|c| c.entry_id == other));
     // Deleting the last connection of an entry deletes the entry.
     let counts = core
-        .delete_items(&[format!("c:{}", other_connections[0])])
+        .delete_items(&[format!("c:{}", other_connections[0])], false)
         .unwrap();
     assert_eq!((counts.entries, counts.connections), (0, 1));
     assert!(core.library().entries.is_empty());

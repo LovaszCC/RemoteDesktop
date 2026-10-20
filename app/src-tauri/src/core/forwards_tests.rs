@@ -222,7 +222,7 @@ fn deleting_switching_and_quitting_stop_tunnels() {
     // Deleting the connection (its forwards cascade) stops the tunnel.
     core.port_forward_start(&id).unwrap();
     assert_eq!(notices.next_status().state, ForwardState::Starting);
-    core.delete_items(&[format!("c:{gw}")]).unwrap();
+    core.delete_items(&[format!("c:{gw}")], false).unwrap();
     assert_eq!(notices.next_status().state, ForwardState::Stopped);
     assert_eq!(core.running_count(), 0);
 
