@@ -200,8 +200,14 @@ from RDM…* here. Folders, connections and credentials all come across.
 **From WinBox:** *File → Import from WinBox…* reads a WinBox address book (`.cdb`). You'll see a preview,
 pick a folder, and your routers turn into MikroTik connections.
 
+**From anything else (CSV):** *File → Import from CSV…* explains the columns and offers a sample file. Put
+your servers in a spreadsheet with the columns `folder`, `name`, `host` and `type` (`rdp`, `ssh`, `web` or
+`mikrotik`), save it as CSV (`;` or `,`, UTF-8) and choose it. Rows with the same name become one entry with
+several connections. Logins and passwords aren't part of the file: set them afterwards for many entries at
+once.
+
 > [!WARNING]
-> Both export files contain your passwords in plain text. Delete them once the import is done.
+> The RDM and WinBox export files contain your passwords in plain text. Delete them once the import is done.
 
 ---
 
