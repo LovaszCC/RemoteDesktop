@@ -272,6 +272,24 @@ describe('importMenu', () => {
     expect(importMenu(true, start)).toEqual([]);
   });
 
+  it('adds the own format: import, and export (which read-only keeps)', () => {
+    const transfer = { importExport: vi.fn(), exportLibrary: vi.fn() };
+    const labels = (items: ReturnType<typeof importMenu>) =>
+      items.map((i) => (i.kind === 'separator' ? '-' : i.label));
+    const items = importMenu(false, vi.fn(), {}, transfer);
+    expect(labels(items)).toEqual([
+      'Import from RDM…',
+      'Import from WinBox…',
+      'Import from RemoteDesktop export…',
+      '-',
+      'Export…',
+    ]);
+    for (const item of items.slice(2)) if (item.kind !== 'separator') item.action?.();
+    expect(transfer.importExport).toHaveBeenCalledOnce();
+    expect(transfer.exportLibrary).toHaveBeenCalledOnce();
+    expect(labels(importMenu(true, vi.fn(), {}, transfer))).toEqual(['Export…']);
+  });
+
   it('an SSH connection offers SSH key setup, disabled while it runs', () => {
     const ctx = context();
     const connection = ctx.library.connections.find((c) => c.id === 'c1');
