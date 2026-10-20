@@ -19,6 +19,8 @@
   import { sidebarActions } from '../sidebar/actions.svelte';
   import ImportSheet from '../importer/ImportSheet.svelte';
   import { importer } from '../importer/importer.svelte';
+  import CsvImportSheet from '../transfer/CsvImportSheet.svelte';
+  import { csvImporter } from '../transfer/csvImporter.svelte';
   import ExportSheet from '../transfer/ExportSheet.svelte';
   import { exporter } from '../transfer/exporter.svelte';
   import TransferImportSheet from '../transfer/TransferImportSheet.svelte';
@@ -82,6 +84,7 @@
     importer.close();
     exporter.close();
     transferImporter.close();
+    csvImporter.close();
   });
 
   /** The toolbar "+" menu, opened below the button. */
@@ -107,6 +110,7 @@
         },
         {
           importExport: () => void transferImporter.start(),
+          importCsv: () => csvImporter.start(),
           exportLibrary: () => exporter.open(library.library, library.selection),
         },
       ),
@@ -205,6 +209,7 @@
 <ImportSheet {importer} />
 <ExportSheet {exporter} library={library.library} />
 <TransferImportSheet importer={transferImporter} />
+<CsvImportSheet importer={csvImporter} />
 
 <style>
   .spacer {

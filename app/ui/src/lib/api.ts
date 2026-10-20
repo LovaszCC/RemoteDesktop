@@ -32,6 +32,7 @@ import type {
   TransferDecisionDto,
   TransferPreviewDto,
   TransferResultDto,
+  CsvPreviewDto,
   KeySetupDto,
   KeyShortcut,
   LaunchNoticeDto,
@@ -260,6 +261,16 @@ export function createApi(invoke: Invoke = tauriBridge.invoke) {
     /** Imports with a decision per row (rows without one are skipped); emits `library-changed`. */
     transferCommit: (path: string, password: string | null, decisions: TransferDecisionDto[]) =>
       call<TransferResultDto>('transfer_commit', { path, password, decisions }),
+
+    // CSV import
+    /** Asks where to save the sample CSV and writes it; `false` when cancelled. */
+    saveCsvSample: () => call<boolean>('save_csv_sample'),
+    /** The open panel for a CSV file; the path, or `null` when cancelled. */
+    pickCsvFile: () => call<string | null>('pick_csv_file'),
+    csvPreview: (path: string) => call<CsvPreviewDto>('csv_preview', { path }),
+    /** Imports with a decision per row (rows without one are skipped); emits `library-changed`. */
+    csvCommit: (path: string, decisions: TransferDecisionDto[]) =>
+      call<TransferResultDto>('csv_commit', { path, decisions }),
 
     // Library queries
     library: () => call<LibraryDto>('library'),

@@ -473,6 +473,17 @@ export interface TransferDecisionDto {
   action: TransferAction;
 }
 
+/** A CSV row left out; `line` is 1-based with the header on line 1. */
+export type CsvSkippedDto = { line: number; name: string } & (
+  { reason: 'noName' | 'noHost' } | { reason: 'unknownType' | 'badUrl'; detail: string }
+);
+
+export interface CsvPreviewDto {
+  fileName: string;
+  rows: TransferRowDto[];
+  skipped: CsvSkippedDto[];
+}
+
 export interface TransferResultDto {
   entriesCreated: number;
   entriesUpdated: number;

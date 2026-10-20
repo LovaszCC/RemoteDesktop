@@ -17,7 +17,7 @@ import { MODIFIER } from '../types';
 import { sameShortcut, shortcutFromEvent } from './keys';
 
 /**
- * Shortcut commands plus the app's own: Settings, Check for Updates, Export, the export import and, in dev
+ * Shortcut commands plus the app's own: Settings, Check for Updates, Export, the export and CSV imports and, in dev
  * builds, the test tab.
  */
 export type AppCommand =
@@ -26,7 +26,8 @@ export type AppCommand =
   | 'checkForUpdates'
   | 'devOpenTestTab'
   | 'exportLibrary'
-  | 'importTransfer';
+  | 'importTransfer'
+  | 'importCsv';
 
 export const SHORTCUT_COMMANDS: readonly ShortcutCommand[] = [
   'newRDP',
@@ -60,6 +61,7 @@ const APP_COMMANDS = new Set<string>([
   'devOpenTestTab',
   'exportLibrary',
   'importTransfer',
+  'importCsv',
 ]);
 
 export function isAppCommand(value: unknown): value is AppCommand {

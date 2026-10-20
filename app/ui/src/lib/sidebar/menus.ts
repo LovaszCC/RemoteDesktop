@@ -114,11 +114,12 @@ export function importMenu(
   readOnly: boolean,
   start: (kind: ImportKind) => void,
   shortcuts: Partial<Record<ImportKind, string | null>> = {},
-  transfer?: { importExport: () => void; exportLibrary: () => void },
+  transfer?: { importExport: () => void; importCsv: () => void; exportLibrary: () => void },
 ): MenuItem[] {
   const own: MenuItem[] = transfer
     ? [
         { label: t('Import from RemoteDesktop export…'), action: transfer.importExport },
+        { label: t('Import from CSV…'), action: transfer.importCsv },
         { kind: 'separator' },
         { label: t('Export…'), action: transfer.exportLibrary },
       ]

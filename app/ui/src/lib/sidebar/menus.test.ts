@@ -272,8 +272,8 @@ describe('importMenu', () => {
     expect(importMenu(true, start)).toEqual([]);
   });
 
-  it('adds the own format: import, and export (which read-only keeps)', () => {
-    const transfer = { importExport: vi.fn(), exportLibrary: vi.fn() };
+  it('adds the own format and CSV imports, and export (which read-only keeps)', () => {
+    const transfer = { importExport: vi.fn(), importCsv: vi.fn(), exportLibrary: vi.fn() };
     const labels = (items: ReturnType<typeof importMenu>) =>
       items.map((i) => (i.kind === 'separator' ? '-' : i.label));
     const items = importMenu(false, vi.fn(), {}, transfer);
@@ -281,11 +281,13 @@ describe('importMenu', () => {
       'Import from RDM…',
       'Import from WinBox…',
       'Import from RemoteDesktop export…',
+      'Import from CSV…',
       '-',
       'Export…',
     ]);
     for (const item of items.slice(2)) if (item.kind !== 'separator') item.action?.();
     expect(transfer.importExport).toHaveBeenCalledOnce();
+    expect(transfer.importCsv).toHaveBeenCalledOnce();
     expect(transfer.exportLibrary).toHaveBeenCalledOnce();
     expect(labels(importMenu(true, vi.fn(), {}, transfer))).toEqual(['Export…']);
   });
