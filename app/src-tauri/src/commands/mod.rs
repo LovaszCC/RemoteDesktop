@@ -35,6 +35,7 @@ pub mod rdp;
 pub mod session;
 pub mod settings;
 pub mod ssh;
+pub mod transfer;
 pub mod updates;
 
 use std::sync::Arc;

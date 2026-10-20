@@ -26,7 +26,7 @@ pub use lock::{DbLock, LockHolder, LockStatus, REFRESH_EVERY, STALE_AFTER};
 pub use migrations::{MIGRATION_IDS, migrate_up_to};
 pub use repository::EntryWrite;
 pub use transfer::{
-    EXPORT_EXTENSION, TransferAction, TransferCounts, TransferDecisions, TransferError, export_is_encrypted,
-    read_export, write_export,
+    EXPORT_EXTENSION, EXPORT_FORMAT, TransferAction, TransferCounts, TransferDecisions, TransferError,
+    export_is_encrypted, read_export, write_export,
 };
 pub use vault::{Vault, VaultError};
