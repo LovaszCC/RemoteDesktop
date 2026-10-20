@@ -289,7 +289,7 @@ describe('confirmation texts', () => {
     expect(bulkDeleteMessage(counts)).toBe(
       [
         'Connections: 2, folders: 1, credentials: 1.',
-        'Subfolders are deleted too; connections inside the folders are kept and move to Connections.',
+        'Subfolders are deleted too.',
         'Connections using a deleted credential fall back to their own saved login.',
         "This can't be undone.",
       ].join('\n'),

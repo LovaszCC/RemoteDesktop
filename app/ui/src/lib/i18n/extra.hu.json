@@ -287,5 +287,7 @@
   "Choose another file…": "Másik fájl…",
   "The CSV file isn't UTF-8. Save it as \"CSV UTF-8\".": "A CSV fájl nem UTF-8. Mentsd „CSV UTF-8” formátumban.",
   "The CSV file is damaged: a quote is never closed.": "A CSV fájl sérült: egy idézőjel nincs lezárva.",
-  "The CSV file is missing columns: %@": "A CSV fájlból hiányzó oszlopok: %@"
+  "The CSV file is missing columns: %@": "A CSV fájlból hiányzó oszlopok: %@",
+  "Also delete the %lld entries inside (otherwise they move to the top level)": "A benne lévő %lld bejegyzés törlése is (különben a legfelső szintre kerülnek)",
+  "Subfolders are deleted too.": "Az almappák is törlődnek."
 }

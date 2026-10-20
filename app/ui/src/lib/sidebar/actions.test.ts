@@ -76,7 +76,10 @@ describe('sidebar actions', () => {
     dialogs.accept();
     await done;
     expect(library.selection).toEqual([]);
-    expect(bridge.invoke).toHaveBeenCalledWith('delete_items', { tags: ['e:c1', 'f:f3'] });
+    expect(bridge.invoke).toHaveBeenCalledWith('delete_items', {
+      tags: ['e:c1', 'f:f3'],
+      deleteFolderEntries: false,
+    });
   });
 
   it('a cancelled bulk delete deletes nothing', async () => {
@@ -92,7 +95,10 @@ describe('sidebar actions', () => {
       delete_items: { connections: 0, folders: 0, credentials: 1, splits: 0 },
     });
     await actions.deleteCredential('k2');
-    expect(bridge.invoke).toHaveBeenLastCalledWith('delete_items', { tags: ['k:k2'] });
+    expect(bridge.invoke).toHaveBeenLastCalledWith('delete_items', {
+      tags: ['k:k2'],
+      deleteFolderEntries: false,
+    });
     const done = actions.deleteCredential('k1');
     expect(dialogs.current?.title).toBe('Delete credential?');
     expect(dialogs.current?.kind === 'confirm' && dialogs.current.message).toBe(
@@ -100,7 +106,10 @@ describe('sidebar actions', () => {
     );
     dialogs.accept();
     await done;
-    expect(bridge.invoke).toHaveBeenLastCalledWith('delete_items', { tags: ['k:k1'] });
+    expect(bridge.invoke).toHaveBeenLastCalledWith('delete_items', {
+      tags: ['k:k1'],
+      deleteFolderEntries: false,
+    });
   });
 
   it('copies the password or says there is none', async () => {
@@ -378,11 +387,17 @@ describe('sidebar actions', () => {
     done = actions.deleteEntry('e1');
     dialogs.accept();
     await done;
-    expect(bridge.invoke).toHaveBeenCalledWith('delete_items', { tags: ['e:e1'] });
+    expect(bridge.invoke).toHaveBeenCalledWith('delete_items', {
+      tags: ['e:e1'],
+      deleteFolderEntries: false,
+    });
     // A one-connection entry goes at once.
     await actions.deleteEntry('c1');
     expect(dialogs.current).toBeNull();
-    expect(bridge.invoke).toHaveBeenLastCalledWith('delete_items', { tags: ['e:c1'] });
+    expect(bridge.invoke).toHaveBeenLastCalledWith('delete_items', {
+      tags: ['e:c1'],
+      deleteFolderEntries: false,
+    });
   });
 
   it('deletes one connection after asking; an entry’s last one says the entry goes too', async () => {
@@ -395,7 +410,10 @@ describe('sidebar actions', () => {
     done = actions.deleteConnection('h2');
     dialogs.accept();
     await done;
-    expect(bridge.invoke).toHaveBeenCalledWith('delete_items', { tags: ['c:h2'] });
+    expect(bridge.invoke).toHaveBeenCalledWith('delete_items', {
+      tags: ['c:h2'],
+      deleteFolderEntries: false,
+    });
     done = actions.deleteConnection('c1');
     expect(dialogs.current?.kind === 'confirm' && dialogs.current.message).toBe(
       'It is the entry’s only connection, so the entry is deleted too.',

@@ -293,7 +293,9 @@ export function createApi(invoke: Invoke = tauriBridge.invoke) {
     saveFolder: (folder: FolderInput) => call<string>('save_folder', { folder }),
 
     // Library changes
-    deleteItems: (tags: string[]) => call<DeleteCountsDto>('delete_items', { tags }),
+    /** With `deleteFolderEntries` the entries inside deleted folders go too; otherwise they move to the root. */
+    deleteItems: (tags: string[], deleteFolderEntries = false) =>
+      call<DeleteCountsDto>('delete_items', { tags, deleteFolderEntries }),
     moveItems: (tags: string[], targetFolderId: string | null) =>
       call<MoveResultDto>('move_items', { tags, targetFolderId }),
     /** Stars or unstars the entry behind `tag` (`e:`, `fav:` or `c:`). */

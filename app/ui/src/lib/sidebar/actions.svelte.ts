@@ -21,6 +21,9 @@ import {
   bulkDeleteTitle,
   credentialDeleteMessage,
   deletionCounts,
+  entriesInFolders,
+  folderEntriesOption,
+  tagItems,
   toggledExpansion,
 } from './model';
 
@@ -308,7 +311,21 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
       if (!folder) return Promise.resolve(undefined);
       return perform(() => api.saveFolder({ id, name: folder.name, color }));
     },
-    deleteFolder: (id: string) => perform(() => api.deleteItems([`f:${id}`])),
+    /** "Delete “X”?", with a checkbox to delete the entries inside too when there are any. */
+    async deleteFolder(id: string) {
+      const folder = library.folder(id);
+      if (!folder) return;
+      const count = entriesInFolders(library.library, [id]);
+      const answer = await dialogs.confirmWithOption({
+        title: t('Delete “%@”?', folder.name),
+        message: [t('Subfolders are deleted too.'), t("This can't be undone.")].join('\n'),
+        confirmLabel: t('Delete'),
+        destructive: true,
+        option: count > 0 ? folderEntriesOption(count) : undefined,
+      });
+      if (!answer) return;
+      await perform(() => api.deleteItems([`f:${id}`], answer.checked));
+    },
 
     // Credentials
     /** Deletes at once when unused, otherwise after "Delete credential?". */
@@ -342,15 +359,17 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
     async deleteItems(tags: string[]) {
       const counts = deletionCounts(tags, library.library);
       if (counts.tags.length === 0) return;
-      const ok = await dialogs.confirm({
+      const inside = entriesInFolders(library.library, tagItems(counts.tags).folderIds);
+      const answer = await dialogs.confirmWithOption({
         title: bulkDeleteTitle(counts),
         message: bulkDeleteMessage(counts),
         confirmLabel: t('Delete'),
         destructive: true,
+        option: inside > 0 ? folderEntriesOption(inside) : undefined,
       });
-      if (!ok) return;
+      if (!answer) return;
       library.clearSelection();
-      await perform(() => api.deleteItems(counts.tags));
+      await perform(() => api.deleteItems(counts.tags, answer.checked));
     },
 
     // Saved splits
