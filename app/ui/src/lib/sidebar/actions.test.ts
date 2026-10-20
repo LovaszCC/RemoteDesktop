@@ -82,6 +82,56 @@ describe('sidebar actions', () => {
     });
   });
 
+  it('a bulk delete with a folder holding entries offers to delete them too', async () => {
+    const { actions, dialogs, bridge } = setup({
+      delete_items: { entries: 2, connections: 2, folders: 1, credentials: 0, splits: 0 },
+    });
+    const done = actions.deleteItems(['f:f1']);
+    expect(dialogs.current?.kind === 'confirm' && dialogs.current.option).toBe(
+      'Also delete the 2 entries inside (otherwise they move to the top level)',
+    );
+    dialogs.accept(true);
+    await done;
+    expect(bridge.invoke).toHaveBeenCalledWith('delete_items', { tags: ['f:f1'], deleteFolderEntries: true });
+  });
+
+  it('asks before deleting a folder; the checkbox decides about the entries inside', async () => {
+    const reply = { entries: 0, connections: 0, folders: 1, credentials: 0, splits: 0 };
+    const { actions, dialogs, bridge } = setup({ delete_items: reply });
+    let done = actions.deleteFolder('f1');
+    const open = dialogs.current;
+    expect(open?.title).toBe('Delete “Office”?');
+    expect(open?.kind === 'confirm' && open.destructive).toBe(true);
+    // web01 in Office and db in Office / Servers.
+    expect(open?.kind === 'confirm' && open.option).toBe(
+      'Also delete the 2 entries inside (otherwise they move to the top level)',
+    );
+    dialogs.accept();
+    await done;
+    expect(bridge.invoke).toHaveBeenLastCalledWith('delete_items', {
+      tags: ['f:f1'],
+      deleteFolderEntries: false,
+    });
+
+    done = actions.deleteFolder('f1');
+    dialogs.accept(true);
+    await done;
+    expect(bridge.invoke).toHaveBeenLastCalledWith('delete_items', {
+      tags: ['f:f1'],
+      deleteFolderEntries: true,
+    });
+
+    // An empty folder: no checkbox. Cancel deletes nothing.
+    bridge.invoke.mockClear();
+    done = actions.deleteFolder('f3');
+    expect(dialogs.current?.kind === 'confirm' && dialogs.current.option).toBeUndefined();
+    dialogs.cancel();
+    await done;
+    expect(bridge.invoke).not.toHaveBeenCalled();
+    await actions.deleteFolder('missing');
+    expect(dialogs.current).toBeNull();
+  });
+
   it('a cancelled bulk delete deletes nothing', async () => {
     const { actions, dialogs, bridge } = setup();
     const done = actions.deleteItems(['e:c1']);

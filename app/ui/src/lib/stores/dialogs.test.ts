@@ -15,6 +15,20 @@ describe('dialog store', () => {
     expect(await no).toBe(false);
   });
 
+  it('resolves a confirmation with its checkbox, null when cancelled', async () => {
+    const dialogs = createDialogStore();
+    let answer = dialogs.confirmWithOption({ title: 'Sure?', confirmLabel: 'Delete', option: 'Also' });
+    expect(dialogs.current?.kind === 'confirm' && dialogs.current.option).toBe('Also');
+    dialogs.accept(true);
+    expect(await answer).toEqual({ checked: true });
+    answer = dialogs.confirmWithOption({ title: 'Sure?', confirmLabel: 'Delete' });
+    dialogs.accept();
+    expect(await answer).toEqual({ checked: false });
+    answer = dialogs.confirmWithOption({ title: 'Sure?', confirmLabel: 'Delete' });
+    dialogs.cancel();
+    expect(await answer).toBeNull();
+  });
+
   it('resolves prompts with the trimmed name, null for blank or cancel', async () => {
     const dialogs = createDialogStore();
     let name = dialogs.prompt({ title: 'Name', label: 'Name', confirmLabel: 'Save' });
