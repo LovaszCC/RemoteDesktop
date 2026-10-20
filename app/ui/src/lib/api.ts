@@ -28,6 +28,10 @@ import type {
   ImportKind,
   ImportPreviewDto,
   ImportResultDto,
+  ExportResultDto,
+  TransferDecisionDto,
+  TransferPreviewDto,
+  TransferResultDto,
   KeySetupDto,
   KeyShortcut,
   LaunchNoticeDto,
@@ -242,6 +246,20 @@ export function createApi(invoke: Invoke = tauriBridge.invoke) {
     /** Imports the rows whose ids are in `selected`; emits `library-changed`. */
     importCommit: (kind: ImportKind, path: string, selected: string[]) =>
       call<ImportResultDto>('import_commit', { kind, path, selected }),
+
+    // Export / import of the app's own format
+    /** The save panel for an export; the path, or `null` when cancelled. */
+    pickExportPath: () => call<string | null>('pick_export_path'),
+    /** The open panel for an export; the path, or `null` when cancelled. */
+    pickTransferFile: () => call<string | null>('pick_transfer_file'),
+    /** Writes the picked records; with a password the file is encrypted and carries the passwords. */
+    exportLibrary: (path: string, entryIds: string[], credentialIds: string[], password: string | null) =>
+      call<ExportResultDto>('export_library', { path, entryIds, credentialIds, password }),
+    transferPreview: (path: string, password: string | null) =>
+      call<TransferPreviewDto>('transfer_preview', { path, password }),
+    /** Imports with a decision per row (rows without one are skipped); emits `library-changed`. */
+    transferCommit: (path: string, password: string | null, decisions: TransferDecisionDto[]) =>
+      call<TransferResultDto>('transfer_commit', { path, password, decisions }),
 
     // Library queries
     library: () => call<LibraryDto>('library'),

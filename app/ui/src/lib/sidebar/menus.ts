@@ -114,8 +114,16 @@ export function importMenu(
   readOnly: boolean,
   start: (kind: ImportKind) => void,
   shortcuts: Partial<Record<ImportKind, string | null>> = {},
+  transfer?: { importExport: () => void; exportLibrary: () => void },
 ): MenuItem[] {
-  if (readOnly) return [];
+  const own: MenuItem[] = transfer
+    ? [
+        { label: t('Import from RemoteDesktop export…'), action: transfer.importExport },
+        { kind: 'separator' },
+        { label: t('Export…'), action: transfer.exportLibrary },
+      ]
+    : [];
+  if (readOnly) return own.slice(-1);
   return [
     { label: t('Import from RDM…'), shortcut: shortcuts.rdm ?? undefined, action: () => start('rdm') },
     {
@@ -123,6 +131,7 @@ export function importMenu(
       shortcut: shortcuts.winbox ?? undefined,
       action: () => start('winbox'),
     },
+    ...own,
   ];
 }
 

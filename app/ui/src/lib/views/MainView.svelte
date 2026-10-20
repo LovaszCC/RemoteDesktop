@@ -19,6 +19,10 @@
   import { sidebarActions } from '../sidebar/actions.svelte';
   import ImportSheet from '../importer/ImportSheet.svelte';
   import { importer } from '../importer/importer.svelte';
+  import ExportSheet from '../transfer/ExportSheet.svelte';
+  import { exporter } from '../transfer/exporter.svelte';
+  import TransferImportSheet from '../transfer/TransferImportSheet.svelte';
+  import { transferImporter } from '../transfer/transferImporter.svelte';
   import { importMenu, newMenu } from '../sidebar/menus';
   import Sidebar from '../sidebar/Sidebar.svelte';
   import { alerts } from '../stores/alert.svelte';
@@ -76,6 +80,8 @@
     editor.closeAll();
     dialogs.cancel();
     importer.close();
+    exporter.close();
+    transferImporter.close();
   });
 
   /** The toolbar "+" menu, opened below the button. */
@@ -92,10 +98,18 @@
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     showContextMenu(
       { clientX: rect.left, clientY: rect.bottom + 2 },
-      importMenu(app.readOnly, (kind) => void importer.start(kind), {
-        rdm: settings.shortcut('importRDM')?.display ?? null,
-        winbox: settings.shortcut('importWinbox')?.display ?? null,
-      }),
+      importMenu(
+        app.readOnly,
+        (kind) => void importer.start(kind),
+        {
+          rdm: settings.shortcut('importRDM')?.display ?? null,
+          winbox: settings.shortcut('importWinbox')?.display ?? null,
+        },
+        {
+          importExport: () => void transferImporter.start(),
+          exportLibrary: () => exporter.open(library.library, library.selection),
+        },
+      ),
     );
   }
 
@@ -189,6 +203,8 @@
   {/key}
 {/if}
 <ImportSheet {importer} />
+<ExportSheet {exporter} library={library.library} />
+<TransferImportSheet importer={transferImporter} />
 
 <style>
   .spacer {
