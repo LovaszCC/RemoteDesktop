@@ -205,6 +205,21 @@ pick a folder, and your routers turn into MikroTik connections.
 
 ---
 
+## 🤝 Sharing entries with a colleague
+
+*File → Export…* lets you tick the entries (or whole folders) and credentials to hand over, for example the
+server list for a new colleague.
+
+- **With a password** the file (`.rdexport`) is encrypted (AES-256-GCM) and carries the passwords too.
+- **Without a password** the file is readable and carries no passwords at all, only hosts, users and names.
+- An entry whose credential you didn't tick goes without it, so the colleague can link their own.
+- SSH keys never leave your computer.
+
+Your colleague opens it with *File → Import from RemoteDesktop export…*, types the password if there is one,
+and picks what to bring in. For anything they already have, they choose **Overwrite** or **Keep both**.
+
+---
+
 ## 🛠 Build from source
 
 You'll need [rustup](https://rustup.rs), Node 26, pnpm 12, and CMake, Ninja and Perl (for the built-in
