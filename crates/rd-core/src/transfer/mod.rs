@@ -6,6 +6,7 @@
 
 mod build;
 mod conflicts;
+mod csv;
 
 use std::fmt;
 
@@ -15,6 +16,7 @@ use crate::model::{ConnectionType, LabelColor, MikrotikMode, RdpClient, SshTermi
 
 pub use build::{ExportSelection, OpenSecret, build_payload};
 pub use conflicts::{TransferConflicts, conflicts};
+pub use csv::{CsvError, CsvImport, CsvSkipReason, CsvSkipped, parse_csv, sample_csv};
 
 /// A password inside an export. Serialized as the plain string; never printed.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
