@@ -24,6 +24,7 @@
 // Tauri deserializes command arguments into owned values and passes `State`/`AppHandle` by value.
 #![allow(clippy::needless_pass_by_value)]
 
+pub mod csv;
 pub mod database;
 pub mod files;
 pub mod forwards;

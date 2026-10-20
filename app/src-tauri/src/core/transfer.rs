@@ -5,6 +5,7 @@
 
 use std::path::Path;
 
+use rd_core::Library;
 use rd_core::transfer::{ExportPayload, ExportSelection, build_payload, conflicts};
 use rd_store::{
     TransferAction, TransferDecisions, TransferError, VaultError, export_is_encrypted, read_export,
@@ -56,6 +57,67 @@ fn read_payload(path: &Path, password: Option<&str>) -> Result<(ExportPayload, b
     let data = read_file(path)?;
     let encrypted = export_is_encrypted(&data)?;
     Ok((read_export(&data, password)?, encrypted))
+}
+
+/// The secret-free preview rows of a payload, entries then credentials, flagging the ones that already exist.
+pub(super) fn preview_rows(payload: &ExportPayload, library: &Library) -> Vec<TransferRowDto> {
+    let found = conflicts(payload, library);
+    let entries = payload.entries.iter().enumerate().map(|(index, item)| {
+        let mut credential_ids = Vec::new();
+        for reference in item
+            .connections
+            .iter()
+            .filter_map(|c| c.credential_ref.as_deref())
+        {
+            if let Some(position) = payload.credentials.iter().position(|c| c.reference == reference) {
+                let id = credential_id(position);
+                if !credential_ids.contains(&id) {
+                    credential_ids.push(id);
+                }
+            }
+        }
+        let mut types = Vec::new();
+        for connection in &item.connections {
+            if !types.contains(&connection.kind) {
+                types.push(connection.kind);
+            }
+        }
+        TransferRowDto {
+            id: entry_id(index),
+            kind: "entry".to_owned(),
+            name: item.name.clone(),
+            host: item.host.clone(),
+            user: item
+                .connections
+                .iter()
+                .map(|c| c.username.as_str())
+                .find(|u| !u.is_empty())
+                .unwrap_or_default()
+                .to_owned(),
+            folder_path: item.folder_path.clone(),
+            connection_types: types,
+            credential_ids,
+            has_password: item.connections.iter().any(|c| c.password.is_some()),
+            conflict: found.entries[index].is_some(),
+        }
+    });
+    let credentials = payload
+        .credentials
+        .iter()
+        .enumerate()
+        .map(|(index, item)| TransferRowDto {
+            id: credential_id(index),
+            kind: "credential".to_owned(),
+            name: item.name.clone(),
+            host: String::new(),
+            user: item.username.clone(),
+            folder_path: Vec::new(),
+            connection_types: Vec::new(),
+            credential_ids: Vec::new(),
+            has_password: item.password.is_some(),
+            conflict: found.credentials[index].is_some(),
+        });
+    entries.chain(credentials).collect()
 }
 
 impl AppCore {
@@ -121,62 +183,6 @@ impl AppCore {
             db.library()?
         };
         let (payload, encrypted) = read_payload(path, password)?;
-        let found = conflicts(&payload, &library);
-        let entries = payload.entries.iter().enumerate().map(|(index, item)| {
-            let mut credential_ids = Vec::new();
-            for reference in item
-                .connections
-                .iter()
-                .filter_map(|c| c.credential_ref.as_deref())
-            {
-                if let Some(position) = payload.credentials.iter().position(|c| c.reference == reference) {
-                    let id = credential_id(position);
-                    if !credential_ids.contains(&id) {
-                        credential_ids.push(id);
-                    }
-                }
-            }
-            let mut types = Vec::new();
-            for connection in &item.connections {
-                if !types.contains(&connection.kind) {
-                    types.push(connection.kind);
-                }
-            }
-            TransferRowDto {
-                id: entry_id(index),
-                kind: "entry".to_owned(),
-                name: item.name.clone(),
-                host: item.host.clone(),
-                user: item
-                    .connections
-                    .iter()
-                    .map(|c| c.username.as_str())
-                    .find(|u| !u.is_empty())
-                    .unwrap_or_default()
-                    .to_owned(),
-                folder_path: item.folder_path.clone(),
-                connection_types: types,
-                credential_ids,
-                has_password: item.connections.iter().any(|c| c.password.is_some()),
-                conflict: found.entries[index].is_some(),
-            }
-        });
-        let credentials = payload
-            .credentials
-            .iter()
-            .enumerate()
-            .map(|(index, item)| TransferRowDto {
-                id: credential_id(index),
-                kind: "credential".to_owned(),
-                name: item.name.clone(),
-                host: String::new(),
-                user: item.username.clone(),
-                folder_path: Vec::new(),
-                connection_types: Vec::new(),
-                credential_ids: Vec::new(),
-                has_password: item.password.is_some(),
-                conflict: found.credentials[index].is_some(),
-            });
         Ok(TransferPreviewDto {
             file_name: path
                 .file_name()
@@ -184,7 +190,7 @@ impl AppCore {
                 .unwrap_or_default(),
             encrypted,
             exported_at: payload.exported_at.clone(),
-            rows: entries.chain(credentials).collect(),
+            rows: preview_rows(&payload, &library),
         })
     }
 
@@ -200,6 +206,15 @@ impl AppCore {
     ) -> Result<TransferResultDto, CommandError> {
         Self::writable(&self.inner())?;
         let (payload, _) = read_payload(path, password)?;
+        self.commit_payload(&payload, decisions)
+    }
+
+    /// Imports `payload` with the decisions of its preview rows; rows without one are skipped.
+    pub(super) fn commit_payload(
+        &self,
+        payload: &ExportPayload,
+        decisions: &[TransferDecisionDto],
+    ) -> Result<TransferResultDto, CommandError> {
         let pick = |id: &str| {
             decisions
                 .iter()
@@ -214,7 +229,7 @@ impl AppCore {
         };
         let inner = self.inner();
         let (db, vault) = Self::writable(&inner)?;
-        let counts = db.import_transfer(&payload, &decisions, vault)?;
+        let counts = db.import_transfer(payload, &decisions, vault)?;
         Ok(TransferResultDto {
             entries_created: counts.entries_created,
             entries_updated: counts.entries_updated,

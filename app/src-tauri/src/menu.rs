@@ -37,6 +37,8 @@ pub const CHECK_FOR_UPDATES: &str = "checkForUpdates";
 pub const EXPORT_LIBRARY: &str = "exportLibrary";
 /// Menu id of "Import from `RemoteDesktop` export…" (handled by the UI like a command).
 pub const IMPORT_TRANSFER: &str = "importTransfer";
+/// Menu id of "Import from CSV…" (handled by the UI like a command).
+pub const IMPORT_CSV: &str = "importCsv";
 
 /// Payload of [`MENU_COMMAND`].
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -66,6 +68,7 @@ const HU: &[(&str, &str)] = &[
         "Importálás RemoteDesktop exportból…",
     ),
     ("Export…", "Exportálás…"),
+    ("Import from CSV…", "Importálás CSV-ből…"),
     ("Connect", "Kapcsolódás"),
     ("New Local Terminal", "Új helyi terminál"),
     (
@@ -420,6 +423,13 @@ fn file_menu(app: &AppHandle, model: &MenuModel) -> tauri::Result<Submenu<Wry>> 
     )?));
     file.push(Box::new(MenuItem::with_id(
         app,
+        IMPORT_CSV,
+        model.label("Import from CSV…"),
+        model.writable,
+        None::<&str>,
+    )?));
+    file.push(Box::new(MenuItem::with_id(
+        app,
         EXPORT_LIBRARY,
         model.label("Export…"),
         model.unlocked,
@@ -560,6 +570,7 @@ pub fn on_menu_event(app: &AppHandle, event: &MenuEvent) {
         DEV_OPEN_TEST_TAB,
         EXPORT_LIBRARY,
         IMPORT_TRANSFER,
+        IMPORT_CSV,
     ]
     .contains(&id)
         || id.parse::<ShortcutCommand>().is_ok();

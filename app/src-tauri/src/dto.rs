@@ -794,3 +794,15 @@ pub struct TransferResultDto {
     /// Folders created.
     pub folders_created: usize,
 }
+
+/// What `csv_preview` returns.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CsvPreviewDto {
+    /// The file name, for the sheet's summary.
+    pub file_name: String,
+    /// The entries, in file order.
+    pub rows: Vec<TransferRowDto>,
+    /// Rows left out: `{line, name, reason, detail?}`.
+    pub skipped: Vec<rd_core::transfer::CsvSkipped>,
+}

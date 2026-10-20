@@ -3,6 +3,9 @@
 //! shortcut operations in the submodules. The Tauri commands are thin wrappers that call these methods
 //! and emit events.
 
+mod csv;
+#[cfg(test)]
+mod csv_tests;
 #[cfg(test)]
 mod entries_tests;
 mod error;
