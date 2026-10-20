@@ -260,13 +260,13 @@ impl Vault {
 }
 
 /// PBKDF2-HMAC-SHA256 → 32-byte key.
-fn derive_key(password: &str, salt: &[u8], iterations: u32) -> Zeroizing<[u8; 32]> {
+pub(crate) fn derive_key(password: &str, salt: &[u8], iterations: u32) -> Zeroizing<[u8; 32]> {
     let mut key = Zeroizing::new([0u8; 32]);
     pbkdf2::pbkdf2_hmac::<Sha256>(password.as_bytes(), salt, iterations, key.as_mut());
     key
 }
 
-fn random_salt() -> [u8; 16] {
+pub(crate) fn random_salt() -> [u8; 16] {
     let mut salt = [0u8; 16];
     getrandom::fill(&mut salt).expect("the OS random source is available");
     salt

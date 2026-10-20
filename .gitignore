@@ -15,9 +15,10 @@ spikes/
 # Docs and planning notes stay local
 docs/
 
-# User data: WinBox address books and databases contain secrets / real hosts.
+# User data: WinBox address books, exports and databases contain secrets / real hosts.
 # Only the made-up fixtures in tests/fixtures/ are committed.
 *.cdb
+*.rdexport
 *.sqlite
 *.sqlite.lock
 !tests/fixtures/*.sqlite

@@ -28,6 +28,11 @@ import type {
   ImportKind,
   ImportPreviewDto,
   ImportResultDto,
+  ExportResultDto,
+  TransferDecisionDto,
+  TransferPreviewDto,
+  TransferResultDto,
+  CsvPreviewDto,
   KeySetupDto,
   KeyShortcut,
   LaunchNoticeDto,
@@ -243,6 +248,30 @@ export function createApi(invoke: Invoke = tauriBridge.invoke) {
     importCommit: (kind: ImportKind, path: string, selected: string[]) =>
       call<ImportResultDto>('import_commit', { kind, path, selected }),
 
+    // Export / import of the app's own format
+    /** The save panel for an export; the path, or `null` when cancelled. */
+    pickExportPath: () => call<string | null>('pick_export_path'),
+    /** The open panel for an export; the path, or `null` when cancelled. */
+    pickTransferFile: () => call<string | null>('pick_transfer_file'),
+    /** Writes the picked records; with a password the file is encrypted and carries the passwords. */
+    exportLibrary: (path: string, entryIds: string[], credentialIds: string[], password: string | null) =>
+      call<ExportResultDto>('export_library', { path, entryIds, credentialIds, password }),
+    transferPreview: (path: string, password: string | null) =>
+      call<TransferPreviewDto>('transfer_preview', { path, password }),
+    /** Imports with a decision per row (rows without one are skipped); emits `library-changed`. */
+    transferCommit: (path: string, password: string | null, decisions: TransferDecisionDto[]) =>
+      call<TransferResultDto>('transfer_commit', { path, password, decisions }),
+
+    // CSV import
+    /** Asks where to save the sample CSV and writes it; `false` when cancelled. */
+    saveCsvSample: () => call<boolean>('save_csv_sample'),
+    /** The open panel for a CSV file; the path, or `null` when cancelled. */
+    pickCsvFile: () => call<string | null>('pick_csv_file'),
+    csvPreview: (path: string) => call<CsvPreviewDto>('csv_preview', { path }),
+    /** Imports with a decision per row (rows without one are skipped); emits `library-changed`. */
+    csvCommit: (path: string, decisions: TransferDecisionDto[]) =>
+      call<TransferResultDto>('csv_commit', { path, decisions }),
+
     // Library queries
     library: () => call<LibraryDto>('library'),
     search: (query: string) => call<SearchResultDto>('search', { query }),
@@ -264,7 +293,9 @@ export function createApi(invoke: Invoke = tauriBridge.invoke) {
     saveFolder: (folder: FolderInput) => call<string>('save_folder', { folder }),
 
     // Library changes
-    deleteItems: (tags: string[]) => call<DeleteCountsDto>('delete_items', { tags }),
+    /** With `deleteFolderEntries` the entries inside deleted folders go too; otherwise they move to the root. */
+    deleteItems: (tags: string[], deleteFolderEntries = false) =>
+      call<DeleteCountsDto>('delete_items', { tags, deleteFolderEntries }),
     moveItems: (tags: string[], targetFolderId: string | null) =>
       call<MoveResultDto>('move_items', { tags, targetFolderId }),
     /** Stars or unstars the entry behind `tag` (`e:`, `fav:` or `c:`). */

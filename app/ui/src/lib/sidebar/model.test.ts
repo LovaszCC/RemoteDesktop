@@ -11,6 +11,8 @@ import {
   credentialDeleteMessage,
   deletionCounts,
   dragPayload,
+  entriesInFolders,
+  folderEntriesOption,
   emptyHint,
   isDraggable,
   isLibraryEmpty,
@@ -289,13 +291,28 @@ describe('confirmation texts', () => {
     expect(bulkDeleteMessage(counts)).toBe(
       [
         'Connections: 2, folders: 1, credentials: 1.',
-        'Subfolders are deleted too; connections inside the folders are kept and move to Connections.',
+        'Subfolders are deleted too.',
         'Connections using a deleted credential fall back to their own saved login.',
         "This can't be undone.",
       ].join('\n'),
     );
     expect(bulkDeleteMessage(deletionCounts(['e:1'], sidebarLibrary()))).toBe(
       "Connections: 1, folders: 0, credentials: 0.\nThis can't be undone.",
+    );
+  });
+
+  it('counts the entries in folders and their subfolders', () => {
+    const library = sidebarLibrary();
+    expect(entriesInFolders(library, ['f1'])).toBe(2);
+    expect(entriesInFolders(library, ['f2'])).toBe(1);
+    expect(entriesInFolders(library, ['f3'])).toBe(0);
+    expect(entriesInFolders(library, [])).toBe(0);
+    expect(folderEntriesOption(2)).toBe(
+      'Also delete the 2 entries inside (otherwise they move to the top level)',
+    );
+    setLocale('hu');
+    expect(folderEntriesOption(2)).toBe(
+      'A benne lévő 2 bejegyzés törlése is (különben a legfelső szintre kerülnek)',
     );
   });
 

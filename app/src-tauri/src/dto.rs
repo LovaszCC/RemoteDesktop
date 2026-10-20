@@ -715,3 +715,94 @@ pub struct ImportResultDto {
     /// Entries whose password was only in encrypted form.
     pub without_password: usize,
 }
+
+/// What `export_library` returns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportResultDto {
+    /// Entries written.
+    pub entries: usize,
+    /// Credentials written.
+    pub credentials: usize,
+    /// The file is encrypted (and carries the passwords).
+    pub encrypted: bool,
+}
+
+/// One row of an export's import preview. Secret-free: only whether it carries a password.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransferRowDto {
+    /// Stable within one file: `e<n>` for entries, `k<n>` for credentials.
+    pub id: String,
+    /// `entry` or `credential`.
+    #[serde(rename = "type")]
+    pub kind: String,
+    /// Display name.
+    pub name: String,
+    /// Host; empty for credentials.
+    pub host: String,
+    /// The credential's user, or the first connection user of an entry.
+    pub user: String,
+    /// Folder names from the root down.
+    pub folder_path: Vec<String>,
+    /// The entry's connection types, de-duplicated in order.
+    pub connection_types: Vec<ConnectionType>,
+    /// Rows of the credentials the entry's connections link to.
+    pub credential_ids: Vec<String>,
+    /// The file carries a password for it.
+    pub has_password: bool,
+    /// A matching record already exists; the user picks overwrite, keep both or skip.
+    pub conflict: bool,
+}
+
+/// What `transfer_preview` returns.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransferPreviewDto {
+    /// The file name, for the sheet's summary.
+    pub file_name: String,
+    /// The file is encrypted.
+    pub encrypted: bool,
+    /// When the file was written.
+    pub exported_at: String,
+    /// Entries, then credentials, in file order.
+    pub rows: Vec<TransferRowDto>,
+}
+
+/// The user's choice for one preview row.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransferDecisionDto {
+    /// [`TransferRowDto::id`].
+    pub id: String,
+    /// `new`, `overwrite` or `skip`.
+    pub action: rd_store::TransferAction,
+}
+
+/// What `transfer_commit` returns.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransferResultDto {
+    /// Entries created.
+    pub entries_created: usize,
+    /// Entries replaced.
+    pub entries_updated: usize,
+    /// Credentials created.
+    pub credentials_created: usize,
+    /// Credentials replaced.
+    pub credentials_updated: usize,
+    /// Folders created.
+    pub folders_created: usize,
+}
+
+/// What `csv_preview` returns.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CsvPreviewDto {
+    /// The file name, for the sheet's summary.
+    pub file_name: String,
+    /// The entries, in file order.
+    pub rows: Vec<TransferRowDto>,
+    /// Rows left out: `{line, name, reason, detail?}`.
+    pub skipped: Vec<rd_core::transfer::CsvSkipped>,
+}

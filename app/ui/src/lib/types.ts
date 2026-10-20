@@ -433,6 +433,65 @@ export interface ImportResultDto {
   withoutPassword: number;
 }
 
+// Export and import of the app's own format (docs: export_library / transfer_preview / transfer_commit)
+
+export interface ExportResultDto {
+  entries: number;
+  credentials: number;
+  /** Encrypted, with the passwords. */
+  encrypted: boolean;
+}
+
+/** One row of an export's preview; secret-free (only whether the file has a password for it). */
+export interface TransferRowDto {
+  /** `e<n>` for entries, `k<n>` for credentials; stable within one file. */
+  id: string;
+  type: 'entry' | 'credential';
+  name: string;
+  host: string;
+  user: string;
+  folderPath: string[];
+  connectionTypes: ConnectionType[];
+  /** Rows of the credentials the entry's connections link to. */
+  credentialIds: string[];
+  hasPassword: boolean;
+  /** A matching record exists: the user picks overwrite or keep both. */
+  conflict: boolean;
+}
+
+export interface TransferPreviewDto {
+  fileName: string;
+  encrypted: boolean;
+  exportedAt: string;
+  rows: TransferRowDto[];
+}
+
+export type TransferAction = 'new' | 'overwrite' | 'skip';
+
+export interface TransferDecisionDto {
+  id: string;
+  action: TransferAction;
+}
+
+/** A CSV row left out; `line` is 1-based with the header on line 1. */
+export type CsvSkippedDto = { line: number; name: string } & (
+  { reason: 'noName' | 'noHost' } | { reason: 'unknownType' | 'badUrl'; detail: string }
+);
+
+export interface CsvPreviewDto {
+  fileName: string;
+  rows: TransferRowDto[];
+  skipped: CsvSkippedDto[];
+}
+
+export interface TransferResultDto {
+  entriesCreated: number;
+  entriesUpdated: number;
+  credentialsCreated: number;
+  credentialsUpdated: number;
+  foldersCreated: number;
+}
+
 // Embedded SSH
 
 export type RecordPhase = 'idle' | 'armed' | 'capturing';

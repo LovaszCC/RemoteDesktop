@@ -200,8 +200,29 @@ from RDM…* here. Folders, connections and credentials all come across.
 **From WinBox:** *File → Import from WinBox…* reads a WinBox address book (`.cdb`). You'll see a preview,
 pick a folder, and your routers turn into MikroTik connections.
 
+**From anything else (CSV):** *File → Import from CSV…* explains the columns and offers a sample file. Put
+your servers in a spreadsheet with the columns `folder`, `name`, `host` and `type` (`rdp`, `ssh`, `web` or
+`mikrotik`), save it as CSV (`;` or `,`, UTF-8) and choose it. Rows with the same name become one entry with
+several connections. Logins and passwords aren't part of the file: set them afterwards for many entries at
+once.
+
 > [!WARNING]
-> Both export files contain your passwords in plain text. Delete them once the import is done.
+> The RDM and WinBox export files contain your passwords in plain text. Delete them once the import is done.
+
+---
+
+## 🤝 Sharing entries with a colleague
+
+*File → Export…* lets you tick the entries (or whole folders) and credentials to hand over, for example the
+server list for a new colleague.
+
+- **With a password** the file (`.rdexport`) is encrypted (AES-256-GCM) and carries the passwords too.
+- **Without a password** the file is readable and carries no passwords at all, only hosts, users and names.
+- An entry whose credential you didn't tick goes without it, so the colleague can link their own.
+- SSH keys never leave your computer.
+
+Your colleague opens it with *File → Import from RemoteDesktop export…*, types the password if there is one,
+and picks what to bring in. For anything they already have, they choose **Overwrite** or **Keep both**.
 
 ---
 

@@ -9,6 +9,7 @@ pub mod natural;
 pub mod rdp;
 pub mod shortcuts;
 pub mod split;
+pub mod transfer;
 pub mod tree;
 
 pub use library::Library;

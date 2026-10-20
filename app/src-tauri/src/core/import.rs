@@ -15,7 +15,7 @@ use crate::dto::{ImportPreviewDto, ImportResultDto, ImportRowDto};
 /// Larger files are refused: real exports are a few megabytes at most.
 pub const MAX_IMPORT_BYTES: u64 = 64 * 1024 * 1024;
 
-fn read_file(path: &Path) -> Result<Vec<u8>, CommandError> {
+pub(super) fn read_file(path: &Path) -> Result<Vec<u8>, CommandError> {
     let unreadable = |e: std::io::Error| {
         CommandError::new("importRead", "Can't read the file.").with_detail(e.to_string())
     };

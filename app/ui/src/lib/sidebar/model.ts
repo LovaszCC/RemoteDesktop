@@ -427,6 +427,30 @@ export function deletionCounts(
   };
 }
 
+/** Entries in the folders and their subfolders. */
+export function entriesInFolders(
+  library: Pick<LibraryDto, 'entries' | 'folders'>,
+  folderIds: readonly string[],
+): number {
+  const folders = new Set(folderIds);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const folder of library.folders) {
+      if (folder.parentId && folders.has(folder.parentId) && !folders.has(folder.id)) {
+        folders.add(folder.id);
+        grew = true;
+      }
+    }
+  }
+  return library.entries.filter((e) => e.folderId !== null && folders.has(e.folderId)).length;
+}
+
+/** The checkbox of a folder delete with `count` entries inside. */
+export function folderEntriesOption(count: number): string {
+  return t('Also delete the %lld entries inside (otherwise they move to the top level)', count);
+}
+
 export function bulkDeleteTitle(counts: DeletionCounts): string {
   return t('Delete %lld items?', counts.items);
 }
@@ -442,9 +466,7 @@ export function bulkDeleteMessage(counts: DeletionCounts): string {
     ),
   ];
   if (counts.folders > 0) {
-    lines.push(
-      t('Subfolders are deleted too; connections inside the folders are kept and move to Connections.'),
-    );
+    lines.push(t('Subfolders are deleted too.'));
   }
   if (counts.credentials > 0) {
     lines.push(t('Connections using a deleted credential fall back to their own saved login.'));

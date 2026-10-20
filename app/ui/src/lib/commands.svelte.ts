@@ -4,6 +4,12 @@
 import { api as defaultApi, onMenuCommand, tauriBridge, type Listen, type Unlisten } from './api';
 import { errorMessage } from './errors';
 import { importer as defaultImporter, type ImportStore } from './importer/importer.svelte';
+import { csvImporter as defaultCsvImporter, type CsvImportStore } from './transfer/csvImporter.svelte';
+import { exporter as defaultExporter, type ExportStore } from './transfer/exporter.svelte';
+import {
+  transferImporter as defaultTransferImporter,
+  type TransferImportStore,
+} from './transfer/transferImporter.svelte';
 import { createDispatcher, type AppCommand, type Dispatcher } from './shortcuts/dispatcher';
 import { recorder as defaultRecorder, type RecorderStore } from './shortcuts/recorder.svelte';
 import { sidebarActions as defaultActions, type SidebarActions } from './sidebar/actions.svelte';
@@ -46,6 +52,9 @@ export interface CommandDeps {
   alerts: Pick<AlertStore, 'show'>;
   settingsWindow: Pick<SettingsWindowStore, 'open'>;
   importer: Pick<ImportStore, 'start'>;
+  exporter: Pick<ExportStore, 'open'>;
+  transferImporter: Pick<TransferImportStore, 'start'>;
+  csvImporter: Pick<CsvImportStore, 'start'>;
   sessions: Pick<SessionsStore, 'active' | 'clear' | 'toggleRecording' | 'reconnect'>;
   splits: Pick<SplitsStore, 'splitActive' | 'toggleBroadcastActive'>;
   rdpSessions: Pick<RdpSessionsStore, 'active' | 'reconnect' | 'typeClipboard'>;
@@ -92,6 +101,9 @@ export function createCommandRunner(deps: Partial<CommandDeps> = {}) {
   const settingsWindow = deps.settingsWindow ?? defaultSettingsWindow;
   const sidebarLayout = deps.sidebarLayout ?? defaultSidebarLayout;
   const importer = deps.importer ?? defaultImporter;
+  const exporter = deps.exporter ?? defaultExporter;
+  const transferImporter = deps.transferImporter ?? defaultTransferImporter;
+  const csvImporter = deps.csvImporter ?? defaultCsvImporter;
   const sessions = deps.sessions ?? defaultSessions;
   const splits = deps.splits ?? defaultSplits;
   const rdpSessions = deps.rdpSessions ?? defaultRdpSessions;
@@ -118,6 +130,15 @@ export function createCommandRunner(deps: Partial<CommandDeps> = {}) {
         return;
       case 'importWinbox':
         if (canWrite()) void importer.start('winbox');
+        return;
+      case 'importTransfer':
+        if (canWrite()) void transferImporter.start();
+        return;
+      case 'importCsv':
+        if (canWrite()) csvImporter.start();
+        return;
+      case 'exportLibrary':
+        if (app.isUnlocked) exporter.open(library.library, library.selection);
         return;
       case 'connect': {
         if (!app.isUnlocked) return;

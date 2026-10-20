@@ -15,7 +15,8 @@
         message={dialog.message}
         confirmLabel={dialog.confirmLabel}
         destructive={dialog.destructive}
-        onconfirm={() => dialogs.accept()}
+        option={dialog.option}
+        onconfirm={(checked) => dialogs.accept(checked)}
         oncancel={() => dialogs.cancel()}
       />
     {:else}

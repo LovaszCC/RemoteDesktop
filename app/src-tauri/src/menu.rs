@@ -33,6 +33,12 @@ pub const DEV_OPEN_TEST_TAB: &str = "devOpenTestTab";
 pub const QUIT: &str = "quit";
 /// Menu id of "Check for Updates…" (handled by the UI like a command).
 pub const CHECK_FOR_UPDATES: &str = "checkForUpdates";
+/// Menu id of "Export…" (handled by the UI like a command).
+pub const EXPORT_LIBRARY: &str = "exportLibrary";
+/// Menu id of "Import from `RemoteDesktop` export…" (handled by the UI like a command).
+pub const IMPORT_TRANSFER: &str = "importTransfer";
+/// Menu id of "Import from CSV…" (handled by the UI like a command).
+pub const IMPORT_CSV: &str = "importCsv";
 
 /// Payload of [`MENU_COMMAND`].
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -57,6 +63,12 @@ const HU: &[(&str, &str)] = &[
     ("New credential", "Új credential"),
     ("Import from RDM…", "Importálás RDM-ből…"),
     ("Import from WinBox…", "Importálás WinBoxból…"),
+    (
+        "Import from RemoteDesktop export…",
+        "Importálás RemoteDesktop exportból…",
+    ),
+    ("Export…", "Exportálás…"),
+    ("Import from CSV…", "Importálás CSV-ből…"),
     ("Connect", "Kapcsolódás"),
     ("New Local Terminal", "Új helyi terminál"),
     (
@@ -402,6 +414,27 @@ fn file_menu(app: &AppHandle, model: &MenuModel) -> tauri::Result<Submenu<Wry>> 
     for command in [C::ImportRdm, C::ImportWinbox] {
         file.push(Box::new(command_item(app, model, command)?));
     }
+    file.push(Box::new(MenuItem::with_id(
+        app,
+        IMPORT_TRANSFER,
+        model.label("Import from RemoteDesktop export…"),
+        model.writable,
+        None::<&str>,
+    )?));
+    file.push(Box::new(MenuItem::with_id(
+        app,
+        IMPORT_CSV,
+        model.label("Import from CSV…"),
+        model.writable,
+        None::<&str>,
+    )?));
+    file.push(Box::new(MenuItem::with_id(
+        app,
+        EXPORT_LIBRARY,
+        model.label("Export…"),
+        model.unlocked,
+        None::<&str>,
+    )?));
     if !mac {
         file.push(separator(app)?);
         file.push(Box::new(settings_item(app, model)?));
@@ -531,7 +564,15 @@ pub fn on_menu_event(app: &AppHandle, event: &MenuEvent) {
         let _ = window.close();
         return;
     }
-    let known = [OPEN_SETTINGS, CHECK_FOR_UPDATES, DEV_OPEN_TEST_TAB].contains(&id)
+    let known = [
+        OPEN_SETTINGS,
+        CHECK_FOR_UPDATES,
+        DEV_OPEN_TEST_TAB,
+        EXPORT_LIBRARY,
+        IMPORT_TRANSFER,
+        IMPORT_CSV,
+    ]
+    .contains(&id)
         || id.parse::<ShortcutCommand>().is_ok();
     if known {
         let _ = app.emit(

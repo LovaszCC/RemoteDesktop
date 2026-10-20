@@ -122,14 +122,17 @@ pub async fn save_folder(
     write(&app, &core, move |c| c.save_folder(&folder)).await
 }
 
-/// Deletes the items behind sidebar tags; returns the counts.
+/// Deletes the items behind sidebar tags; with `deleteFolderEntries` the entries inside deleted folders go
+/// too (otherwise they move to the root). Returns the counts.
 #[tauri::command]
 pub async fn delete_items(
     app: AppHandle,
     core: State<'_, Core>,
     tags: Vec<String>,
+    delete_folder_entries: Option<bool>,
 ) -> Result<DeleteCountsDto, CommandError> {
-    write(&app, &core, move |c| c.delete_items(&tags)).await
+    let delete_folder_entries = delete_folder_entries.unwrap_or(false);
+    write(&app, &core, move |c| c.delete_items(&tags, delete_folder_entries)).await
 }
 
 /// Moves the items behind sidebar tags into a folder (`null` = root); returns `{moved, cycleRefused}`.

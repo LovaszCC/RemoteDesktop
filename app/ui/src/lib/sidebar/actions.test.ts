@@ -76,7 +76,60 @@ describe('sidebar actions', () => {
     dialogs.accept();
     await done;
     expect(library.selection).toEqual([]);
-    expect(bridge.invoke).toHaveBeenCalledWith('delete_items', { tags: ['e:c1', 'f:f3'] });
+    expect(bridge.invoke).toHaveBeenCalledWith('delete_items', {
+      tags: ['e:c1', 'f:f3'],
+      deleteFolderEntries: false,
+    });
+  });
+
+  it('a bulk delete with a folder holding entries offers to delete them too', async () => {
+    const { actions, dialogs, bridge } = setup({
+      delete_items: { entries: 2, connections: 2, folders: 1, credentials: 0, splits: 0 },
+    });
+    const done = actions.deleteItems(['f:f1']);
+    expect(dialogs.current?.kind === 'confirm' && dialogs.current.option).toBe(
+      'Also delete the 2 entries inside (otherwise they move to the top level)',
+    );
+    dialogs.accept(true);
+    await done;
+    expect(bridge.invoke).toHaveBeenCalledWith('delete_items', { tags: ['f:f1'], deleteFolderEntries: true });
+  });
+
+  it('asks before deleting a folder; the checkbox decides about the entries inside', async () => {
+    const reply = { entries: 0, connections: 0, folders: 1, credentials: 0, splits: 0 };
+    const { actions, dialogs, bridge } = setup({ delete_items: reply });
+    let done = actions.deleteFolder('f1');
+    const open = dialogs.current;
+    expect(open?.title).toBe('Delete “Office”?');
+    expect(open?.kind === 'confirm' && open.destructive).toBe(true);
+    // web01 in Office and db in Office / Servers.
+    expect(open?.kind === 'confirm' && open.option).toBe(
+      'Also delete the 2 entries inside (otherwise they move to the top level)',
+    );
+    dialogs.accept();
+    await done;
+    expect(bridge.invoke).toHaveBeenLastCalledWith('delete_items', {
+      tags: ['f:f1'],
+      deleteFolderEntries: false,
+    });
+
+    done = actions.deleteFolder('f1');
+    dialogs.accept(true);
+    await done;
+    expect(bridge.invoke).toHaveBeenLastCalledWith('delete_items', {
+      tags: ['f:f1'],
+      deleteFolderEntries: true,
+    });
+
+    // An empty folder: no checkbox. Cancel deletes nothing.
+    bridge.invoke.mockClear();
+    done = actions.deleteFolder('f3');
+    expect(dialogs.current?.kind === 'confirm' && dialogs.current.option).toBeUndefined();
+    dialogs.cancel();
+    await done;
+    expect(bridge.invoke).not.toHaveBeenCalled();
+    await actions.deleteFolder('missing');
+    expect(dialogs.current).toBeNull();
   });
 
   it('a cancelled bulk delete deletes nothing', async () => {
@@ -92,7 +145,10 @@ describe('sidebar actions', () => {
       delete_items: { connections: 0, folders: 0, credentials: 1, splits: 0 },
     });
     await actions.deleteCredential('k2');
-    expect(bridge.invoke).toHaveBeenLastCalledWith('delete_items', { tags: ['k:k2'] });
+    expect(bridge.invoke).toHaveBeenLastCalledWith('delete_items', {
+      tags: ['k:k2'],
+      deleteFolderEntries: false,
+    });
     const done = actions.deleteCredential('k1');
     expect(dialogs.current?.title).toBe('Delete credential?');
     expect(dialogs.current?.kind === 'confirm' && dialogs.current.message).toBe(
@@ -100,7 +156,10 @@ describe('sidebar actions', () => {
     );
     dialogs.accept();
     await done;
-    expect(bridge.invoke).toHaveBeenLastCalledWith('delete_items', { tags: ['k:k1'] });
+    expect(bridge.invoke).toHaveBeenLastCalledWith('delete_items', {
+      tags: ['k:k1'],
+      deleteFolderEntries: false,
+    });
   });
 
   it('copies the password or says there is none', async () => {
@@ -378,11 +437,17 @@ describe('sidebar actions', () => {
     done = actions.deleteEntry('e1');
     dialogs.accept();
     await done;
-    expect(bridge.invoke).toHaveBeenCalledWith('delete_items', { tags: ['e:e1'] });
+    expect(bridge.invoke).toHaveBeenCalledWith('delete_items', {
+      tags: ['e:e1'],
+      deleteFolderEntries: false,
+    });
     // A one-connection entry goes at once.
     await actions.deleteEntry('c1');
     expect(dialogs.current).toBeNull();
-    expect(bridge.invoke).toHaveBeenLastCalledWith('delete_items', { tags: ['e:c1'] });
+    expect(bridge.invoke).toHaveBeenLastCalledWith('delete_items', {
+      tags: ['e:c1'],
+      deleteFolderEntries: false,
+    });
   });
 
   it('deletes one connection after asking; an entry’s last one says the entry goes too', async () => {
@@ -395,7 +460,10 @@ describe('sidebar actions', () => {
     done = actions.deleteConnection('h2');
     dialogs.accept();
     await done;
-    expect(bridge.invoke).toHaveBeenCalledWith('delete_items', { tags: ['c:h2'] });
+    expect(bridge.invoke).toHaveBeenCalledWith('delete_items', {
+      tags: ['c:h2'],
+      deleteFolderEntries: false,
+    });
     done = actions.deleteConnection('c1');
     expect(dialogs.current?.kind === 'confirm' && dialogs.current.message).toBe(
       'It is the entry’s only connection, so the entry is deleted too.',

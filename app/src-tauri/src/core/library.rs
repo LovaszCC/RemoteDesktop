@@ -437,16 +437,31 @@ impl AppCore {
 
     /// Deletes every item behind the sidebar tags (entries with their connections, single connections,
     /// folders with their subfolders, credentials, saved splits). An entry's last connection takes the
-    /// entry with it. Entries inside deleted folders move to the root. Returns how many existing items of
-    /// each kind were named; `connections` counts every connection deleted.
+    /// entry with it. Entries inside deleted folders (subfolders included) are deleted too with
+    /// `delete_folder_entries`, otherwise they move to the root. Returns how many existing items of each
+    /// kind were named or, for folder contents, deleted; `connections` counts every connection deleted.
     ///
     /// # Errors
     /// `locked`, `readOnly` or `database`.
-    pub fn delete_items(&self, tags: &[String]) -> Result<DeleteCountsDto, CommandError> {
+    pub fn delete_items(
+        &self,
+        tags: &[String],
+        delete_folder_entries: bool,
+    ) -> Result<DeleteCountsDto, CommandError> {
         let inner = self.inner();
         let (db, _) = Self::writable(&inner)?;
         let library = db.library()?;
-        let items = tree::sidebar_items(tags);
+        let mut items = tree::sidebar_items(tags);
+        if delete_folder_entries {
+            let folders = folder_subtree(&library, &items.folder_ids);
+            for entry in &library.entries {
+                if entry.folder_id.as_ref().is_some_and(|f| folders.contains(f))
+                    && !items.entry_ids.contains(&entry.id)
+                {
+                    items.entry_ids.push(entry.id.clone());
+                }
+            }
+        }
         let mut splits: Vec<String> = tags
             .iter()
             .filter_map(|t| match SidebarTag::parse(t) {
@@ -757,4 +772,18 @@ impl AppCore {
             .open_optional(library.resolved(connection).password_enc.as_ref())?
             .ok_or_else(|| CommandError::new("noPassword", "No saved password"))
     }
+}
+
+/// The folders and every folder below them.
+fn folder_subtree(library: &Library, roots: &[String]) -> HashSet<String> {
+    let mut folders: HashSet<String> = roots.iter().cloned().collect();
+    let mut pending: Vec<String> = roots.to_vec();
+    while let Some(parent) = pending.pop() {
+        for child in &library.folders {
+            if child.parent_id.as_deref() == Some(parent.as_str()) && folders.insert(child.id.clone()) {
+                pending.push(child.id.clone());
+            }
+        }
+    }
+    folders
 }

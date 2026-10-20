@@ -14,6 +14,7 @@ mod meta;
 mod migrations;
 mod repository;
 mod rows;
+mod transfer;
 mod vault;
 
 pub use app_version::{APP_VERSION_KEY, is_newer, pending_migrations, stored_app_version};
@@ -24,4 +25,8 @@ pub use key_cache::{KeyCache, KeyCacheError, KeyringCache, MemoryKeyCache};
 pub use lock::{DbLock, LockHolder, LockStatus, REFRESH_EVERY, STALE_AFTER};
 pub use migrations::{MIGRATION_IDS, migrate_up_to};
 pub use repository::EntryWrite;
+pub use transfer::{
+    EXPORT_EXTENSION, EXPORT_FORMAT, TransferAction, TransferCounts, TransferDecisions, TransferError,
+    export_is_encrypted, read_export, write_export,
+};
 pub use vault::{Vault, VaultError};

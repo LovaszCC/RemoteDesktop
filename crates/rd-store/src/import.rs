@@ -39,15 +39,25 @@ pub struct ImportCounts {
 }
 
 /// Group path → folder id, creating the missing folders.
-struct Folders<'a, 'tx> {
+pub(crate) struct Folders<'a, 'tx> {
     tx: &'a Transaction<'tx>,
     parent: Option<&'a str>,
     cache: HashMap<Vec<String>, String>,
-    created: usize,
+    pub(crate) created: usize,
 }
 
-impl Folders<'_, '_> {
-    fn resolve(&mut self, path: &[String]) -> Result<Option<String>, StoreError> {
+impl<'a, 'tx> Folders<'a, 'tx> {
+    /// Resolves paths under `parent` (`None`: the root).
+    pub(crate) fn new(tx: &'a Transaction<'tx>, parent: Option<&'a str>) -> Self {
+        Self {
+            tx,
+            parent,
+            cache: HashMap::new(),
+            created: 0,
+        }
+    }
+
+    pub(crate) fn resolve(&mut self, path: &[String]) -> Result<Option<String>, StoreError> {
         let mut parent = self.parent.map(str::to_owned);
         for depth in 0..path.len() {
             let key = &path[..=depth];
