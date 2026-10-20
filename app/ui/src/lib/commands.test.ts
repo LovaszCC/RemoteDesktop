@@ -40,6 +40,7 @@ function setup(
     importer: { start: vi.fn(async () => {}) },
     exporter: { open: vi.fn() },
     transferImporter: { start: vi.fn(async () => {}) },
+    csvImporter: { start: vi.fn() },
     sessions: {
       active: state.session as never,
       clear: vi.fn(async () => {}),
@@ -123,7 +124,9 @@ describe('command runner', () => {
       run('newFolder');
       run('importRDM');
       run('importTransfer');
+      run('importCsv');
       expect(deps.transferImporter.start).not.toHaveBeenCalled();
+      expect(deps.csvImporter.start).not.toHaveBeenCalled();
       expect(deps.actions.newConnection).not.toHaveBeenCalled();
       expect(deps.actions.newFolder).not.toHaveBeenCalled();
       expect(deps.importer.start).not.toHaveBeenCalled();
@@ -173,6 +176,8 @@ describe('command runner', () => {
     expect(deps.importer.start.mock.calls).toEqual([['winbox'], ['rdm']]);
     run('importTransfer');
     expect(deps.transferImporter.start).toHaveBeenCalledOnce();
+    run('importCsv');
+    expect(deps.csvImporter.start).toHaveBeenCalledOnce();
     run('exportLibrary');
     expect(deps.exporter.open).toHaveBeenCalledWith(deps.library.library, deps.library.selection);
     run('lock');
