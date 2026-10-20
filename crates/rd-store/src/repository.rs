@@ -640,7 +640,7 @@ fn mirror_entry(conn: &rusqlite::Connection, entry_id: &str) -> Result<(), Store
 }
 
 /// Writes an entry exactly as given (no timestamp changes).
-fn upsert_entry(conn: &rusqlite::Connection, e: &Entry) -> Result<(), StoreError> {
+pub(crate) fn upsert_entry(conn: &rusqlite::Connection, e: &Entry) -> Result<(), StoreError> {
     conn.execute(
         &format!(
             "INSERT INTO entry ({ENTRY_COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10) \
