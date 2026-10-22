@@ -580,6 +580,8 @@ pub struct SettingsDto {
     pub winbox_path: Option<String>,
     /// What a single click on a sidebar entry with an open connection shows: `details` or `tab`.
     pub selection_shows: String,
+    /// Entries have launchers in the OS search.
+    pub show_in_system_search: bool,
 }
 
 /// One row of the shortcut settings.
