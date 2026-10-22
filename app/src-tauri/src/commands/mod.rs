@@ -17,7 +17,9 @@
 //! - `launch-notice` when an external launch falls back later (see [`launch`]);
 //! - `rdp-event`, `rdp-cert-prompt`, `rdp-credentials-prompt` and `rdp-prompt-closed` for embedded RDP
 //!   sessions (see [`rdp`]);
-//! - `update-progress` while an update downloads (see [`updates`]).
+//! - `update-progress` while an update downloads (see [`updates`]);
+//! - `entry-requested` (no payload) when a system search launcher asks to open an entry: the UI calls
+//!   [`session::take_entry_request`].
 //!
 //! Status, language and shortcut changes also rebuild the native menu.
 
@@ -43,7 +45,7 @@ use std::sync::Arc;
 
 use rd_platform::APP_IDENTITY;
 use serde::Serialize;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::core::{AppCore, CommandError};
 
@@ -58,6 +60,8 @@ pub const LIBRARY_CHANGED: &str = "library-changed";
 pub const SETTINGS_CHANGED: &str = "settings-changed";
 /// Event: the shortcuts changed.
 pub const SHORTCUTS_CHANGED: &str = "shortcuts-changed";
+/// Event: a launcher asked to open an entry.
+pub const ENTRY_REQUESTED: &str = "entry-requested";
 
 /// Runs `work` on the blocking pool (PBKDF2, key files, SQLite) so the main thread stays responsive.
 async fn blocking<T: Send + 'static>(
@@ -77,9 +81,18 @@ fn emit_status(app: &AppHandle, core: &AppCore) {
     crate::menu::refresh(app);
 }
 
-/// Emits the library.
+/// Emits the library and brings the system search launchers in line with it.
 fn emit_library(app: &AppHandle, core: &AppCore) {
     let _ = app.emit(LIBRARY_CHANGED, core.library());
+    sync_launchers(app);
+}
+
+/// Reconciles the system search launchers off the main thread; each run reads the latest state.
+pub fn sync_launchers(app: &AppHandle) {
+    if let Some(core) = app.try_state::<Core>() {
+        let core = Arc::clone(&core);
+        tauri::async_runtime::spawn_blocking(move || core.sync_launchers());
+    }
 }
 
 /// Reply to [`ping`]; proves the command bridge and DTO serialization work end to end.

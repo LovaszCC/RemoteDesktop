@@ -3,7 +3,7 @@
 use rd_core::shortcuts::KeyShortcut;
 use tauri::{AppHandle, Emitter, State};
 
-use super::{Core, SETTINGS_CHANGED, SHORTCUTS_CHANGED};
+use super::{Core, SETTINGS_CHANGED, SHORTCUTS_CHANGED, sync_launchers};
 use crate::core::{CommandError, SettingsPatch};
 use crate::dto::{SettingsDto, ShortcutDto};
 
@@ -24,6 +24,9 @@ pub fn settings_set(
     let _ = app.emit(SETTINGS_CHANGED, &settings);
     if patch.language.is_some() {
         crate::menu::refresh(&app);
+    }
+    if patch.show_in_system_search.is_some() {
+        sync_launchers(&app);
     }
     Ok(settings)
 }

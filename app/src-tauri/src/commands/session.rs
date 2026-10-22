@@ -12,6 +12,13 @@ pub fn app_status(core: State<'_, Core>) -> AppStatusDto {
     core.status()
 }
 
+/// The entry a system search launcher asked to open, once; `None` while locked (it waits) or when
+/// nothing is pending.
+#[tauri::command]
+pub fn take_entry_request(core: State<'_, Core>) -> Option<String> {
+    core.take_entry_request()
+}
+
 /// Hides the post-handover welcome banner.
 #[tauri::command]
 pub fn dismiss_handover(app: AppHandle, core: State<'_, Core>) -> AppStatusDto {
