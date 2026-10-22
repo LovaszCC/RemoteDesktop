@@ -289,5 +289,10 @@
   "The CSV file is damaged: a quote is never closed.": "A CSV fájl sérült: egy idézőjel nincs lezárva.",
   "The CSV file is missing columns: %@": "A CSV fájlból hiányzó oszlopok: %@",
   "Also delete the %lld entries inside (otherwise they move to the top level)": "A benne lévő %lld bejegyzés törlése is (különben a legfelső szintre kerülnek)",
-  "Subfolders are deleted too.": "Az almappák is törlődnek."
+  "Subfolders are deleted too.": "Az almappák is törlődnek.",
+  "Show entries in system search": "Bejegyzések megjelenítése a rendszerkeresőben",
+  "Spotlight finds the entries by name. The files are in ~/Applications/RemoteDesktop Entries.": "A Spotlight név alapján megtalálja a bejegyzéseket. A fájlok helye: ~/Applications/RemoteDesktop Entries.",
+  "Start menu search finds the entries by name. They are in the RemoteDesktop Entries Start menu folder.": "A Start menü keresője név alapján megtalálja a bejegyzéseket. A Start menü RemoteDesktop Entries mappájában vannak.",
+  "The desktop search finds the entries by name. They also appear among the applications.": "Az asztali kereső név alapján megtalálja a bejegyzéseket. Az alkalmazások között is megjelennek.",
+  "Entry not found": "A bejegyzés nem található"
 }
