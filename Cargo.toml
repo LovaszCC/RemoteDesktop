@@ -70,6 +70,7 @@ objc2-foundation = { version = "0.3.2", default-features = false }
 objc2-app-kit = { version = "0.3.2", default-features = false }
 open = "5.4"
 winreg = "0.56"
+mslnk = "0.1.8"
 windows-sys = "0.61"
 objc2-core-foundation = { version = "0.3.2", default-features = false }
 objc2-application-services = { version = "0.3.2", default-features = false }
