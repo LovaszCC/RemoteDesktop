@@ -414,3 +414,27 @@ jobs:
           gh release create beta-latest dist/* --repo "$GITHUB_REPOSITORY" --prerelease --latest=false \
             --target "$COMMIT_SHA" --title "RemoteDesktop beta $VERSION ($short)" --notes-file notes.md
           echo "Beta pre-release updated: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/beta-latest" >> "$GITHUB_STEP_SUMMARY"
+
+  # Keeps the Actions cache under GitHub's 10 GB limit, so the next build finds its Rust and FreeRDP caches
+  # instead of having them evicted (see scripts/ci-prune-caches.sh). Runs last, after every job has saved.
+  prune-caches:
+    name: prune caches
+    needs: [prepare, test, build]
+    if: ${{ !cancelled() && needs.prepare.result == 'success' }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    permissions:
+      contents: read
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merged && github.event.pull_request.merge_commit_sha || '' }}
+
+      - name: Delete stale caches
+        run: scripts/ci-prune-caches.sh
