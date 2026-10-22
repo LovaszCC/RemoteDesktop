@@ -4415,7 +4415,7 @@ checksum = "20675572f6f24e9e76ef639bc5552774ed45f1c30e2951e1e99c59888861c539"
 
 [[package]]
 name = "rd-app"
-version = "1.6.8"
+version = "1.6.9"
 dependencies = [
  "base64 0.22.1",
  "dirs",
@@ -4447,7 +4447,7 @@ dependencies = [
 
 [[package]]
 name = "rd-core"
-version = "1.6.8"
+version = "1.6.9"
 dependencies = [
  "quick-xml",
  "serde",
@@ -4459,14 +4459,14 @@ dependencies = [
 
 [[package]]
 name = "rd-freerdp"
-version = "1.6.8"
+version = "1.6.9"
 dependencies = [
  "cc",
 ]
 
 [[package]]
 name = "rd-platform"
-version = "1.6.8"
+version = "1.6.9"
 dependencies = [
  "arboard",
  "dirs",
@@ -4491,7 +4491,7 @@ dependencies = [
 
 [[package]]
 name = "rd-rdp"
-version = "1.6.8"
+version = "1.6.9"
 dependencies = [
  "base64 0.22.1",
  "png 0.18.1",
@@ -4509,7 +4509,7 @@ dependencies = [
 
 [[package]]
 name = "rd-ssh"
-version = "1.6.8"
+version = "1.6.9"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -4541,7 +4541,7 @@ dependencies = [
 
 [[package]]
 name = "rd-store"
-version = "1.6.8"
+version = "1.6.9"
 dependencies = [
  "aes-gcm 0.11.1",
  "base64 0.22.1",
@@ -4565,7 +4565,7 @@ dependencies = [
 
 [[package]]
 name = "rd-update"
-version = "1.6.8"
+version = "1.6.9"
 dependencies = [
  "rd-core",
  "rd-platform",

@@ -5,7 +5,7 @@ members = ["crates/*", "app/src-tauri"]
 exclude = ["crates/rd-core/fuzz"]
 
 [workspace.package]
-version = "1.6.8"
+version = "1.6.9"
 edition = "2024"
 rust-version = "1.99"
 license = "MIT"
