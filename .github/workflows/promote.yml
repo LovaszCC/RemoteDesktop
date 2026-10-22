@@ -1,11 +1,14 @@
 # Publishing a draft release made by release.yml (the promote model) moves `main` to the released commit.
 # `main` = released code, `beta` = development. Fast-forward only: if `main` has commits the release
 # doesn't, this fails and someone looks at it; it never forces.
+#
+# Publishing or editing a release also copies its text into its latest.json: the in-app updater shows the
+# `notes` there, which release.yml wrote from the draft's generated text.
 name: Promote
 
 on:
   release:
-    types: [published]
+    types: [published, edited]
 
 permissions:
   contents: write
@@ -13,7 +16,9 @@ permissions:
 jobs:
   main:
     name: fast-forward main
-    if: ${{ !github.event.repository.private && !github.event.release.prerelease && github.event.release.tag_name != 'beta-latest' }}
+    if: >-
+      ${{ !github.event.repository.private && github.event.action == 'published'
+      && !github.event.release.prerelease && github.event.release.tag_name != 'beta-latest' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 10
     defaults:
@@ -37,3 +42,32 @@ jobs:
           fi
           git push origin "$sha:refs/heads/main"
           echo "main → $TAG (${sha::7})" >> "$GITHUB_STEP_SUMMARY"
+
+  notes:
+    name: release text into latest.json
+    if: ${{ !github.event.repository.private && github.event.release.tag_name != 'beta-latest' }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - name: Copy the release text into latest.json
+        run: |
+          cd "$RUNNER_TEMP"
+          if ! gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p latest.json; then
+            echo "$TAG has no latest.json; nothing to update."
+            exit 0
+          fi
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json body --jq .body > notes.md
+          jq --rawfile notes notes.md '.notes = ($notes | rtrimstr("\n"))' latest.json > updated.json
+          if cmp -s latest.json updated.json; then
+            echo "latest.json already has the release text."
+            exit 0
+          fi
+          mv updated.json latest.json
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" latest.json --clobber
+          echo "latest.json of $TAG now carries the release text." >> "$GITHUB_STEP_SUMMARY"
