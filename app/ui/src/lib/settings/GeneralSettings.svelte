@@ -33,6 +33,7 @@
     lastCheckedText,
     selectionShowsOptions,
     revealLabel,
+    systemSearchHint,
     rememberKeyLabel,
     winboxDetectedText,
     winboxPathText,
@@ -108,6 +109,8 @@
   const setTerminal = (externalTerminal: string) => perform(() => settings.update({ externalTerminal }));
   const setChecks = (checkForUpdatesAutomatically: boolean) =>
     perform(() => settings.update({ checkForUpdatesAutomatically }));
+  const setSystemSearch = (showInSystemSearch: boolean) =>
+    perform(() => settings.update({ showInSystemSearch }));
   const setRemember = (rememberMasterKey: boolean) => perform(() => settings.update({ rememberMasterKey }));
   const choose = (mode: PickMode) => perform(() => app.chooseDatabase(mode));
 
@@ -190,6 +193,16 @@
         onchange={(v) => void setSelectionShows(v)}
       />
     </FormRow>
+    <div class="row">
+      <Toggle
+        label={t('Show entries in system search')}
+        checked={values?.showInSystemSearch ?? false}
+        onchange={(v) => void setSystemSearch(v)}
+      />
+    </div>
+    <p class="caption row">
+      {systemSearchHint(platform)}
+    </p>
   </FormSection>
 
   <FormSection title={t('SSH')}>

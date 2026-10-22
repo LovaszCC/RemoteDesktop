@@ -4,6 +4,7 @@ pub mod clipboard;
 mod identity;
 pub mod keyboard_capture;
 pub mod launch;
+pub mod launchers;
 #[cfg(target_os = "macos")]
 pub mod macos;
 pub mod rdp;

@@ -255,6 +255,8 @@ export interface SettingsDto {
   /** WinBox set in Settings; `null` means auto-detect. */
   winboxPath: string | null;
   selectionShows: SelectionShows;
+  /** Entries have launchers in Spotlight / the Start menu / the desktop search. */
+  showInSystemSearch: boolean;
 }
 
 /** What a single click on a sidebar entry with an open connection shows: Details, or its only plain tab. */
@@ -270,6 +272,7 @@ export interface SettingsPatch {
   /** `""` means auto-detect. */
   winboxPath?: string;
   selectionShows?: SelectionShows;
+  showInSystemSearch?: boolean;
 }
 
 export type ShortcutCommand =

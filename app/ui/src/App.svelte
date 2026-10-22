@@ -4,6 +4,7 @@
   import ContextMenuHost from './lib/components/ContextMenuHost.svelte';
   import ToastHost from './lib/components/ToastHost.svelte';
   import { installCommands } from './lib/commands.svelte';
+  import { installEntryRequests } from './lib/entryRequests';
   import { installLaunchNotices } from './lib/launchNotices';
   import SettingsView from './lib/settings/SettingsView.svelte';
   import { settingsWindow } from './lib/stores/settingsWindow.svelte';
@@ -29,6 +30,7 @@
   onMount(() => {
     const commands = installCommands();
     const stopLaunchNotices = installLaunchNotices();
+    const entryRequests = installEntryRequests();
     // Settings first so the first screen already has the right language.
     void (async () => {
       const report = (error: unknown) => alerts.show(errorMessage(error));
@@ -43,12 +45,15 @@
       ]);
       void terminals.load();
       await Promise.all([app.start().catch(report), library.start().catch(report)]);
+      // A launcher that started the app: its entry opens once the library is there.
+      void entryRequests.check();
       // The silent launch check (Swift `checkAutomaticallyIfDue`): Rust skips it when off or not due.
       void updates.checkAutomatically();
     })();
     return () => {
       commands.stop();
       stopLaunchNotices();
+      entryRequests.stop();
       app.stop();
       library.stop();
       settings.stop();

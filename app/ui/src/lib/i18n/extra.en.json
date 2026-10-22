@@ -289,5 +289,10 @@
   "The CSV file is damaged: a quote is never closed.": "The CSV file is damaged: a quote is never closed.",
   "The CSV file is missing columns: %@": "The CSV file is missing columns: %@",
   "Also delete the %lld entries inside (otherwise they move to the top level)": "Also delete the %lld entries inside (otherwise they move to the top level)",
-  "Subfolders are deleted too.": "Subfolders are deleted too."
+  "Subfolders are deleted too.": "Subfolders are deleted too.",
+  "Show entries in system search": "Show entries in system search",
+  "Spotlight finds the entries by name. The files are in ~/Applications/RemoteDesktop Entries.": "Spotlight finds the entries by name. The files are in ~/Applications/RemoteDesktop Entries.",
+  "Start menu search finds the entries by name. They are in the RemoteDesktop Entries Start menu folder.": "Start menu search finds the entries by name. They are in the RemoteDesktop Entries Start menu folder.",
+  "The desktop search finds the entries by name. They also appear among the applications.": "The desktop search finds the entries by name. They also appear among the applications.",
+  "Entry not found": "Entry not found"
 }

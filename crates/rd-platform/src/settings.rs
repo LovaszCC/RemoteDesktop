@@ -43,6 +43,8 @@ pub struct Settings {
     /// What a single click on a sidebar entry with an open connection shows: `details` or `tab` (its only
     /// plain tab).
     pub selection_shows: String,
+    /// Keep one launcher per entry in the OS search folder (see [`crate::launchers`]).
+    pub show_in_system_search: bool,
 }
 
 impl Default for Settings {
@@ -58,6 +60,7 @@ impl Default for Settings {
             expanded_folders: Vec::new(),
             winbox_path: None,
             selection_shows: "details".to_owned(),
+            show_in_system_search: false,
         }
     }
 }
@@ -157,6 +160,7 @@ mod tests {
             expanded_folders: vec!["A".into(), "B".into()],
             winbox_path: Some(PathBuf::from("/opt/winbox/WinBox")),
             selection_shows: "tab".into(),
+            show_in_system_search: true,
         };
         settings.save(&nested).unwrap();
         assert_eq!(Settings::load(&nested), settings);
@@ -185,6 +189,7 @@ mod tests {
                 "lastUpdateCheck",
                 "rememberMasterKey",
                 "selectionShows",
+                "showInSystemSearch",
                 "winboxPath"
             ]
         );
@@ -198,6 +203,7 @@ mod tests {
         assert_eq!(loaded.language, "hu");
         assert_eq!(loaded.last_update_check, None);
         assert!(loaded.remember_master_key);
+        assert!(!loaded.show_in_system_search);
     }
 
     #[test]

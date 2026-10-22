@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use rd_platform::APP_IDENTITY;
 use rd_store::{KeyringCache, REFRESH_EVERY};
-use tauri::{Manager, RunEvent, WindowEvent};
+use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
 use crate::commands::Core;
 use crate::core::AppCore;
@@ -33,6 +33,26 @@ fn focus_main_window(app: &tauri::AppHandle) {
         let _ = window.show();
         let _ = window.set_focus();
     }
+}
+
+/// A system search launcher asked for an entry: remember it, tell the UI and bring the window forward.
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+fn request_entry(app: &tauri::AppHandle, id: String) {
+    if let Some(core) = app.try_state::<Core>() {
+        core.request_entry(id);
+        let _ = app.emit(commands::ENTRY_REQUESTED, ());
+    }
+    focus_main_window(app);
+}
+
+/// The entry ids in `.rdentry` documents macOS hands to the app.
+#[cfg(target_os = "macos")]
+fn opened_entries(urls: &[tauri::Url]) -> Vec<String> {
+    urls.iter()
+        .filter_map(|url| url.to_file_path().ok())
+        .filter_map(|path| std::fs::read(path).ok())
+        .filter_map(|bytes| rd_platform::launchers::read_rdentry(&bytes))
+        .collect()
 }
 
 /// A file browser window closed: its connection ends. The main window closed: the file browsers go too.
@@ -58,6 +78,7 @@ fn invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + 
     tauri::generate_handler![
         commands::ping,
         commands::session::app_status,
+        commands::session::take_entry_request,
         commands::session::dismiss_handover,
         commands::session::create_vault,
         commands::session::unlock,
@@ -178,8 +199,11 @@ pub fn run() {
     let builder = tauri::Builder::default();
     // Single instance must be the first plugin.
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-        focus_main_window(app);
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+        match rd_platform::launchers::entry_request(&args) {
+            Some(id) => request_entry(app, id),
+            None => focus_main_window(app),
+        }
     }));
     builder
         .plugin(tauri_plugin_dialog::init())
@@ -207,6 +231,10 @@ pub fn run() {
                 core.mark_handover();
             }
             core.open_current();
+            let args: Vec<String> = std::env::args().collect();
+            if let Some(id) = rd_platform::launchers::entry_request(&args) {
+                core.request_entry(id);
+            }
             let refresher = Arc::downgrade(&core);
             std::thread::spawn(move || {
                 loop {
@@ -222,6 +250,7 @@ pub fn run() {
             commands::launch::install_hooks(app.handle(), &core);
             commands::rdp::install_hooks(app.handle(), &core);
             app.manage(core);
+            commands::sync_launchers(app.handle());
             commands::updates::install_state(app.handle());
             menu::refresh(app.handle());
             Ok(())
@@ -250,6 +279,13 @@ pub fn run() {
             RunEvent::ExitRequested { api, .. } => {
                 if quit::intercept(app) {
                     api.prevent_exit();
+                }
+            }
+            // Spotlight / Finder opened a `.rdentry` document (also the one that launched the app).
+            #[cfg(target_os = "macos")]
+            RunEvent::Opened { urls } => {
+                for id in opened_entries(&urls) {
+                    request_entry(app, id);
                 }
             }
             RunEvent::Exit => {

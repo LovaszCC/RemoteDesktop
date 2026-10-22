@@ -184,3 +184,23 @@ describe('GeneralSettings appearance', () => {
     expect(storage.get('rd.theme')).toBe('dark');
   });
 });
+
+describe('GeneralSettings system search', () => {
+  it('turns the launchers on and names where they go', async () => {
+    const { bridge } = await render('macos');
+    const toggle = document.querySelector<HTMLButtonElement>(
+      'button[role="switch"][aria-label="Show entries in system search"]',
+    )!;
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    expect(document.body.textContent).toContain('~/Applications/RemoteDesktop Entries');
+    toggle.click();
+    await settle();
+    expect(bridge.invoke).toHaveBeenCalledWith('settings_set', { patch: { showInSystemSearch: true } });
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('describes the Start menu on Windows', async () => {
+    await render('windows');
+    expect(document.body.textContent).toContain('RemoteDesktop Entries Start menu folder');
+  });
+});

@@ -31,6 +31,8 @@ pub struct SettingsPatch {
     pub winbox_path: Option<String>,
     /// `details` or `tab`.
     pub selection_shows: Option<String>,
+    /// Entries have launchers in the OS search.
+    pub show_in_system_search: Option<bool>,
 }
 
 impl AppCore {
@@ -50,6 +52,7 @@ impl AppCore {
             expanded_folders: settings.expanded_folders.clone(),
             winbox_path: settings.winbox_path.as_ref().map(|p| p.display().to_string()),
             selection_shows: settings.selection_shows.clone(),
+            show_in_system_search: settings.show_in_system_search,
         }
     }
 
@@ -114,6 +117,9 @@ impl AppCore {
         }
         if let Some(shows) = &patch.selection_shows {
             inner.settings.selection_shows.clone_from(shows);
+        }
+        if let Some(show) = patch.show_in_system_search {
+            inner.settings.show_in_system_search = show;
         }
         Self::save_settings(&inner)?;
         Ok(Self::settings_dto(&inner))

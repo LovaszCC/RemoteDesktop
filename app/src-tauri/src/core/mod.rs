@@ -19,6 +19,9 @@ mod import;
 mod launch;
 #[cfg(test)]
 mod launch_tests;
+mod launchers;
+#[cfg(test)]
+mod launchers_tests;
 mod library;
 mod rdp;
 #[cfg(test)]
@@ -102,6 +105,12 @@ pub struct AppCore {
     key_setup: std::sync::Arc<ssh_keys::KeySetupShared>,
     launcher: Box<dyn rd_platform::launch::Launcher>,
     launch_notifier: Mutex<Option<LaunchNotifier>>,
+    /// The system search launcher folder; `None` turns the launchers off (tests, unknown home).
+    launcher_dir: Option<PathBuf>,
+    /// Serializes launcher reconciles so a later library state always wins.
+    launcher_sync: Mutex<()>,
+    /// An entry a launcher asked to open, waiting for the UI (and the unlock).
+    entry_request: Mutex<Option<String>>,
     /// This build's version: stamped into the database, and an older build than the stamp is refused.
     app_version: String,
 }
@@ -137,6 +146,7 @@ impl AppCore {
     #[must_use]
     pub fn new(settings_dir: PathBuf, keys: Box<dyn KeyCache>) -> Self {
         Self::with_options(settings_dir, keys, Vault::DEFAULT_ITERATIONS, Platform::current())
+            .with_launcher_dir(rd_platform::launchers::launcher_dir())
     }
 
     /// Like [`new`](Self::new) with the PBKDF2 rounds for new vaults and the shortcut platform (tests).
@@ -169,6 +179,9 @@ impl AppCore {
             key_setup: ssh_keys::KeySetupShared::new(),
             launcher: Box::new(rd_platform::launch::SystemLauncher),
             launch_notifier: Mutex::new(None),
+            launcher_dir: None,
+            launcher_sync: Mutex::new(()),
+            entry_request: Mutex::new(None),
             app_version: env!("CARGO_PKG_VERSION").to_owned(),
         }
     }

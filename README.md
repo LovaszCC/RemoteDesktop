@@ -129,6 +129,9 @@ And a few things that make everyday work nicer:
   back into a session, set *Settings → Sidebar* so a click on an open entry brings its tab forward instead
   of its details. When a server is open in several tabs, its details page lists them so you can jump to
   any of them.
+- **🔎 Open from the system search.** Turn on *Settings → Sidebar → Show entries in system search* and
+  type an entry's name into Spotlight, the Start menu or your desktop's search: opening it starts the app
+  (or brings it forward) and connects, just like a double-click. See [System search](#-system-search).
 - **📡 Split view with broadcast.** Open up to four terminals side by side, and type into all of them at
   once — handy for configuring several switches the same way.
 - **📋 Copy next output.** Press the shortcut, run a command, and its output lands on your clipboard as
@@ -223,6 +226,27 @@ server list for a new colleague.
 
 Your colleague opens it with *File → Import from RemoteDesktop export…*, types the password if there is one,
 and picks what to bring in. For anything they already have, they choose **Overwrite** or **Keep both**.
+
+---
+
+## 🔎 System search
+
+With *Settings → Sidebar → Show entries in system search* on, every entry gets a small launcher file named
+after it, in a folder the app keeps for itself:
+
+| | Folder | File |
+|---|---|---|
+| macOS | `~/Applications/RemoteDesktop Entries` | `Home Server.rdentry` (Spotlight) |
+| Windows | Start menu → `RemoteDesktop Entries` | `Home Server.lnk` (Start search) |
+| Linux | `~/.local/share/applications/remotedesktop-entries` | `Home Server.desktop` (desktop search, also in the app list) |
+
+- The files follow your entries: a new, renamed or deleted entry changes its file, and a file you delete
+  comes back. Same names get ` (2)`, ` (3)`…
+- They carry only the entry's id: no host, user or password. If the database is locked, the entry opens
+  after you unlock it.
+- They belong to the database that's open. Switching databases swaps them.
+- Turning the setting off deletes the folder. **Turn it off before uninstalling**, the uninstaller doesn't
+  know about the folder.
 
 ---
 

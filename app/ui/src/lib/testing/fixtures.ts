@@ -125,6 +125,7 @@ export function settingsDto(overrides: Partial<SettingsDto> = {}): SettingsDto {
     expandedFolders: [],
     winboxPath: null,
     selectionShows: 'details',
+    showInSystemSearch: false,
     ...overrides,
   };
 }

@@ -31,6 +31,20 @@ export function canChangePassword({ current, next, again }: PasswordChange): boo
 }
 
 /** "Show in Finder" / "Show in Explorer" / "Show in File Manager". */
+/** Where the system search launchers show up, under the "Show entries in system search" toggle. */
+export function systemSearchHint(platform: Platform): string {
+  switch (platform) {
+    case 'macos':
+      return t('Spotlight finds the entries by name. The files are in ~/Applications/RemoteDesktop Entries.');
+    case 'windows':
+      return t(
+        'Start menu search finds the entries by name. They are in the RemoteDesktop Entries Start menu folder.',
+      );
+    case 'linux':
+      return t('The desktop search finds the entries by name. They also appear among the applications.');
+  }
+}
+
 export function revealLabel(platform: Platform): string {
   switch (platform) {
     case 'macos':

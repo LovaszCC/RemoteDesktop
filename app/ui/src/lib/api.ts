@@ -124,6 +124,7 @@ export const EVENTS = {
   rdpCredentialsPrompt: 'rdp-credentials-prompt',
   rdpPromptClosed: 'rdp-prompt-closed',
   updateProgress: 'update-progress',
+  entryRequested: 'entry-requested',
 } as const;
 
 /** Payload of `menu-command`: the clicked native menu item's command id. */
@@ -200,6 +201,11 @@ export function onRdpPromptClosed(listen: Listen, handler: (closed: RdpPromptClo
   return listen<RdpPromptClosedDto>(EVENTS.rdpPromptClosed, handler);
 }
 
+/** A system search launcher asked to open an entry; take it with `takeEntryRequest`. */
+export function onEntryRequested(listen: Listen, handler: () => void) {
+  return listen<null>(EVENTS.entryRequested, () => handler());
+}
+
 export function onUpdateProgress(listen: Listen, handler: (progress: UpdateProgressDto) => void) {
   return listen<UpdateProgressDto>(EVENTS.updateProgress, handler);
 }
@@ -221,6 +227,8 @@ export function createApi(invoke: Invoke = tauriBridge.invoke) {
     // Session
     appStatus: () => call<AppStatusDto>('app_status'),
     dismissHandover: () => call<AppStatusDto>('dismiss_handover'),
+    /** The entry a system search launcher asked for, once; `null` while locked or when none waits. */
+    takeEntryRequest: () => call<string | null>('take_entry_request'),
     createVault: (password: string, remember: boolean) =>
       call<AppStatusDto>('create_vault', { password, remember }),
     unlock: (password: string, remember: boolean) => call<AppStatusDto>('unlock', { password, remember }),
