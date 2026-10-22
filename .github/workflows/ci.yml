@@ -45,12 +45,15 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
 
+      - uses: actions/cache@v4
+        if: runner.os == 'Linux'
+        with:
+          path: ~/apt-cache
+          key: apt-test-${{ matrix.os }}-${{ hashFiles('scripts/ci-apt.sh') }}
+
       - name: Linux system dependencies
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
-            libayatana-appindicator3-dev librsvg2-dev cmake ninja-build
+        run: scripts/ci-apt.sh test
 
       # rust-toolchain.toml pins the version; rustup installs it on first use.
       - name: Rust toolchain

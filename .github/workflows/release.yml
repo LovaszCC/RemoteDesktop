@@ -2,7 +2,8 @@
 # once, on the merge commit of a PR merged into `beta`; nothing builds on a plain push or a tag.
 #
 #   PR merged into beta, no GitHub release v<Cargo version> yet (the release PR bumped the version)
-#                                → tests, signed bundles of exactly that version, smoke tests, then a DRAFT
+#                                → tests and (in parallel) signed bundles of exactly that version with
+#                                  smoke tests; when both are green, a DRAFT
 #                                  release v<version> (target: the merge commit) with latest.json. The user
 #                                  publishes it by hand; that creates the tag, and promote.yml moves `main`.
 #   PR merged into beta, release v<Cargo version> exists
@@ -131,13 +132,10 @@ jobs:
     if: needs.prepare.outputs.dry_run == 'false' || inputs.skip_tests != true
     uses: ./.github/workflows/ci.yml
 
+  # Builds next to the tests instead of after them; publishing (draft or beta) waits for both.
   build:
     name: build ${{ matrix.name }}
-    needs: [prepare, test]
-    # Runs after the tests, or without them when a dry run skipped them.
-    if: >-
-      !cancelled() && needs.prepare.result == 'success'
-      && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
@@ -169,13 +167,16 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
 
+      - uses: actions/cache@v4
+        if: runner.os == 'Linux'
+        with:
+          path: ~/apt-cache
+          key: apt-build-${{ matrix.os }}-${{ hashFiles('scripts/ci-apt.sh') }}
+
       # Ubuntu 22.04 is the glibc baseline (2.35) of the Linux bundles.
       - name: Linux system dependencies
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
-            libayatana-appindicator3-dev librsvg2-dev cmake ninja-build file xvfb xauth
+        run: scripts/ci-apt.sh build
 
       - name: Rust toolchain
         run: scripts/ci-rustup.sh ${{ matrix.target }}
@@ -292,7 +293,8 @@ jobs:
   # and makes it "latest", which is what stable apps' updater reads; promote.yml then moves `main`).
   release:
     name: draft release
-    needs: [prepare, build]
+    # Only green tests and bundles are published.
+    needs: [prepare, test, build]
     if: needs.prepare.outputs.release == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 20
@@ -350,7 +352,8 @@ jobs:
   # ambiguous.
   beta:
     name: beta pre-release
-    needs: [prepare, build]
+    # Only green tests and bundles are published.
+    needs: [prepare, test, build]
     if: needs.prepare.outputs.beta == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 20
@@ -411,3 +414,27 @@ jobs:
           gh release create beta-latest dist/* --repo "$GITHUB_REPOSITORY" --prerelease --latest=false \
             --target "$COMMIT_SHA" --title "RemoteDesktop beta $VERSION ($short)" --notes-file notes.md
           echo "Beta pre-release updated: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/beta-latest" >> "$GITHUB_STEP_SUMMARY"
+
+  # Keeps the Actions cache under GitHub's 10 GB limit, so the next build finds its Rust and FreeRDP caches
+  # instead of having them evicted (see scripts/ci-prune-caches.sh). Runs last, after every job has saved.
+  prune-caches:
+    name: prune caches
+    needs: [prepare, test, build]
+    if: ${{ !cancelled() && needs.prepare.result == 'success' }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    permissions:
+      contents: read
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merged && github.event.pull_request.merge_commit_sha || '' }}
+
+      - name: Delete stale caches
+        run: scripts/ci-prune-caches.sh
