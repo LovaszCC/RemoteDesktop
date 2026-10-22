@@ -11,7 +11,7 @@ pub mod quit;
 pub mod updates;
 
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, PoisonError};
 
 use rd_platform::APP_IDENTITY;
 use rd_store::{KeyringCache, REFRESH_EVERY};
@@ -35,12 +35,29 @@ fn focus_main_window(app: &tauri::AppHandle) {
     }
 }
 
+/// Entries asked for before `setup` made the core: macOS hands over the `.rdentry` that launched the app
+/// (`RunEvent::Opened`) before it finishes launching. `setup` passes them on to the core.
+#[derive(Default)]
+struct EarlyEntryRequests(Mutex<Vec<String>>);
+
+impl EarlyEntryRequests {
+    fn push(&self, id: String) {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner).push(id);
+    }
+
+    fn take(&self) -> Vec<String> {
+        std::mem::take(&mut *self.0.lock().unwrap_or_else(PoisonError::into_inner))
+    }
+}
+
 /// A system search launcher asked for an entry: remember it, tell the UI and bring the window forward.
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 fn request_entry(app: &tauri::AppHandle, id: String) {
     if let Some(core) = app.try_state::<Core>() {
         core.request_entry(id);
         let _ = app.emit(commands::ENTRY_REQUESTED, ());
+    } else if let Some(early) = app.try_state::<EarlyEntryRequests>() {
+        early.push(id);
     }
     focus_main_window(app);
 }
@@ -196,7 +213,7 @@ fn invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + 
 /// # Panics
 /// If the Tauri runtime fails to start, which leaves nothing to recover.
 pub fn run() {
-    let builder = tauri::Builder::default();
+    let builder = tauri::Builder::default().manage(EarlyEntryRequests::default());
     // Single instance must be the first plugin.
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
@@ -233,6 +250,9 @@ pub fn run() {
             core.open_current();
             let args: Vec<String> = std::env::args().collect();
             if let Some(id) = rd_platform::launchers::entry_request(&args) {
+                core.request_entry(id);
+            }
+            for id in app.state::<EarlyEntryRequests>().take() {
                 core.request_entry(id);
             }
             let refresher = Arc::downgrade(&core);
@@ -295,4 +315,18 @@ pub fn run() {
             }
             _ => {}
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::EarlyEntryRequests;
+
+    #[test]
+    fn early_entry_requests_are_taken_once_in_order() {
+        let early = EarlyEntryRequests::default();
+        early.push("A".into());
+        early.push("B".into());
+        assert_eq!(early.take(), ["A", "B"]);
+        assert!(early.take().is_empty());
+    }
 }
