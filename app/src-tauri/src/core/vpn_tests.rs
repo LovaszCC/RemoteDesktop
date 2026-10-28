@@ -288,3 +288,266 @@ fn macvpn_states_map_to_phases() {
     assert_eq!(phase_of(&State::Failed), VpnPhase::Down);
     assert_eq!(phase_of(&State::Disconnected), VpnPhase::Down);
 }
+
+// The gate
+
+use super::AppCore;
+use super::tests::{Env, entry_draft};
+use super::vpn::{VpnProgressDto, VpnStatusDto};
+use rd_core::ConnectionType;
+use rd_core::VpnTestMode;
+use rd_core::draft::{ConnectionDraft, EntryDraft, EntryVpnDraft};
+use std::sync::atomic::AtomicBool;
+
+struct Gate {
+    _env: Env,
+    core: Arc<AppCore>,
+    connection: String,
+    entry: String,
+    fake: SharedFake,
+    pings: Arc<Mutex<Vec<String>>>,
+    reachable: Arc<AtomicBool>,
+    progress: Arc<Mutex<Vec<VpnProgressDto>>>,
+}
+
+fn gate_lab(vpn: Option<EntryVpnDraft>) -> Gate {
+    let env = Env::new();
+    let core = Arc::new(env.unlocked());
+    let draft = EntryDraft {
+        vpn,
+        ..entry_draft("web01", "10.20.0.15")
+    };
+    let entry = core
+        .save_entry(
+            None,
+            &draft,
+            &[super::ConnectionSave {
+                id: None,
+                draft: ConnectionDraft::new(ConnectionType::Ssh),
+                password: None,
+                passphrase: None,
+                is_default: true,
+            }],
+        )
+        .unwrap();
+    let connection = core.library().entries[0].connection_ids[0].clone();
+    let fake = SharedFake::default();
+    *fake.0.profiles.lock().unwrap() = vec![VpnProfileDto {
+        id: PROFILE.into(),
+        name: "Office".into(),
+        kind: "openvpn".into(),
+        state: "disconnected".into(),
+    }];
+    core.set_vpn_backend(Box::new(fake.clone()));
+    let (pings, reachable) = (Arc::new(Mutex::new(Vec::new())), Arc::new(AtomicBool::new(false)));
+    let (log, answer) = (Arc::clone(&pings), Arc::clone(&reachable));
+    core.set_vpn_pinger(Box::new(move |host: &str| {
+        log.lock().unwrap().push(host.to_owned());
+        answer.load(Ordering::SeqCst)
+    }));
+    let progress = Arc::new(Mutex::new(Vec::new()));
+    let sink = Arc::clone(&progress);
+    core.set_vpn_hooks(Arc::new(move |notice| {
+        if let VpnNotice::Progress(p) = notice {
+            sink.lock().unwrap().push(p);
+        }
+    }));
+    Gate {
+        _env: env,
+        core,
+        connection,
+        entry,
+        fake,
+        pings,
+        reachable,
+        progress,
+    }
+}
+
+fn office(mode: VpnTestMode, address: &str) -> EntryVpnDraft {
+    EntryVpnDraft {
+        connection_id: PROFILE.into(),
+        test_mode: mode,
+        test_address: address.into(),
+    }
+}
+
+fn phases(lab: &Gate) -> Vec<String> {
+    lab.progress
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|p| p.phase.clone())
+        .collect()
+}
+
+#[test]
+fn no_profile_skips_the_gate_without_ping() {
+    let lab = gate_lab(None);
+    assert!(lab.core.vpn_gate(&lab.connection).unwrap().is_none());
+    assert!(lab.pings.lock().unwrap().is_empty());
+    assert!(lab.progress.lock().unwrap().is_empty());
+    assert!(lab.core.vpn_gate("no-such-connection").unwrap().is_none());
+}
+
+#[test]
+fn reachable_host_connects_without_a_hold() {
+    let lab = gate_lab(Some(office(VpnTestMode::Host, "")));
+    lab.reachable.store(true, Ordering::SeqCst);
+    assert!(lab.core.vpn_gate(&lab.connection).unwrap().is_none());
+    assert_eq!(*lab.pings.lock().unwrap(), ["10.20.0.15"]);
+    assert_eq!(lab.fake.0.ups.load(Ordering::SeqCst), 0);
+    assert_eq!(phases(&lab), ["testing", "done"]);
+}
+
+#[test]
+fn unreachable_host_brings_the_vpn_up() {
+    let lab = gate_lab(Some(office(VpnTestMode::Host, "")));
+    let hold = lab.core.vpn_gate(&lab.connection).unwrap().unwrap();
+    assert!(hold.is_alive());
+    assert_eq!(hold.entry_id(), lab.entry);
+    assert_eq!(lab.fake.0.ups.load(Ordering::SeqCst), 1);
+    assert_eq!(phases(&lab), ["testing", "connecting", "connecting", "done"]);
+    let connecting = &lab.progress.lock().unwrap()[1];
+    assert_eq!(
+        (
+            connecting.profile_name.as_str(),
+            connecting.entry_name.as_str(),
+            connecting.unreachable.as_deref()
+        ),
+        ("Office", "web01", Some("10.20.0.15"))
+    );
+}
+
+#[test]
+fn address_mode_pings_the_test_address() {
+    let lab = gate_lab(Some(office(VpnTestMode::Address, "10.20.0.1")));
+    lab.reachable.store(true, Ordering::SeqCst);
+    assert!(lab.core.vpn_gate(&lab.connection).unwrap().is_none());
+    assert_eq!(*lab.pings.lock().unwrap(), ["10.20.0.1"]);
+}
+
+#[test]
+fn gate_takes_a_hold_when_the_profile_is_already_connected() {
+    let lab = gate_lab(Some(office(VpnTestMode::Host, "")));
+    lab.reachable.store(true, Ordering::SeqCst);
+    lab.fake.0.profiles.lock().unwrap()[0].state = "connected".into();
+    let hold = lab.core.vpn_gate(&lab.connection).unwrap();
+    assert!(hold.is_some(), "a ping through the VPN must not skip the hold");
+    assert!(lab.pings.lock().unwrap().is_empty());
+    let again = lab.core.vpn_gate(&lab.connection).unwrap();
+    assert!(again.is_some());
+    assert_eq!(lab.fake.0.ups.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn concurrent_gates_join_one_up() {
+    let lab = gate_lab(Some(office(VpnTestMode::Host, "")));
+    let (open, gate) = channel();
+    *lab.fake.0.gate.lock().unwrap() = Some(gate);
+    let run = || {
+        let (core, connection) = (Arc::clone(&lab.core), lab.connection.clone());
+        std::thread::spawn(move || core.vpn_gate(&connection).map(|h| h.is_some()))
+    };
+    let (first, second) = (run(), run());
+    wait_until("both gates waiting", || {
+        phases(&lab).iter().filter(|p| *p == "connecting").count() >= 2
+    });
+    open.send(()).unwrap();
+    assert_eq!(first.join().unwrap(), Ok(true));
+    assert_eq!(second.join().unwrap(), Ok(true));
+    assert_eq!(lab.fake.0.ups.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn unreachable_macvpn_still_connects_a_reachable_host() {
+    let lab = gate_lab(Some(office(VpnTestMode::Host, "")));
+    *lab.fake.0.list_error.lock().unwrap() = Some(CommandError::new("vpnNotRunning", "x"));
+    lab.reachable.store(true, Ordering::SeqCst);
+    assert!(lab.core.vpn_gate(&lab.connection).unwrap().is_none());
+}
+
+#[test]
+fn macvpn_errors_stop_the_connect() {
+    for code in [
+        "vpnSetupRequired",
+        "vpnNotAllowed",
+        "vpnCancelled",
+        "vpnNotPaired",
+    ] {
+        let lab = gate_lab(Some(office(VpnTestMode::Host, "")));
+        lab.fake
+            .0
+            .failures
+            .lock()
+            .unwrap()
+            .push(CommandError::new(code, "x"));
+        assert_eq!(lab.core.vpn_gate(&lab.connection).unwrap_err().code, code);
+        assert_eq!(phases(&lab).last().map(String::as_str), Some("failed"));
+        assert!(lab.core.vpn_status().held.is_empty());
+    }
+}
+
+#[test]
+fn cancel_closes_the_socket() {
+    let lab = gate_lab(Some(office(VpnTestMode::Host, "")));
+    let (_open, gate) = channel::<()>();
+    *lab.fake.0.gate.lock().unwrap() = Some(gate);
+    let (core, connection) = (Arc::clone(&lab.core), lab.connection.clone());
+    let running = std::thread::spawn(move || core.vpn_gate(&connection).map(|h| h.is_some()));
+    wait_until("the MFA prompt", || {
+        phases(&lab).iter().any(|p| p == "waitingForMfa")
+    });
+    let request = lab.progress.lock().unwrap()[0].request_id.clone();
+    lab.core.vpn_cancel(&request);
+    assert_eq!(running.join().unwrap().unwrap_err().code, "vpnCancelled");
+    assert!(lab.core.vpn_status().held.is_empty());
+    lab.core.vpn_cancel("unknown");
+}
+
+#[test]
+fn external_hold_is_one_per_entry() {
+    let lab = gate_lab(Some(office(VpnTestMode::Host, "")));
+    let first = lab.core.vpn_gate(&lab.connection).unwrap().unwrap();
+    lab.core.hold_external(&lab.entry, "web01", first);
+    let second = lab.core.vpn_gate(&lab.connection).unwrap().unwrap();
+    lab.core.hold_external(&lab.entry, "web01", second);
+    let status = lab.core.vpn_status();
+    assert_eq!(status.held.len(), 1);
+    assert_eq!(status.held[0].external_entries.len(), 1);
+    assert_eq!(status.held[0].open_holders, 0);
+    lab.core.vpn_release_entry(&lab.entry);
+    assert!(lab.core.vpn_status().held.is_empty());
+    assert_eq!(lab.fake.0.closes.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn release_profile_keeps_open_session_holds() {
+    let lab = gate_lab(Some(office(VpnTestMode::Host, "")));
+    let session = lab.core.vpn_gate(&lab.connection).unwrap().unwrap();
+    let external = lab.core.vpn_gate(&lab.connection).unwrap().unwrap();
+    lab.core.hold_external(&lab.entry, "web01", external);
+    lab.core.vpn_release_profile(PROFILE);
+    assert!(session.is_alive());
+    let status: VpnStatusDto = lab.core.vpn_status();
+    assert_eq!(
+        (status.held[0].external_entries.len(), status.held[0].open_holders),
+        (0, 1)
+    );
+    assert_eq!(status.held[0].entry_ids, std::slice::from_ref(&lab.entry));
+    drop(session);
+    assert!(lab.core.vpn_status().held.is_empty());
+}
+
+#[test]
+fn status_lists_holders() {
+    let lab = gate_lab(Some(office(VpnTestMode::Host, "")));
+    let status = lab.core.vpn_status();
+    assert!(status.supported && status.paired && status.held.is_empty());
+    let _hold = lab.core.vpn_gate(&lab.connection).unwrap().unwrap();
+    let status = lab.core.vpn_status();
+    assert_eq!(status.held[0].profile_id, PROFILE);
+    assert_eq!(status.held[0].profile_name, "Office");
+    assert_eq!(status.held[0].open_holders, 1);
+    assert_eq!(lab.core.vpn_profiles().unwrap().len(), 1);
+}

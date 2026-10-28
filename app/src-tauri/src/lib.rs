@@ -170,6 +170,13 @@ fn invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + 
         commands::forwards::port_forward_stop,
         commands::forwards::port_forward_statuses,
         commands::forwards::host_key_answer,
+        commands::vpn::vpn_status,
+        commands::vpn::vpn_profiles,
+        commands::vpn::vpn_pair,
+        commands::vpn::vpn_unpair,
+        commands::vpn::vpn_cancel,
+        commands::vpn::vpn_release_entry,
+        commands::vpn::vpn_release_profile,
         commands::keys::ssh_key_generate,
         commands::keys::ssh_key_setup,
         commands::files::files_open,
@@ -265,6 +272,7 @@ pub fn run() {
             });
             commands::ssh::install_hooks(app.handle(), &core);
             commands::forwards::install_hooks(app.handle(), &core);
+            commands::vpn::install_hooks(app.handle(), &core);
             commands::keys::install_hooks(app.handle(), &core);
             commands::files::install_hooks(app.handle(), &core);
             commands::launch::install_hooks(app.handle(), &core);

@@ -124,9 +124,65 @@ pub trait VpnBackend: Send + Sync {
     fn is_paired(&self) -> bool;
 }
 
+/// Where a connect's VPN gate is, for the UI's progress dialog (event `vpn-progress`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VpnProgressDto {
+    /// One gate run; pass it to `vpn_cancel`.
+    pub request_id: String,
+    /// `testing`, `connecting`, `waitingForMfa`, `waitingForCredentials`, `done` or `failed`.
+    pub phase: String,
+    /// The MacVPN connection's name.
+    pub profile_name: String,
+    /// The entry being connected.
+    pub entry_name: String,
+    /// The address that did not answer the ping (why the VPN is needed); `None` when it was up already.
+    pub unreachable: Option<String>,
+}
+
+/// The entries an external client holds a VPN for.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalHoldDto {
+    /// The entry.
+    pub entry_id: String,
+    /// Its name when it was launched.
+    pub entry_name: String,
+}
+
+/// One VPN Remote Desktop holds up.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HeldVpnDto {
+    /// The MacVPN connection id.
+    pub profile_id: String,
+    /// Its name.
+    pub profile_name: String,
+    /// External launches holding it (released by "Release").
+    pub external_entries: Vec<ExternalHoldDto>,
+    /// Every entry holding it (the sidebar badge).
+    pub entry_ids: Vec<String>,
+    /// Open tabs, panes, files windows and forwards holding it.
+    pub open_holders: u32,
+}
+
+/// The VPN tab of Settings and the sidebar badges (`vpn_status`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VpnStatusDto {
+    /// Connect with VPN works here (macOS).
+    pub supported: bool,
+    /// A MacVPN token is stored.
+    pub paired: bool,
+    /// The VPNs held up, by name.
+    pub held: Vec<HeldVpnDto>,
+}
+
 /// What the registry tells the UI.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VpnNotice {
+    /// A gate's progress.
+    Progress(VpnProgressDto),
     /// The held VPNs changed.
     Changed,
     /// A held VPN went down on its own (the user disconnected it in MacVPN, or it dropped).
@@ -135,6 +191,9 @@ pub enum VpnNotice {
         profile_name: String,
     },
 }
+
+/// The reachability test (one ping; a fake in tests).
+type Pinger = Arc<dyn Fn(&str) -> bool + Send + Sync>;
 
 /// Receives [`VpnNotice`]s (the Tauri side emits them).
 pub type VpnNotifier = Arc<dyn Fn(VpnNotice) + Send + Sync>;
@@ -167,6 +226,13 @@ struct Registry {
 /// The VPN state shared by the core and the holds.
 pub struct VpnShared {
     backend: Mutex<Arc<dyn VpnBackend>>,
+    /// Whether the gate runs (macOS, or a test backend).
+    enabled: AtomicBool,
+    pinger: Mutex<Pinger>,
+    /// External launches' holds by entry: (entry name, hold).
+    external: Mutex<HashMap<String, (String, VpnHold)>>,
+    /// Running gates' cancel flags by request id.
+    requests: Mutex<HashMap<String, Arc<CancelFlag>>>,
     registry: Mutex<Registry>,
     changed: Condvar,
     notifier: Mutex<Option<VpnNotifier>>,
@@ -178,6 +244,10 @@ impl VpnShared {
     pub fn new(backend: Box<dyn VpnBackend>) -> Arc<Self> {
         Arc::new(Self {
             backend: Mutex::new(Arc::from(backend)),
+            enabled: AtomicBool::new(cfg!(target_os = "macos")),
+            pinger: Mutex::new(Arc::new(rd_platform::ping::reachable)),
+            external: Mutex::default(),
+            requests: Mutex::default(),
             registry: Mutex::default(),
             changed: Condvar::new(),
             notifier: Mutex::new(None),
@@ -190,9 +260,10 @@ impl VpnShared {
         Arc::clone(&lock(&self.backend))
     }
 
-    /// Replaces the backend (tests).
+    /// Replaces the backend and turns the gate on (tests).
     pub fn set_backend(&self, backend: Box<dyn VpnBackend>) {
         *lock(&self.backend) = Arc::from(backend);
+        self.enabled.store(true, Ordering::SeqCst);
     }
 
     /// Installs (or removes) the notifier.
@@ -412,6 +483,10 @@ impl VpnShared {
 
     /// On quit: closes every lease; later acquires fail.
     pub fn shutdown(&self) {
+        let external = std::mem::take(&mut *lock(&self.external));
+        for flag in lock(&self.requests).values() {
+            flag.cancel();
+        }
         let slots: Vec<Slot> = {
             let mut registry = lock(&self.registry);
             registry.closed = true;
@@ -423,6 +498,214 @@ impl VpnShared {
                 (up.close)();
             }
         }
+        drop(external);
+    }
+}
+
+impl super::AppCore {
+    /// Replaces MacVPN (tests); the gate then runs on any OS.
+    pub fn set_vpn_backend(&self, backend: Box<dyn VpnBackend>) {
+        self.vpn.set_backend(backend);
+    }
+
+    /// Replaces the ping (tests).
+    pub fn set_vpn_pinger(&self, pinger: Box<dyn Fn(&str) -> bool + Send + Sync>) {
+        *lock(&self.vpn.pinger) = Arc::from(pinger);
+    }
+
+    /// Installs the notifier of VPN progress, changes and drops. Called once in setup.
+    pub fn set_vpn_hooks(&self, notifier: VpnNotifier) {
+        self.vpn.set_notifier(Some(notifier));
+    }
+
+    /// The VPN gate, run before every connection to a library connection: `None` when its entry has no
+    /// VPN profile, the gate is off (not macOS), or the test address answered; otherwise a hold on the
+    /// profile's VPN, brought up through MacVPN when needed. A profile that is up already (ours or the
+    /// user's) is held without a ping, so a ping that only answers through the VPN never skips the hold.
+    ///
+    /// # Errors
+    /// The `vpn*` codes when the VPN is needed and can't come up (the connect stops).
+    pub fn vpn_gate(&self, connection_id: &str) -> Result<Option<VpnHold>, CommandError> {
+        if !self.vpn.enabled.load(Ordering::SeqCst) {
+            return Ok(None);
+        }
+        let Some((entry_id, entry_name, host, vpn)) = self.entry_vpn(connection_id)? else {
+            return Ok(None);
+        };
+        let backend = self.vpn.backend();
+        let profile = backend
+            .list()
+            .ok()
+            .and_then(|list| list.into_iter().find(|p| p.id == vpn.connection_id));
+        let profile_name = profile
+            .as_ref()
+            .map_or_else(|| "VPN".to_owned(), |p| p.name.clone());
+        let request = Arc::new(CancelFlag::default());
+        let request_id = rd_core::new_id();
+        lock(&self.vpn.requests).insert(request_id.clone(), Arc::clone(&request));
+        let progress = |phase: &str, unreachable: Option<&str>| {
+            self.vpn.notify(VpnNotice::Progress(VpnProgressDto {
+                request_id: request_id.clone(),
+                phase: phase.to_owned(),
+                profile_name: profile_name.clone(),
+                entry_name: entry_name.clone(),
+                unreachable: unreachable.map(str::to_owned),
+            }));
+        };
+        progress("testing", None);
+        let already_up =
+            self.vpn.is_up(&vpn.connection_id) || profile.as_ref().is_some_and(|p| p.state == "connected");
+        let target = match vpn.test_mode {
+            rd_core::VpnTestMode::Host => host,
+            rd_core::VpnTestMode::Address => vpn.test_address.clone(),
+        };
+        let result = if !already_up && (lock(&self.vpn.pinger).clone())(&target) {
+            Ok(None)
+        } else {
+            let unreachable = (!already_up).then_some(target.as_str());
+            if unreachable.is_some() {
+                progress("connecting", unreachable);
+            }
+            self.vpn
+                .acquire(
+                    &vpn.connection_id,
+                    &profile_name,
+                    &entry_id,
+                    &mut |phase| match phase {
+                        VpnPhase::Connecting => progress("connecting", unreachable),
+                        VpnPhase::WaitingForMfa => progress("waitingForMfa", unreachable),
+                        VpnPhase::WaitingForCredentials => progress("waitingForCredentials", unreachable),
+                        VpnPhase::Connected | VpnPhase::Down => {}
+                    },
+                    &request,
+                )
+                .map(Some)
+        };
+        lock(&self.vpn.requests).remove(&request_id);
+        progress(if result.is_ok() { "done" } else { "failed" }, None);
+        result
+    }
+
+    /// The VPN setting of `connection_id`'s entry: (entry id, entry name, host, setting).
+    fn entry_vpn(
+        &self,
+        connection_id: &str,
+    ) -> Result<Option<(String, String, String, rd_core::EntryVpn)>, CommandError> {
+        let inner = self.inner();
+        let (db, _) = Self::unlocked(&inner)?;
+        let library = db.library()?;
+        let Some(connection) = library.connections.iter().find(|c| c.id == connection_id) else {
+            return Ok(None);
+        };
+        Ok(library.entry(&connection.entry_id).and_then(|entry| {
+            let vpn = entry.vpn.clone()?;
+            Some((entry.id.clone(), entry.name.clone(), entry.host.clone(), vpn))
+        }))
+    }
+
+    /// Cancels a running gate (its `vpn-progress` request id); unknown ids are ignored.
+    pub fn vpn_cancel(&self, request_id: &str) {
+        let flag = lock(&self.vpn.requests).get(request_id).cloned();
+        if let Some(flag) = flag {
+            flag.cancel();
+        }
+    }
+
+    /// Keeps `hold` for an external launch of `entry_id` until it is released or the app quits; one per
+    /// entry (a newer one replaces the older).
+    pub fn hold_external(&self, entry_id: &str, entry_name: &str, hold: VpnHold) {
+        let old = lock(&self.vpn.external).insert(entry_id.to_owned(), (entry_name.to_owned(), hold));
+        drop(old);
+        self.vpn.notify(VpnNotice::Changed);
+    }
+
+    /// "Release VPN" on an entry: drops its external launch's hold.
+    pub fn vpn_release_entry(&self, entry_id: &str) {
+        let old = lock(&self.vpn.external).remove(entry_id);
+        if old.is_some() {
+            drop(old);
+            self.vpn.notify(VpnNotice::Changed);
+        }
+    }
+
+    /// "Release" in Settings: drops every external launch's hold on `profile_id`; open tabs keep theirs.
+    pub fn vpn_release_profile(&self, profile_id: &str) {
+        let released: Vec<(String, VpnHold)> = {
+            let mut external = lock(&self.vpn.external);
+            let entries: Vec<String> = external
+                .iter()
+                .filter(|(_, (_, hold))| hold.profile_id() == profile_id)
+                .map(|(entry, _)| entry.clone())
+                .collect();
+            entries.iter().filter_map(|e| external.remove(e)).collect()
+        };
+        if !released.is_empty() {
+            drop(released);
+            self.vpn.notify(VpnNotice::Changed);
+        }
+    }
+
+    /// Pairing state and the held VPNs.
+    pub fn vpn_status(&self) -> VpnStatusDto {
+        let supported = self.vpn.enabled.load(Ordering::SeqCst);
+        let external: Vec<(String, String, String)> = lock(&self.vpn.external)
+            .iter()
+            .filter(|(_, (_, hold))| hold.is_alive())
+            .map(|(entry, (name, hold))| (hold.profile_id().to_owned(), entry.clone(), name.clone()))
+            .collect();
+        let held = self
+            .vpn
+            .held()
+            .into_iter()
+            .map(|(profile_id, profile_name, holders, entry_ids)| {
+                let mut external_entries: Vec<ExternalHoldDto> = external
+                    .iter()
+                    .filter(|(p, _, _)| *p == profile_id)
+                    .map(|(_, entry_id, entry_name)| ExternalHoldDto {
+                        entry_id: entry_id.clone(),
+                        entry_name: entry_name.clone(),
+                    })
+                    .collect();
+                external_entries.sort_by(|a, b| a.entry_name.cmp(&b.entry_name));
+                let open = holders.saturating_sub(external_entries.len());
+                HeldVpnDto {
+                    profile_id,
+                    profile_name,
+                    external_entries,
+                    entry_ids,
+                    open_holders: u32::try_from(open).unwrap_or(u32::MAX),
+                }
+            })
+            .collect();
+        VpnStatusDto {
+            supported,
+            paired: supported && self.vpn.backend().is_paired(),
+            held,
+        }
+    }
+
+    /// The MacVPN connections Remote Desktop may use (the entry editor's picker).
+    ///
+    /// # Errors
+    /// `vpnNotRunning`, `vpnNotPaired`, `vpnLocked` or `vpnFailed`.
+    pub fn vpn_profiles(&self) -> Result<Vec<VpnProfileDto>, CommandError> {
+        self.vpn.backend().list()
+    }
+
+    /// Pairs with MacVPN (blocks until the user answers MacVPN's window).
+    ///
+    /// # Errors
+    /// `vpnNotRunning`, `vpnPairingDenied`, `vpnBusy` or `vpnFailed`.
+    pub fn vpn_pair(&self) -> Result<(), CommandError> {
+        let result = self.vpn.backend().pair();
+        self.vpn.notify(VpnNotice::Changed);
+        result
+    }
+
+    /// Forgets the MacVPN token (MacVPN keeps the pairing until revoked there).
+    pub fn vpn_unpair(&self) {
+        self.vpn.backend().unpair();
+        self.vpn.notify(VpnNotice::Changed);
     }
 }
 
@@ -449,16 +732,19 @@ impl std::fmt::Debug for VpnHold {
 
 impl VpnHold {
     /// The MacVPN connection id.
+    #[must_use]
     pub fn profile_id(&self) -> &str {
         &self.profile_id
     }
 
     /// The entry it was taken for.
+    #[must_use]
     pub fn entry_id(&self) -> &str {
         &self.entry_id
     }
 
     /// Whether the lease it belongs to is still up (not dropped, not shut down).
+    #[must_use]
     pub fn is_alive(&self) -> bool {
         self.shared.upgrade().is_some_and(|shared| {
             matches!(lock(&shared.registry).profiles.get(&self.profile_id),
@@ -504,6 +790,7 @@ impl VpnBackend for UnsupportedBackend {
     }
 }
 
+#[cfg_attr(target_os = "macos", allow(dead_code, reason = "the backend off macOS"))]
 fn unsupported() -> CommandError {
     CommandError::new("vpnNotRunning", "Connect with VPN needs MacVPN on macOS.")
 }

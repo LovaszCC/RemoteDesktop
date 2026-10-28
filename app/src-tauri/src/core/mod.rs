@@ -39,10 +39,6 @@ mod tests;
 mod transfer;
 #[cfg(test)]
 mod transfer_tests;
-#[allow(
-    dead_code,
-    reason = "the VPN gate and commands use the rest in the next commit"
-)]
 mod vpn;
 #[cfg(test)]
 mod vpn_tests;
@@ -70,6 +66,9 @@ pub use rdp::{
 pub use settings::SettingsPatch;
 pub use ssh::{AskpassNotice, AskpassNotifier, AskpassPromptDto, EXTERNAL_LIFETIME, SessionsChanged};
 pub use ssh_keys::{KeySetupDto, KeySetupNotifier};
+pub use vpn::{
+    ExternalHoldDto, HeldVpnDto, VpnHold, VpnNotice, VpnNotifier, VpnProfileDto, VpnProgressDto, VpnStatusDto,
+};
 
 use crate::dto::{AppStatusDto, LockHolderDto, Phase};
 
