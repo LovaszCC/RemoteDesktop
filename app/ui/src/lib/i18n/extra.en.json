@@ -328,5 +328,22 @@
   "Test address": "Test address",
   "An address only reachable over this VPN.": "An address only reachable over this VPN.",
   "Reachable → connects directly. Not reachable → connects the VPN first.": "Reachable → connects directly. Not reachable → connects the VPN first.",
-  "Pair with MacVPN…": "Pair with MacVPN…"
+  "Pair with MacVPN…": "Pair with MacVPN…",
+  "MacVPN": "MacVPN",
+  "Paired with MacVPN": "Paired with MacVPN",
+  "Choose the VPNs RemoteDesktop may use in MacVPN → Paired apps.": "Choose the VPNs RemoteDesktop may use in MacVPN → Paired apps.",
+  "Pair again…": "Pair again…",
+  "Unpair": "Unpair",
+  "Not paired.": "Not paired.",
+  "In MacVPN: Manage Connections… → Paired apps → turn on \"Allow other apps to control VPNs\". Then pair, and tick the VPNs RemoteDesktop may use.": "In MacVPN: Manage Connections… → Paired apps → turn on \"Allow other apps to control VPNs\". Then pair, and tick the VPNs RemoteDesktop may use.",
+  "Waiting for MacVPN… Allow the pairing in its window.": "Waiting for MacVPN… Allow the pairing in its window.",
+  "Held by RemoteDesktop": "Held by RemoteDesktop",
+  "No VPN is held.": "No VPN is held.",
+  "Release": "Release",
+  "Unpair from MacVPN?": "Unpair from MacVPN?",
+  "RemoteDesktop forgets its MacVPN token. Revoke it in MacVPN → Paired apps too.": "RemoteDesktop forgets its MacVPN token. Revoke it in MacVPN → Paired apps too.",
+  "Still used by %lld open tabs": {
+    "one": "Still used by %lld open tab",
+    "other": "Still used by %lld open tabs"
+  }
 }

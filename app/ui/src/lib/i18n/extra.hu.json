@@ -328,5 +328,22 @@
   "Test address": "Teszt cím",
   "An address only reachable over this VPN.": "Egy cím, ami csak ezen a VPN-en át érhető el.",
   "Reachable → connects directly. Not reachable → connects the VPN first.": "Elérhető → közvetlenül kapcsolódik. Nem elérhető → előbb a VPN-t kapcsolja fel.",
-  "Pair with MacVPN…": "Párosítás a MacVPN-nel…"
+  "Pair with MacVPN…": "Párosítás a MacVPN-nel…",
+  "MacVPN": "MacVPN",
+  "Paired with MacVPN": "Párosítva a MacVPN-nel",
+  "Choose the VPNs RemoteDesktop may use in MacVPN → Paired apps.": "Hogy mely VPN-eket használhatja a RemoteDesktop, azt a MacVPN → Párosított appok résznél választod ki.",
+  "Pair again…": "Újrapárosítás…",
+  "Unpair": "Párosítás megszüntetése",
+  "Not paired.": "Nincs párosítva.",
+  "In MacVPN: Manage Connections… → Paired apps → turn on \"Allow other apps to control VPNs\". Then pair, and tick the VPNs RemoteDesktop may use.": "A MacVPN-ben: Kapcsolatok kezelése… → Párosított appok → kapcsold be az „Engedélyezés más appoknak a VPN-ek vezérlésére” beállítást. Utána párosíts, és pipáld ki, mely VPN-eket használhatja a RemoteDesktop.",
+  "Waiting for MacVPN… Allow the pairing in its window.": "Várakozás a MacVPN-re… Engedélyezd a párosítást az ablakában.",
+  "Held by RemoteDesktop": "A RemoteDesktop által tartott VPN-ek",
+  "No VPN is held.": "Nincs fenntartott VPN.",
+  "Release": "Elengedés",
+  "Unpair from MacVPN?": "Megszünteted a párosítást a MacVPN-nel?",
+  "RemoteDesktop forgets its MacVPN token. Revoke it in MacVPN → Paired apps too.": "A RemoteDesktop elfelejti a MacVPN tokenjét. A MacVPN → Párosított appok résznél is vond vissza.",
+  "Still used by %lld open tabs": {
+    "one": "Még %lld nyitott tab használja",
+    "other": "Még %lld nyitott tab használja"
+  }
 }

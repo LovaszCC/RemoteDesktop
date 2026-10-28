@@ -3,6 +3,7 @@
 import { t } from '../i18n/index.svelte';
 import { relativeAge } from '../format';
 import { modifierBits, shortcutFromEvent, type KeyEventLike } from '../shortcuts/keys';
+import type { SettingsTab } from '../stores/settingsWindow.svelte';
 import type { KeyShortcut, Platform, SelectionShows, ShortcutDto, Timestamp } from '../types';
 
 /** The language picker: native names, not translated (Swift `AppLanguage.displayName`). */
@@ -114,4 +115,13 @@ export function winboxPathText(configured: string | null): string {
 /** The detected WinBox row: the path, else "Not found". */
 export function winboxDetectedText(detected: string | null | undefined): string {
   return detected ?? t('Not found');
+}
+
+/** The Settings sheet's tabs: VPN only on macOS (Connect with VPN needs MacVPN). */
+export function settingsTabs(platform: Platform): { value: SettingsTab; label: string }[] {
+  return [
+    { value: 'general', label: t('General') },
+    { value: 'shortcuts', label: t('Keyboard Shortcuts') },
+    ...(platform === 'macos' ? [{ value: 'vpn' as const, label: t('VPN') }] : []),
+  ];
 }
