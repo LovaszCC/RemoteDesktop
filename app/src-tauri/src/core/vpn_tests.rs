@@ -447,15 +447,20 @@ fn concurrent_gates_join_one_up() {
     *lab.fake.0.gate.lock().unwrap() = Some(gate);
     let run = || {
         let (core, connection) = (Arc::clone(&lab.core), lab.connection.clone());
-        std::thread::spawn(move || core.vpn_gate(&connection).map(|h| h.is_some()))
+        std::thread::spawn(move || core.vpn_gate(&connection))
     };
     let (first, second) = (run(), run());
+    // Each gate reports "connecting" twice once it waits: after the ping, and from the up it runs or joins.
     wait_until("both gates waiting", || {
-        phases(&lab).iter().filter(|p| *p == "connecting").count() >= 2
+        phases(&lab).iter().filter(|p| *p == "connecting").count() >= 4
     });
     open.send(()).unwrap();
-    assert_eq!(first.join().unwrap(), Ok(true));
-    assert_eq!(second.join().unwrap(), Ok(true));
+    let holds = [first.join().unwrap().unwrap(), second.join().unwrap().unwrap()];
+    assert!(
+        holds
+            .iter()
+            .all(|h| h.as_ref().is_some_and(super::vpn::VpnHold::is_alive))
+    );
     assert_eq!(lab.fake.0.ups.load(Ordering::SeqCst), 1);
 }
 
