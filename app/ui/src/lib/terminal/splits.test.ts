@@ -294,6 +294,64 @@ describe('splits store', () => {
     await splits.splitActive();
   });
 
+  it('lists single terminal tabs in tab bar order as merge candidates', async () => {
+    let n = 0;
+    const { splits, sessions, tabs, library } = setup({
+      open_local_terminal: () => ({ sessionId: `L${++n}` }),
+    });
+    await sessions.open(library.connection('a')!);
+    tabs.openSession({ id: 'rdp', title: 'desk', type: 'rdp', color: null });
+    await sessions.openLocal();
+    await splits.open([library.connection('b')!, library.connection('c')!]);
+    expect(tabs.ids).toEqual(['S1', 'rdp', 'L1', 'T1']);
+    expect(splits.mergeCandidates).toEqual(['S1', 'L1']);
+  });
+
+  it('merges open terminal tabs into one split, keeping their sessions', async () => {
+    let n = 0;
+    const { splits, sessions, tabs, library, terminals, bridge } = setup({
+      open_local_terminal: () => ({ sessionId: `L${++n}` }),
+    });
+    const closed: string[] = [];
+    tabs.onSessionClosed((id) => closed.push(id));
+    tabs.openSession({ id: 'rdp', title: 'desk', type: 'rdp', color: null });
+    await sessions.open(library.connection('a')!);
+    await sessions.openLocal();
+    await sessions.open(library.connection('b')!);
+    tabs.select('L1');
+
+    expect(splits.mergeTabs(['S2', 'rdp', 'S1', 'L1'])).toBe('T1');
+    expect(tabs.ids).toEqual(['rdp', 'T1']);
+    expect(tabs.active).toBe('T1');
+    expect(panes(splits, 'T1')).toEqual(['S1', 'L1', 'S2']);
+    expect(splits.get('T1')!.panes.map((p) => p.connectionId)).toEqual(['a', 'local-terminal', 'b']);
+    expect(splits.get('T1')!.focused).toBe('L1');
+    expect(tabs.session('T1')).toMatchObject({ split: true, title: 'Split (3)' });
+    expect(['S1', 'L1', 'S2'].every((id) => sessions.isPane(id))).toBe(true);
+    expect(sessions.handle('L1')).toBe(terminals[1]!.handle);
+    for (const t of terminals) expect(t.handle.dispose).not.toHaveBeenCalled();
+    expect(closed).toEqual([]);
+    expect(bridge.invoke.mock.calls.some(([c]) => c === 'ssh_close')).toBe(false);
+    expect(splits.mergeCandidates).toEqual([]);
+  });
+
+  it('merges at most four tabs, focuses the first without the active tab, and needs two', async () => {
+    const { splits, sessions, tabs, library } = setup();
+    for (const id of ['a', 'b', 'c', 'a', 'b']) await sessions.open(library.connection(id)!);
+    tabs.select(null);
+    expect(splits.mergeTabs(['S1'])).toBeNull();
+    expect(splits.mergeTabs(['S1', 'nope'])).toBeNull();
+    expect(tabs.ids).toHaveLength(5);
+
+    // A connection's tabs sit together: a, a, b, b, c.
+    expect(tabs.ids).toEqual(['S1', 'S4', 'S2', 'S5', 'S3']);
+    expect(splits.mergeTabs(['S5', 'S4', 'S3', 'S2', 'S1'])).toBe('T1');
+    expect(panes(splits, 'T1')).toEqual(['S1', 'S4', 'S2', 'S5']);
+    expect(splits.get('T1')!.focused).toBe('S1');
+    expect(tabs.ids).toEqual(['T1', 'S3']);
+    expect(splits.mergeTabs(['T1', 'S3'])).toBeNull();
+  });
+
   it('saves the panes as a split and updates the saved split it came from', async () => {
     const { splits, library, bridge, prompt, toast } = setup();
     const a = library.connection('a')!;

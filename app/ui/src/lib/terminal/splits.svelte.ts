@@ -4,6 +4,7 @@
 // `ssh_broadcast_input`. A pane closes on exit 0 (the tab with the last pane); other exits keep the pane
 // with its exit bar. "Split terminal" turns a single terminal tab into a split, keeping its live session.
 // Local terminal panes can be added and split like the others, but are left out of saved splits.
+// "Split tabs…" moves 2–4 open terminal tabs, with their live sessions, into one new split tab.
 
 import { api as defaultApi, type Api } from '../api';
 import { errorMessage } from '../errors';
@@ -270,6 +271,32 @@ export function createSplitsStore(deps: Partial<SplitsDeps> = {}) {
       splits = { ...splits, [next.id]: next };
       tabs.replaceSession(active, { id: next.id, ...tabInfo(next) });
       await store.addPane(next.id, connection);
+    },
+
+    /** Tabs "Split tabs…" can put side by side: single terminal tabs (not splits), in tab bar order. */
+    get mergeCandidates(): string[] {
+      return tabs.ids.filter((id) => sessions.has(id) && !sessions.isPane(id) && !(id in splits));
+    },
+
+    /**
+     * "Split tabs…": the given candidate tabs (in tab bar order, at most 4) become the panes of one new split
+     * tab, keeping their sessions and terminals. The split takes the first tab's place; the active tab's
+     * pane gets the focus. The tab id, or `null` (nothing changes) when fewer than 2 are candidates.
+     */
+    mergeTabs(ids: readonly string[]): string | null {
+      const chosen = store.mergeCandidates.filter((id) => ids.includes(id)).slice(0, MAX_PANES);
+      const [first, ...rest] = chosen;
+      if (first === undefined || rest.length === 0) return null;
+      const panes = chosen.map((id) => ({ id, connectionId: sessions.state(id)?.connectionId ?? '' }));
+      const active = tabs.active;
+      const split = newSplit(newId(), panes);
+      if (active !== null && chosen.includes(active)) split.focused = active;
+      for (const id of chosen) sessions.adopt(id);
+      splits = { ...splits, [split.id]: split };
+      tabs.replaceSession(first, { id: split.id, ...tabInfo(split) });
+      for (const id of rest) tabs.detachSession(id);
+      tabs.select(split.id);
+      return split.id;
     },
 
     /** "Save split…": asks the name (the tab's title by default) and saves the panes' connections. */
