@@ -197,6 +197,16 @@ export class TabsStore extends SessionTabs {
     this.replace(old, next.id);
   }
 
+  /**
+   * Removes a session's tab without closing the session: nobody hears about a closed tab (its session lives
+   * on as a split pane). Unknown ids are ignored.
+   */
+  detachSession(id: string) {
+    if (!this.session(id)) return;
+    this.sessions = this.sessions.filter((s) => s.id !== id);
+    this.close(id);
+  }
+
   /** Closes a session and its tab. */
   closeSession(id: string) {
     if (!this.session(id)) return;
