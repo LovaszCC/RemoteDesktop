@@ -129,6 +129,8 @@ pub struct SpawnSpec {
     pub cols: u16,
     /// Rows.
     pub rows: u16,
+    /// The directory to start in; the home directory when `None` or not an existing directory.
+    pub cwd: Option<PathBuf>,
 }
 
 fn size(cols: u16, rows: u16) -> PtySize {
@@ -261,6 +263,7 @@ fn finish_recording(recorder: &mut OutputRecorder) -> Vec<SessionEvent> {
 pub struct SshSession {
     shared: Arc<Shared>,
     killer: Mutex<Box<dyn ChildKiller + Send + Sync>>,
+    pid: Option<u32>,
 }
 
 impl std::fmt::Debug for SshSession {
@@ -292,11 +295,12 @@ impl SshSession {
         for (key, value) in &spec.env {
             command.env(key, value);
         }
-        if let Some(home) = dirs::home_dir() {
-            command.cwd(home);
+        if let Some(dir) = spec.cwd.filter(|d| d.is_dir()).or_else(dirs::home_dir) {
+            command.cwd(dir);
         }
         let mut child = pty.slave.spawn_command(command).map_err(io::Error::other)?;
         drop(pty.slave);
+        let pid = child.process_id();
         let killer = child.clone_killer();
         let reader = pty.master.try_clone_reader().map_err(io::Error::other)?;
         let writer = pty.master.take_writer().map_err(io::Error::other)?;
@@ -352,7 +356,19 @@ impl SshSession {
         Ok(Self {
             shared,
             killer: Mutex::new(killer),
+            pid,
         })
+    }
+
+    /// The process's working directory now, asked from the OS (for a local terminal: the shell's, wherever
+    /// it `cd`-ed); `None` once it exited, or where the OS can't tell (see
+    /// [`crate::local::process_directory`]).
+    #[must_use]
+    pub fn process_directory(&self) -> Option<PathBuf> {
+        if !self.is_running() {
+            return None;
+        }
+        crate::local::process_directory(self.pid?)
     }
 
     /// The process still runs.
@@ -632,6 +648,7 @@ mod tests {
             login_user: login_user.into(),
             cols: 80,
             rows: 24,
+            cwd: None,
         }
     }
 
@@ -840,6 +857,44 @@ mod tests {
     }
 
     #[test]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    fn starts_in_the_given_directory_and_follows_cd() {
+        let start = tempfile::tempdir().unwrap();
+        std::fs::create_dir(start.path().join("inner")).unwrap();
+        let sink = Arc::new(Collect::default());
+        let spec = SpawnSpec {
+            cwd: Some(start.path().to_owned()),
+            ..sh("cd inner && sleep 30", "u")
+        };
+        let session = SshSession::spawn(spec, sink).unwrap();
+        let expected = start.path().join("inner").canonicalize().unwrap();
+        let mut found = None;
+        for _ in 0..100 {
+            found = session.process_directory().and_then(|d| d.canonicalize().ok());
+            if found.as_ref() == Some(&expected) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        assert_eq!(found, Some(expected));
+        session.kill();
+    }
+
+    #[test]
+    fn starts_at_home_without_an_existing_directory() {
+        let sink = Arc::new(Collect::default());
+        let spec = SpawnSpec {
+            cwd: Some("/no/such/directory".into()),
+            ..sh("pwd", "u")
+        };
+        let _session = SshSession::spawn(spec, sink.clone()).unwrap();
+        sink.wait_exit();
+        let output = String::from_utf8_lossy(&lock(&sink.output)).into_owned();
+        let home = dirs::home_dir().unwrap();
+        assert!(output.contains(home.to_str().unwrap()), "{output}");
+    }
+
+    #[test]
     fn the_local_shell_runs_commands() {
         let shell = crate::local::local_shell();
         let sink = Arc::new(Collect::default());
@@ -851,6 +906,7 @@ mod tests {
             login_user: crate::local::login_user(|n| std::env::var_os(n)),
             cols: 80,
             rows: 24,
+            cwd: None,
         };
         let session = SshSession::spawn(spec, sink.clone()).unwrap();
         // The arithmetic keeps the typed echo of the command from matching.

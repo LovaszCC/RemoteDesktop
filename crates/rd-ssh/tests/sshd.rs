@@ -132,6 +132,7 @@ impl Lab {
             login_user: user.into(),
             cols: 100,
             rows: 30,
+            cwd: None,
         };
         let sink = Arc::new(Collect::default());
         let session = SshSession::spawn(spec, sink.clone()).unwrap();

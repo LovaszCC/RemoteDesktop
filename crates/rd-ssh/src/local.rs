@@ -4,6 +4,10 @@
 //!
 //! Unix: `$SHELL` as a login shell (`-l`), else `/bin/zsh` on macOS or `/bin/bash`, then `/bin/sh`.
 //! Windows: `pwsh.exe` from `PATH`, else Windows `PowerShell`, else `%COMSPEC%` (`cmd.exe`).
+//!
+//! A new local terminal can start in another one's directory: [`process_directory`] asks the OS where that
+//! shell is now (macOS `lsof`, Linux `/proc/<pid>/cwd`); the shell's own reports (OSC 7) aren't relied on,
+//! as the default macOS zsh sends none.
 
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
@@ -128,6 +132,40 @@ pub fn login_user(var: impl Fn(&str) -> Option<OsString>) -> String {
         .find_map(|name| non_empty(var(name)))
         .map(|v| v.to_string_lossy().into_owned())
         .unwrap_or_default()
+}
+
+/// The current working directory of process `pid`, from the OS: `lsof` on macOS, `/proc/<pid>/cwd` on
+/// Linux. `None` elsewhere (Windows), or when the process is gone or the answer isn't a directory.
+#[must_use]
+pub fn process_directory(pid: u32) -> Option<PathBuf> {
+    #[cfg(target_os = "macos")]
+    let directory = {
+        let output = std::process::Command::new("/usr/sbin/lsof")
+            .args(["-a", "-p", &pid.to_string(), "-d", "cwd", "-Fn"])
+            .stdin(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .output()
+            .ok()?;
+        parse_lsof_cwd(&String::from_utf8_lossy(&output.stdout))
+    };
+    #[cfg(target_os = "linux")]
+    let directory = std::fs::read_link(format!("/proc/{pid}/cwd")).ok();
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    let directory: Option<PathBuf> = {
+        let _ = pid;
+        None
+    };
+    directory.filter(|d| d.is_dir())
+}
+
+/// The path of `lsof -Fn` output: the first `n` field line (`p<pid>`, `f<fd>` and the others are skipped).
+#[must_use]
+pub fn parse_lsof_cwd(output: &str) -> Option<PathBuf> {
+    output
+        .lines()
+        .find_map(|line| line.strip_prefix('n'))
+        .filter(|path| path.starts_with('/'))
+        .map(PathBuf::from)
 }
 
 #[cfg(test)]
@@ -280,5 +318,31 @@ mod tests {
             assert!(REMOVED_ENV.contains(&name.as_str()), "{name}");
         }
         assert!(REMOVED_ENV.contains(&PROMPT_HINT_ENV));
+    }
+    #[test]
+    fn reads_the_path_of_lsof_field_output() {
+        assert_eq!(
+            parse_lsof_cwd("p4242\nfcwd\nn/Users/me/Documents\n"),
+            Some(PathBuf::from("/Users/me/Documents"))
+        );
+        assert_eq!(
+            parse_lsof_cwd("p1\nfcwd\nn/Users/me/with space\n"),
+            Some(PathBuf::from("/Users/me/with space"))
+        );
+        assert_eq!(parse_lsof_cwd("p4242\nfcwd\n"), None);
+        assert_eq!(parse_lsof_cwd(""), None);
+        assert_eq!(parse_lsof_cwd("nrelative\n"), None);
+    }
+
+    #[test]
+    fn finds_the_directory_of_a_running_process() {
+        let directory = process_directory(std::process::id());
+        if cfg!(any(target_os = "macos", target_os = "linux")) {
+            let expected = std::env::current_dir().unwrap().canonicalize().unwrap();
+            assert_eq!(directory.map(|d| d.canonicalize().unwrap()), Some(expected));
+        } else {
+            assert_eq!(directory, None);
+        }
+        assert_eq!(process_directory(u32::MAX), None);
     }
 }
