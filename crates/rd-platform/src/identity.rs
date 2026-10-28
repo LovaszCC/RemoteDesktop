@@ -15,6 +15,8 @@ pub struct AppIdentity {
     pub data_dir_name: &'static str,
     /// OS keyring service for the remembered vault key.
     pub keyring_service: &'static str,
+    /// OS keyring service for the MacVPN control API token.
+    pub macvpn_token_service: &'static str,
 }
 
 /// The identity of this build.
@@ -23,6 +25,7 @@ pub const APP_IDENTITY: AppIdentity = AppIdentity {
     identifier: "hu.softworks.RemoteDesktop",
     data_dir_name: "RemoteDesktop",
     keyring_service: "hu.softworks.RemoteDesktop.vault",
+    macvpn_token_service: "hu.softworks.RemoteDesktop.macvpn",
 };
 
 #[cfg(test)]
@@ -34,6 +37,10 @@ mod tests {
         assert_eq!(
             APP_IDENTITY.keyring_service,
             format!("{}.vault", APP_IDENTITY.identifier)
+        );
+        assert_eq!(
+            APP_IDENTITY.macvpn_token_service,
+            format!("{}.macvpn", APP_IDENTITY.identifier)
         );
     }
 

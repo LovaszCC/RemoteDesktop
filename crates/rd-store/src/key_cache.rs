@@ -12,7 +12,7 @@ use zeroize::Zeroizing;
 /// The OS keyring failed.
 #[derive(Debug, thiserror::Error)]
 #[error("keyring: {0}")]
-pub struct KeyCacheError(String);
+pub struct KeyCacheError(pub(crate) String);
 
 /// Where remembered vault keys live.
 pub trait KeyCache: Send + Sync {

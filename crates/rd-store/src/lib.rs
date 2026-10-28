@@ -16,6 +16,7 @@ mod repository;
 mod rows;
 mod transfer;
 mod vault;
+mod vpn_token;
 
 pub use app_version::{APP_VERSION_KEY, is_newer, pending_migrations, stored_app_version};
 pub use database::Database;
@@ -30,3 +31,4 @@ pub use transfer::{
     export_is_encrypted, read_export, write_export,
 };
 pub use vault::{Vault, VaultError};
+pub use vpn_token::{KeyringVpnTokens, MemoryVpnTokens, VpnTokens};

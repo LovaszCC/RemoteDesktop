@@ -7,6 +7,9 @@ pub mod launch;
 pub mod launchers;
 #[cfg(target_os = "macos")]
 pub mod macos;
+#[rustfmt::skip]
+pub mod macvpn;
+pub mod ping;
 pub mod rdp;
 pub mod settings;
 pub mod swift_defaults;
