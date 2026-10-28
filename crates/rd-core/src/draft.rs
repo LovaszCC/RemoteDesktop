@@ -5,7 +5,10 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::model::{Connection, ConnectionType, Entry, LabelColor, MikrotikMode, RdpClient, SshTerminal};
+use crate::model::{
+    Connection, ConnectionType, Entry, EntryVpn, LabelColor, MikrotikMode, RdpClient, SshTerminal,
+    VpnTestMode,
+};
 
 /// The entry editor's shared fields: what every connection of the entry has in common. The default
 /// connection is chosen per connection (`ConnectionSave.isDefault`).
@@ -24,16 +27,37 @@ pub struct EntryDraft {
     pub color: Option<LabelColor>,
     /// Shown under Favorites.
     pub is_favorite: bool,
+    /// The VPN profile and its test; `None` for no VPN.
+    pub vpn: Option<EntryVpnDraft>,
+}
+
+/// The entry editor's VPN fields.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct EntryVpnDraft {
+    /// The MacVPN connection id as listed by its control API.
+    pub connection_id: String,
+    /// What the gate pings.
+    pub test_mode: VpnTestMode,
+    /// The address pinged in [`VpnTestMode::Address`].
+    pub test_address: String,
 }
 
 impl EntryDraft {
-    /// Checks the name; the host is checked per connection type by [`ConnectionDraft::validate`].
+    /// Checks the name and, in [`VpnTestMode::Address`], the test address; the host is checked per
+    /// connection type by [`ConnectionDraft::validate`].
     ///
     /// # Errors
-    /// [`DraftError::EmptyName`].
+    /// [`DraftError::EmptyName`], [`DraftError::EmptyVpnTestAddress`].
     pub fn validate(&self) -> Result<(), DraftError> {
         if trim(&self.name).is_empty() {
             return Err(DraftError::EmptyName);
+        }
+        if let Some(vpn) = &self.vpn
+            && vpn.test_mode == VpnTestMode::Address
+            && trim(&vpn.test_address).is_empty()
+        {
+            return Err(DraftError::EmptyVpnTestAddress);
         }
         Ok(())
     }
@@ -46,6 +70,15 @@ impl EntryDraft {
         entry.notes.clone_from(&self.notes);
         entry.color = self.color;
         entry.is_favorite = self.is_favorite;
+        entry.vpn = self
+            .vpn
+            .as_ref()
+            .filter(|vpn| !trim(&vpn.connection_id).is_empty())
+            .map(|vpn| EntryVpn {
+                connection_id: vpn.connection_id.clone(),
+                test_mode: vpn.test_mode,
+                test_address: trim(&vpn.test_address).to_owned(),
+            });
     }
 }
 
@@ -137,10 +170,14 @@ pub enum DraftError {
     /// The port is not empty and not a number from 1 to 65535.
     #[error("The port must be a number from 1 to 65535.")]
     InvalidPort,
+    /// The VPN test pings a test address, but none is given.
+    #[error("Enter the test address.")]
+    EmptyVpnTestAddress,
 }
 
 impl DraftError {
-    /// The stable error code: `emptyName`, `invalidUrl`, `emptyHost` or `invalidPort`.
+    /// The stable error code: `emptyName`, `invalidUrl`, `emptyHost`, `invalidPort` or
+    /// `emptyVpnTestAddress`.
     #[must_use]
     pub fn code(self) -> &'static str {
         match self {
@@ -148,6 +185,7 @@ impl DraftError {
             Self::InvalidUrl => "invalidUrl",
             Self::EmptyHost => "emptyHost",
             Self::InvalidPort => "invalidPort",
+            Self::EmptyVpnTestAddress => "emptyVpnTestAddress",
         }
     }
 }
@@ -453,6 +491,46 @@ mod tests {
     }
 
     #[test]
+    fn draft_requires_a_test_address_in_address_mode() {
+        let mut entry = EntryDraft {
+            name: "web01".into(),
+            vpn: Some(EntryVpnDraft {
+                connection_id: "6F1C".into(),
+                test_mode: VpnTestMode::Address,
+                test_address: "  ".into(),
+            }),
+            ..EntryDraft::default()
+        };
+        assert_eq!(entry.validate(), Err(DraftError::EmptyVpnTestAddress));
+        assert_eq!(DraftError::EmptyVpnTestAddress.code(), "emptyVpnTestAddress");
+
+        entry.vpn.as_mut().unwrap().test_mode = VpnTestMode::Host;
+        assert_eq!(entry.validate(), Ok(()));
+
+        let mut saved = Entry::new("", "");
+        entry.vpn.as_mut().unwrap().test_address = " 10.20.0.1 ".into();
+        entry.apply_to(&mut saved);
+        assert_eq!(
+            saved.vpn,
+            Some(EntryVpn {
+                connection_id: "6F1C".into(),
+                test_mode: VpnTestMode::Host,
+                test_address: "10.20.0.1".into(),
+            })
+        );
+        entry.vpn = None;
+        entry.apply_to(&mut saved);
+        assert_eq!(saved.vpn, None);
+
+        entry.vpn = Some(EntryVpnDraft {
+            connection_id: " ".into(),
+            ..EntryVpnDraft::default()
+        });
+        entry.apply_to(&mut saved);
+        assert_eq!(saved.vpn, None, "no profile id is no VPN");
+    }
+
+    #[test]
     fn split_and_build_round_trip() {
         let cases = [
             (
@@ -600,6 +678,7 @@ mod tests {
             notes: " keep ".into(),
             color: Some(LabelColor::Red),
             is_favorite: true,
+            vpn: None,
         };
         assert_eq!(draft.validate(), Ok(()));
         let mut entry = Entry::new("old", "old");

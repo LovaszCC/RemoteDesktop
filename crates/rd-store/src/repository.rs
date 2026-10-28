@@ -643,11 +643,14 @@ fn mirror_entry(conn: &rusqlite::Connection, entry_id: &str) -> Result<(), Store
 pub(crate) fn upsert_entry(conn: &rusqlite::Connection, e: &Entry) -> Result<(), StoreError> {
     conn.execute(
         &format!(
-            "INSERT INTO entry ({ENTRY_COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10) \
+            "INSERT INTO entry ({ENTRY_COLUMNS}) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13) \
              ON CONFLICT(id) DO UPDATE SET folderId = excluded.folderId, name = excluded.name, \
              host = excluded.host, notes = excluded.notes, color = excluded.color, \
              isFavorite = excluded.isFavorite, defaultConnectionId = excluded.defaultConnectionId, \
-             createdAt = excluded.createdAt, updatedAt = excluded.updatedAt"
+             createdAt = excluded.createdAt, updatedAt = excluded.updatedAt, \
+             vpnConnectionId = excluded.vpnConnectionId, vpnTestMode = excluded.vpnTestMode, \
+             vpnTestAddress = excluded.vpnTestAddress"
         ),
         params![
             e.id,
@@ -659,7 +662,10 @@ pub(crate) fn upsert_entry(conn: &rusqlite::Connection, e: &Entry) -> Result<(),
             e.is_favorite,
             e.default_connection_id,
             e.created_at.to_string(),
-            e.updated_at.to_string()
+            e.updated_at.to_string(),
+            e.vpn.as_ref().map(|v| v.connection_id.as_str()),
+            e.vpn.as_ref().map_or("host", |v| v.test_mode.as_str()),
+            e.vpn.as_ref().map_or("", |v| v.test_address.as_str())
         ],
     )?;
     Ok(())

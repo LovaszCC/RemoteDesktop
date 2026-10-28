@@ -4,6 +4,7 @@ use std::collections::HashSet;
 
 use super::{
     ExportPayload, ExportSecret, ExportedConnection, ExportedCredential, ExportedEntry, ExportedForward,
+    ExportedVpn,
 };
 use crate::library::Library;
 use crate::model::{Sealed, Timestamp};
@@ -143,6 +144,7 @@ pub fn build_payload<E>(
             folder_path: folder_path(library, entry.folder_id.as_deref()),
             default_connection,
             connections,
+            vpn: entry.vpn.as_ref().map(exported_vpn),
         });
     }
 
@@ -152,6 +154,14 @@ pub fn build_payload<E>(
         credentials: credentials.into_iter().map(|(_, c)| c).collect(),
         entries,
     })
+}
+
+fn exported_vpn(vpn: &crate::model::EntryVpn) -> ExportedVpn {
+    ExportedVpn {
+        connection_id: vpn.connection_id.clone(),
+        test_mode: vpn.test_mode,
+        test_address: vpn.test_address.clone(),
+    }
 }
 
 #[cfg(test)]

@@ -247,6 +247,7 @@ pub fn parse_csv(data: &[u8]) -> Result<CsvImport, CsvError> {
                     .collect(),
                 default_connection: Some(0),
                 connections: vec![item],
+                vpn: None,
             });
         }
     }

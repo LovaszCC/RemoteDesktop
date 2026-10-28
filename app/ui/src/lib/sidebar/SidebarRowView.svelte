@@ -21,6 +21,8 @@
     forwardRunning?: boolean;
     /** The connection (an entry: any of its) has a live embedded session: green dot. */
     sessionOpen?: boolean;
+    /** RemoteDesktop holds a MacVPN VPN for the entry: "VPN" badge. */
+    vpnHeld?: boolean;
     folder?: FolderDto;
     credential?: CredentialDto;
     split?: SavedSplitDto;
@@ -46,6 +48,7 @@
     connection,
     forwardRunning = false,
     sessionOpen = false,
+    vpnHeld = false,
     folder,
     credential,
     split,
@@ -72,6 +75,9 @@
 {#snippet indicators()}
   {#if sessionOpen}
     <span class="session-dot" title={t('Open session')} aria-label={t('Open session')} role="img"></span>
+  {/if}
+  {#if vpnHeld}
+    <span class="vpn" title={t('VPN in use')} aria-label={t('VPN in use')} role="img">VPN</span>
   {/if}
   {#if forwardRunning}
     <span class="forward" title={t('Port forward active')} aria-label={t('Port forward active')} role="img">
@@ -358,5 +364,15 @@
     color: var(--fg-secondary);
     font-size: var(--font-size-small);
     font-variant-numeric: tabular-nums;
+  }
+  .vpn {
+    flex: none;
+    padding: 0 4px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--label-green) 18%, transparent);
+    color: var(--label-green);
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 14px;
   }
 </style>

@@ -30,6 +30,7 @@
   import LocalTerminalRow from './LocalTerminalRow.svelte';
   import SidebarRowView from './SidebarRowView.svelte';
   import { forwards as defaultForwards, type ForwardStore } from '../forwards/forwards.svelte';
+  import { vpn as defaultVpn, type VpnStore } from '../vpn/vpn.svelte';
   import {
     connectionTabs as defaultConnectionTabs,
     type ConnectionTabs,
@@ -43,6 +44,8 @@
     forwards?: ForwardStore;
     /** Open embedded sessions, for the open session dot. */
     connectionTabs?: Pick<ConnectionTabs, 'isLive'>;
+    /** Held VPNs, for the VPN badge and "Release VPN". */
+    vpn?: Pick<VpnStore, 'holds' | 'externalProfile'>;
     readOnly?: boolean;
     platform?: Platform;
   }
@@ -52,6 +55,7 @@
     actions = sidebarActions,
     forwards = defaultForwards,
     connectionTabs = defaultConnectionTabs,
+    vpn = defaultVpn,
     ...overrides
   }: Props = $props();
   const readOnly = $derived(overrides.readOnly ?? app.readOnly);
@@ -145,6 +149,7 @@
         ),
         selectedFolderId: actions.selectedFolderId(),
         platform,
+        externalVpn: (entryId) => vpn.externalProfile(entryId),
         actions,
       },
       menuTags(tag, store.selection),
@@ -298,6 +303,7 @@
             {connection}
             forwardRunning={connections.some((c) => c.type === 'ssh' && forwards.hasRunning(c.id))}
             sessionOpen={connections.some((c) => connectionTabs.isLive(c.id))}
+            vpnHeld={platform === 'macos' && !!entry && vpn.holds(entry.id)}
             folder={row.kind === 'folder' ? store.folder(row.id) : undefined}
             credential={row.kind === 'credential' ? store.credential(row.id) : undefined}
             {split}

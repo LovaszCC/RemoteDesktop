@@ -84,6 +84,8 @@ struct Entry {
     run: Option<Run>,
     /// The changed host key the last run's `ssh` refused, for `ssh_replace_host_key`.
     host_key_change: Option<ChangedHostKey>,
+    /// The VPN the session goes through, kept up while the tab is open.
+    vpn: Option<super::VpnHold>,
 }
 
 struct PendingPrompt {
@@ -515,11 +517,16 @@ impl AppCore {
         make_sink: impl FnOnce(&str) -> Arc<dyn Sink>,
     ) -> Result<String, CommandError> {
         let session_id = new_id();
-        let sink = make_sink(&session_id);
         let prepared = Prepared {
             cwd,
             ..self.prepare_target(&target, &session_id)?
         };
+        // After the checks, so a connection that can't start never brings a VPN up (or asks for MFA).
+        let vpn = match &target {
+            Target::Connection(id) => self.vpn_gate(id)?,
+            Target::Local => None,
+        };
+        let sink = make_sink(&session_id);
         lock(&self.ssh.sessions).insert(
             session_id.clone(),
             Entry {
@@ -528,6 +535,7 @@ impl AppCore {
                 current: 0,
                 run: None,
                 host_key_change: None,
+                vpn,
             },
         );
         match self.spawn_run(&session_id, prepared, cols, rows) {
@@ -552,7 +560,7 @@ impl AppCore {
     /// # Errors
     /// `sessionNotFound`, or the errors of [`open_ssh_session`](Self::open_ssh_session).
     pub fn ssh_reconnect(&self, session_id: &str, cols: u16, rows: u16) -> Result<(), CommandError> {
-        let (target, sink, old) = {
+        let (target, sink, old, vpn_alive) = {
             let mut sessions = lock(&self.ssh.sessions);
             let entry = sessions
                 .get_mut(session_id)
@@ -560,15 +568,23 @@ impl AppCore {
             // The old run's exit must not reach the tab.
             entry.current = 0;
             let old = entry.run.as_ref().map(|r| Arc::clone(&r.session));
-            (entry.target.clone(), Arc::clone(&entry.sink), old)
+            let alive = entry.vpn.as_ref().is_some_and(super::VpnHold::is_alive);
+            (entry.target.clone(), Arc::clone(&entry.sink), old, alive)
         };
         if let Some(old) = old {
             old.kill();
         }
         self.ssh.cancel_prompts(session_id);
+        // A live VPN hold carries over; otherwise (none, or it dropped) the gate runs again.
         let language = self.inner().settings.language.clone();
         sink.output(format!("\r\n\u{1b}[2m— {} —\u{1b}[0m\r\n", tr(&language, "Reconnecting")).into_bytes());
         let prepared = self.prepare_target(&target, session_id)?;
+        if let (Target::Connection(id), false) = (&target, vpn_alive) {
+            let vpn = self.vpn_gate(id)?;
+            if let Some(entry) = lock(&self.ssh.sessions).get_mut(session_id) {
+                entry.vpn = vpn;
+            }
+        }
         let run = self.spawn_run(session_id, prepared, cols, rows)?;
         let old = lock(&self.ssh.sessions)
             .get_mut(session_id)
@@ -774,6 +790,7 @@ impl AppCore {
     pub fn open_external_terminal(&self, connection_id: &str) -> Result<String, CommandError> {
         let label = format!("external-{}", new_id());
         let prepared = self.prepare(connection_id, &label)?;
+        let vpn = self.vpn_gate(connection_id)?;
         let lossy = |s: &std::ffi::OsStr| s.to_string_lossy().into_owned();
         let command = SshCommand {
             program: lossy(prepared.program.as_os_str()),
@@ -785,6 +802,7 @@ impl AppCore {
         let used = rd_ssh::external::launch(stored.as_deref(), &command).map_err(|e| {
             CommandError::new("terminalFailed", "Couldn't open the terminal.").with_detail(e.to_string())
         })?;
+        self.keep_external(vpn);
         if let Some(ticket) = prepared.ticket {
             lock(&self.ssh.externals).push(External {
                 label: label.clone(),

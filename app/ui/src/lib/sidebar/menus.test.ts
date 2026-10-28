@@ -43,6 +43,7 @@ function fakeActions(): MenuActions {
     'saveAsSplit',
     'renameSavedSplit',
     'deleteSavedSplit',
+    'releaseVpn',
   ];
   return Object.fromEntries(names.map((n) => [n, vi.fn()])) as unknown as MenuActions;
 }
@@ -362,5 +363,24 @@ describe('importMenu', () => {
       '-',
       'Copy host',
     ]);
+  });
+});
+
+describe('VPN release', () => {
+  it('release_menu_only_with_an_external_hold', () => {
+    const library = sidebarLibrary();
+    const entryId = library.connections.find((c) => c.id === 'c1')!.entryId;
+    const plain = context();
+    expect(labels(itemMenu(plain, 'e:' + entryId)).some((l) => l.startsWith('Release VPN'))).toBe(false);
+    const held = context({ externalVpn: (id) => (id === entryId ? 'Office' : null) });
+    const items = itemMenu(held, 'e:' + entryId);
+    const release = items.find(
+      (i): i is Extract<typeof i, { label: string }> => 'label' in i && i.label === 'Release VPN "Office"',
+    );
+    expect(release).toBeTruthy();
+    release!.action!();
+    expect(held.actions.releaseVpn).toHaveBeenCalledWith(entryId);
+    const windows = context({ platform: 'windows', externalVpn: () => 'Office' });
+    expect(labels(itemMenu(windows, 'e:' + entryId)).some((l) => l.startsWith('Release VPN'))).toBe(false);
   });
 });

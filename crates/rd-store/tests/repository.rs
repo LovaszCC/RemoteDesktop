@@ -1,8 +1,8 @@
 //! Ports of the Swift `ConnectionRepository`, `Credential` and `CredentialLink` tests.
 
 use rd_core::{
-    Connection, ConnectionType, Credential, Folder, LabelColor, MikrotikMode, PortForward, RdpClient,
-    SavedSplit, Sealed, SshTerminal, Timestamp,
+    Connection, ConnectionType, Credential, Entry, EntryVpn, Folder, LabelColor, MikrotikMode, PortForward,
+    RdpClient, SavedSplit, Sealed, SshTerminal, Timestamp, VpnTestMode,
 };
 use rd_store::{Database, StoreError};
 
@@ -373,4 +373,23 @@ fn unreadable_values_are_reported() {
     })
     .unwrap();
     assert!(db.library().is_err());
+}
+
+#[test]
+fn entry_vpn_round_trips() {
+    let db = db();
+    let mut entry = Entry::new("web01", "10.20.0.15");
+    let mut connection = ssh("web01");
+    connection.entry_id.clone_from(&entry.id);
+    let plain = db.write_entry(&entry, &[connection.clone()], &[]).unwrap().entry;
+    assert_eq!(db.entry(&plain.id).unwrap().unwrap().vpn, None);
+
+    entry.vpn = Some(EntryVpn {
+        connection_id: "6F1C2A4E-0B6D-4E43-9C55-1D2A7B8E9F01".into(),
+        test_mode: VpnTestMode::Address,
+        test_address: "10.20.0.1".into(),
+    });
+    db.write_entry(&entry, &[connection], &[]).unwrap();
+    assert_eq!(db.entry(&entry.id).unwrap().unwrap().vpn, entry.vpn);
+    assert_eq!(db.library().unwrap().entry(&entry.id).unwrap().vpn, entry.vpn);
 }

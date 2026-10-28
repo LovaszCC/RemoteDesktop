@@ -125,6 +125,7 @@ impl AppCore {
     /// `clipboard`.
     pub fn connect_web(&self, connection_id: &str) -> Result<LaunchOutcomeDto, CommandError> {
         let target = self.launch_target(connection_id, ConnectionType::Web)?;
+        let vpn = self.vpn_gate(connection_id)?;
         let connection = &target.connection;
         let url = rd_core::draft::web_url(
             &connection.web_scheme,
@@ -139,6 +140,7 @@ impl AppCore {
         } else {
             self.launcher.open_url(&url)?;
         }
+        self.keep_external(vpn);
         let sequence: Vec<Zeroizing<String>> =
             web::clipboard_sequence(&connection.username, target.password())
                 .into_iter()
@@ -159,6 +161,7 @@ impl AppCore {
     /// missing configured path, or "Wine"), `launchFailed`.
     pub fn connect_winbox(&self, connection_id: &str) -> Result<LaunchOutcomeDto, CommandError> {
         let target = self.launch_target(connection_id, ConnectionType::Mikrotik)?;
+        let vpn = self.vpn_gate(connection_id)?;
         let configured = self.inner().settings.winbox_path.clone();
         let login = winbox::login_args(
             &target.connection.host,
@@ -166,6 +169,7 @@ impl AppCore {
             target.password(),
         );
         self.launcher.launch_winbox(configured.as_deref(), login)?;
+        self.keep_external(vpn);
         Ok(LaunchOutcomeDto::Launched)
     }
 
@@ -203,6 +207,7 @@ impl AppCore {
     /// `locked`, `notFound`, `wrongType`, `appNotInstalled`, `launchFailed`, `clipboard`.
     pub fn connect_rdp_external(&self, connection_id: &str) -> Result<LaunchOutcomeDto, CommandError> {
         let target = self.launch_target(connection_id, ConnectionType::Rdp)?;
+        let vpn = self.vpn_gate(connection_id)?;
         let notifier = self
             .launch_notifier
             .lock()
@@ -218,17 +223,16 @@ impl AppCore {
             }
         });
         let password = target.password().map(|p| Zeroizing::new(p.to_owned()));
-        Ok(
-            match self
-                .launcher
-                .launch_rdp(&target.connection, password, on_fallback)?
-            {
-                RdpOutcome::Launched => LaunchOutcomeDto::Launched,
-                RdpOutcome::PasswordCopied(reason) => LaunchOutcomeDto::PasswordCopied {
-                    reason: reason.to_owned(),
-                },
+        let outcome = self
+            .launcher
+            .launch_rdp(&target.connection, password, on_fallback)?;
+        self.keep_external(vpn);
+        Ok(match outcome {
+            RdpOutcome::Launched => LaunchOutcomeDto::Launched,
+            RdpOutcome::PasswordCopied(reason) => LaunchOutcomeDto::PasswordCopied {
+                reason: reason.to_owned(),
             },
-        )
+        })
     }
 
     /// The macOS Accessibility permission for the RDP autofill; `None` on the other OSes.

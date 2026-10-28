@@ -27,7 +27,7 @@ pub async fn ssh_key_generate(core: State<'_, Core>, name: String) -> Result<Str
 }
 
 /// Installs the connection's SSH key on its server, generating and saving one first when it has none;
-/// emits `library-changed`. Errors: `locked`, `notFound`, `notSsh`, `emptyHost`, `readOnly`, `noHome`,
+/// emits `library-changed`. The VPN gate runs first. Errors: the `vpn*` codes, `locked`, `notFound`, `notSsh`, `emptyHost`, `readOnly`, `noHome`,
 /// `keyGenerateFailed`, `cannotReadKey`, `invalidPublicKey`, a connection code or `keyInstallFailed`.
 #[tauri::command]
 pub async fn ssh_key_setup(
@@ -35,6 +35,10 @@ pub async fn ssh_key_setup(
     core: State<'_, Core>,
     connection_id: String,
 ) -> Result<KeySetupDto, CommandError> {
+    // The VPN gate may wait minutes for MacVPN's sign-in: off the async workers; the hold lives until
+    // the key is installed.
+    let id = connection_id.clone();
+    let _vpn = blocking(&core, move |c| c.vpn_gate(&id)).await?;
     let core = Arc::clone(&core);
     let result = core.ssh_key_setup(&connection_id).await;
     // A generated key is saved even when the upload fails.

@@ -75,6 +75,8 @@ struct Entry {
     generation: u64,
     state: ForwardState,
     tunnel: Option<Tunnel>,
+    /// The VPN the tunnel goes through, kept up until the forward stops or fails.
+    vpn: Option<super::VpnHold>,
 }
 
 struct PendingHostKey {
@@ -132,14 +134,21 @@ impl ForwardShared {
 
     /// A state from the tunnel of `generation`; dropped when the tunnel was replaced or stopped.
     fn update(&self, id: &str, generation: u64, state: ForwardState) {
-        let connection_id = {
+        let (connection_id, released) = {
             let mut entries = lock(&self.entries);
             let Some(entry) = entries.get_mut(id).filter(|e| e.generation == generation) else {
                 return;
             };
             entry.state = state.clone();
-            entry.connection_id.clone()
+            // A tunnel that ended (failed) needs its VPN no more; dropped once the lock is released.
+            let released = if state.is_running() {
+                None
+            } else {
+                entry.vpn.take()
+            };
+            (entry.connection_id.clone(), released)
         };
+        drop(released);
         if !state.is_running() {
             self.cancel_prompts(id);
         }
@@ -311,6 +320,7 @@ impl AppCore {
             (forward, resolved, secrets)
         };
         let spec = self.background_spec(&connection, secrets)?;
+        let vpn = self.vpn_gate(&forward.connection_id)?;
 
         self.forwards.stop(id);
         let generation = {
@@ -325,6 +335,7 @@ impl AppCore {
                 generation,
                 state: ForwardState::Starting,
                 tunnel: None,
+                vpn,
             },
         );
         let weak: Weak<ForwardShared> = Arc::downgrade(&self.forwards);

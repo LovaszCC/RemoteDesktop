@@ -118,6 +118,16 @@ UPDATE connection SET entryId = id;
 "#,
         post: Some(split_web_urls),
     },
+    Migration {
+        // The MacVPN profile an entry connects through when it isn't reachable directly.
+        id: "v15-entry-vpn",
+        sql: r#"
+ALTER TABLE "entry" ADD COLUMN "vpnConnectionId" TEXT;
+ALTER TABLE "entry" ADD COLUMN "vpnTestMode" TEXT NOT NULL DEFAULT 'host';
+ALTER TABLE "entry" ADD COLUMN "vpnTestAddress" TEXT NOT NULL DEFAULT '';
+"#,
+        post: None,
+    },
 ];
 
 /// Rewrites each web connection's URL into the entry host and the connection's port, scheme and path.
@@ -202,7 +212,7 @@ pub(crate) fn legacy_web_url(value: &str) -> Option<String> {
 }
 
 /// Migration ids in the order they apply: the Swift app's, then this app's own.
-pub const MIGRATION_IDS: [&str; 14] = [
+pub const MIGRATION_IDS: [&str; 15] = [
     "v1",
     "v2-credentials",
     "v3-rdp-admin",
@@ -217,6 +227,7 @@ pub const MIGRATION_IDS: [&str; 14] = [
     "v12-connection-color",
     "v13-saved-split",
     "v14-entries",
+    "v15-entry-vpn",
 ];
 
 /// The known migration ids that `conn` hasn't recorded, in order; all of them for a database without
@@ -363,7 +374,7 @@ mod tests {
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM grdb_migrations", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(count, 15);
+        assert_eq!(count, 16);
     }
 
     /// id, folderId, name, host, notes, color, isFavorite, defaultConnectionId, createdAt, updatedAt.

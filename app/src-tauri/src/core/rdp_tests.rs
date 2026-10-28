@@ -696,3 +696,39 @@ fn engine_info_names_freerdp() {
     assert_eq!(info.name, "FreeRDP");
     assert!(!info.version.is_empty());
 }
+
+#[test]
+fn rdp_session_holds_the_vpn_and_reconnect_regates_after_a_drop() {
+    use std::sync::atomic::Ordering;
+    let env = Env::new();
+    let core = env.unlocked();
+    fake_engine(&core);
+    let fake = super::vpn_tests::SharedFake::default();
+    core.set_vpn_backend(Box::new(fake.clone()));
+    core.set_vpn_pinger(Box::new(|_: &str| false));
+    let id = save(
+        &core,
+        ConnectionType::Rdp,
+        |e, _| {
+            e.vpn = Some(rd_core::draft::EntryVpnDraft {
+                connection_id: super::vpn_tests::PROFILE.into(),
+                ..Default::default()
+            });
+        },
+        None,
+    );
+    let holders =
+        |core: &AppCore| -> Vec<u32> { core.vpn_status().held.iter().map(|h| h.open_holders).collect() };
+    let (session, _sink) = open(&core, &id);
+    assert_eq!(holders(&core), [1]);
+    core.rdp_reconnect(&session, 800, 600).unwrap();
+    assert_eq!(fake.0.ups.load(Ordering::SeqCst), 1);
+    fake.0.leases.lock().unwrap()[0]
+        .send(super::vpn::VpnPhase::Down)
+        .unwrap();
+    super::vpn_tests::wait_until("the drop", || holders(&core).is_empty());
+    core.rdp_reconnect(&session, 800, 600).unwrap();
+    assert_eq!((fake.0.ups.load(Ordering::SeqCst), holders(&core)), (2, vec![1]));
+    core.rdp_close(&session);
+    assert!(holders(&core).is_empty());
+}

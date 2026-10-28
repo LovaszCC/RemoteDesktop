@@ -8,7 +8,7 @@
 // its own tab" takes a pane back out (the last pane left becomes a tab too).
 
 import { api as defaultApi, type Api } from '../api';
-import { errorMessage } from '../errors';
+import { errorMessage, isUserCancel } from '../errors';
 import { t } from '../i18n/index.svelte';
 import { alerts as defaultAlerts, type AlertStore } from '../stores/alert.svelte';
 import { dialogs as defaultDialogs, type DialogStore } from '../stores/dialogs.svelte';
@@ -118,7 +118,7 @@ export function createSplitsStore(deps: Partial<SplitsDeps> = {}) {
       // It may have ended (exit 0) before its split knew it.
       return sessions.has(id) ? { id, connectionId: connection.id } : null;
     } catch (error) {
-      alerts.show(errorMessage(error));
+      if (!isUserCancel(error)) alerts.show(errorMessage(error));
       return null;
     }
   }

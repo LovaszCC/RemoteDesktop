@@ -39,6 +39,9 @@ mod tests;
 mod transfer;
 #[cfg(test)]
 mod transfer_tests;
+mod vpn;
+#[cfg(test)]
+mod vpn_tests;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, PoisonError};
@@ -63,6 +66,9 @@ pub use rdp::{
 pub use settings::SettingsPatch;
 pub use ssh::{AskpassNotice, AskpassNotifier, AskpassPromptDto, EXTERNAL_LIFETIME, SessionsChanged};
 pub use ssh_keys::{KeySetupDto, KeySetupNotifier};
+pub use vpn::{
+    ExternalHoldDto, HeldVpnDto, VpnHold, VpnNotice, VpnNotifier, VpnProfileDto, VpnProgressDto, VpnStatusDto,
+};
 
 use crate::dto::{AppStatusDto, LockHolderDto, Phase};
 
@@ -103,6 +109,7 @@ pub struct AppCore {
     files: std::sync::Arc<files::FilesShared>,
     rdp: std::sync::Arc<rdp::RdpShared>,
     key_setup: std::sync::Arc<ssh_keys::KeySetupShared>,
+    vpn: std::sync::Arc<vpn::VpnShared>,
     launcher: Box<dyn rd_platform::launch::Launcher>,
     launch_notifier: Mutex<Option<LaunchNotifier>>,
     /// The system search launcher folder; `None` turns the launchers off (tests, unknown home).
@@ -177,6 +184,7 @@ impl AppCore {
             files: files::FilesShared::new(),
             rdp: rdp::RdpShared::new(),
             key_setup: ssh_keys::KeySetupShared::new(),
+            vpn: vpn::VpnShared::new(vpn::system_backend()),
             launcher: Box::new(rd_platform::launch::SystemLauncher),
             launch_notifier: Mutex::new(None),
             launcher_dir: None,
@@ -412,11 +420,12 @@ impl AppCore {
         inner.read_only = false;
     }
 
-    /// On exit: ends the SSH and RDP sessions (deleting the SSH key files) and the tunnels, and releases
-    /// the lock file.
+    /// On exit: ends the SSH and RDP sessions (deleting the SSH key files) and the tunnels, lets every
+    /// MacVPN lease go, and releases the lock file.
     pub fn close(&self) {
         self.shutdown_ssh();
         self.shutdown_rdp();
+        self.vpn.shutdown();
         let mut inner = self.inner();
         self.close_inner(&mut inner, false);
     }

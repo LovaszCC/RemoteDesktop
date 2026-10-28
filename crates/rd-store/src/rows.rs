@@ -2,7 +2,9 @@
 
 use std::str::FromStr;
 
-use rd_core::{Connection, Credential, Entry, Folder, PortForward, SavedSplit, Sealed, Timestamp};
+use rd_core::{
+    Connection, Credential, Entry, EntryVpn, Folder, PortForward, SavedSplit, Sealed, Timestamp, VpnTestMode,
+};
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSqlOutput, ValueRef};
 use rusqlite::{Row, ToSql};
 
@@ -12,8 +14,8 @@ pub(crate) const CONNECTION_COLUMNS: &str = "id, folderId, credentialId, type, n
     mikrotikMode, sshTerminal, rdpClient, color, notes, createdAt, updatedAt, entryId, label, showAsButton, \
     sortOrder, webScheme, webPath";
 /// Column list for `SELECT`/`INSERT` on `entry`, in [`entry_from_row`] order.
-pub(crate) const ENTRY_COLUMNS: &str =
-    "id, folderId, name, host, notes, color, isFavorite, defaultConnectionId, createdAt, updatedAt";
+pub(crate) const ENTRY_COLUMNS: &str = "id, folderId, name, host, notes, color, isFavorite, defaultConnectionId, \
+    createdAt, updatedAt, vpnConnectionId, vpnTestMode, vpnTestAddress";
 pub(crate) const CREDENTIAL_COLUMNS: &str = "id, name, username, domain, passwordEnc, sshKeyPath, \
     sshKeyPassphraseEnc, sshKeyUnlockedEnc, notes, createdAt, updatedAt";
 pub(crate) const FOLDER_COLUMNS: &str = "id, parentId, name, sortOrder, color";
@@ -118,7 +120,21 @@ pub(crate) fn entry_from_row(row: &Row<'_>) -> rusqlite::Result<Entry> {
         default_connection_id: row.get(7)?,
         created_at: timestamp(row, 8)?,
         updated_at: timestamp(row, 9)?,
+        vpn: entry_vpn(row, 10)?,
     })
+}
+
+/// The VPN columns from `index` on; an unknown test mode (a newer build's) reads as the default.
+fn entry_vpn(row: &Row<'_>, index: usize) -> rusqlite::Result<Option<EntryVpn>> {
+    let Some(connection_id) = row.get::<_, Option<String>>(index)? else {
+        return Ok(None);
+    };
+    let mode: String = row.get(index + 1)?;
+    Ok(Some(EntryVpn {
+        connection_id,
+        test_mode: mode.parse().unwrap_or(VpnTestMode::Host),
+        test_address: row.get(index + 2)?,
+    }))
 }
 
 pub(crate) fn credential_from_row(row: &Row<'_>) -> rusqlite::Result<Credential> {

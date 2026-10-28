@@ -723,3 +723,118 @@ fn a_local_terminal_opened_from_another_starts_in_its_directory() {
     let (_, dir) = open(Some(&first));
     assert_eq!(dir, home, "a closed terminal leaves nothing to follow");
 }
+
+// Connect with VPN
+
+/// A lab whose MacVPN is the fake and whose ping never answers; the connection's entry uses the profile.
+fn vpn_lab() -> (Lab, String, super::vpn_tests::SharedFake, Arc<Mutex<Vec<String>>>) {
+    vpn_lab_on("u")
+}
+
+fn vpn_lab_on(user: &str) -> (Lab, String, super::vpn_tests::SharedFake, Arc<Mutex<Vec<String>>>) {
+    let lab = Lab::new();
+    let fake = super::vpn_tests::SharedFake::default();
+    lab.core.set_vpn_backend(Box::new(fake.clone()));
+    let pings: Arc<Mutex<Vec<String>>> = Arc::default();
+    let log = Arc::clone(&pings);
+    lab.core.set_vpn_pinger(Box::new(move |host: &str| {
+        log.lock().unwrap().push(host.to_owned());
+        false
+    }));
+    let mut draft = ConnectionDraft::new(ConnectionType::Ssh);
+    draft.port = "2222".into();
+    draft.username = user.into();
+    let entry = rd_core::draft::EntryDraft {
+        vpn: Some(rd_core::draft::EntryVpnDraft {
+            connection_id: super::vpn_tests::PROFILE.into(),
+            ..Default::default()
+        }),
+        ..entry_draft("web", "h")
+    };
+    let id = save_single(&lab.core, None, &entry, draft, Some("pw"), None).unwrap();
+    (lab, id, fake, pings)
+}
+
+fn open_holders(core: &AppCore) -> Vec<u32> {
+    core.vpn_status().held.iter().map(|h| h.open_holders).collect()
+}
+
+#[test]
+fn ssh_session_holds_the_vpn_until_closed() {
+    let (lab, connection, fake, pings) = vpn_lab();
+    let (id, _sink) = lab.open(&connection);
+    assert_eq!(*pings.lock().unwrap(), ["h"]);
+    assert_eq!(fake.0.ups.load(std::sync::atomic::Ordering::SeqCst), 1);
+    assert_eq!(open_holders(&lab.core), [1]);
+    lab.core.ssh_close(&id);
+    assert!(open_holders(&lab.core).is_empty());
+}
+
+#[test]
+fn ssh_reconnect_regates_after_a_drop() {
+    let (lab, connection, fake, _) = vpn_lab();
+    let (id, _sink) = lab.open(&connection);
+    lab.core.ssh_reconnect(&id, 80, 24).unwrap();
+    assert_eq!(
+        fake.0.ups.load(std::sync::atomic::Ordering::SeqCst),
+        1,
+        "a live hold is kept"
+    );
+    fake.0.leases.lock().unwrap()[0]
+        .send(super::vpn::VpnPhase::Down)
+        .unwrap();
+    super::vpn_tests::wait_until("the drop", || open_holders(&lab.core).is_empty());
+    lab.core.ssh_reconnect(&id, 80, 24).unwrap();
+    assert_eq!(fake.0.ups.load(std::sync::atomic::Ordering::SeqCst), 2);
+    assert_eq!(open_holders(&lab.core), [1]);
+}
+
+#[test]
+fn a_failed_gate_opens_no_session() {
+    let (lab, connection, fake, _) = vpn_lab();
+    fake.0
+        .failures
+        .lock()
+        .unwrap()
+        .push(CommandError::new("vpnSetupRequired", "x"));
+    let error = lab
+        .core
+        .open_ssh_session(&connection, 80, 24, |_| Arc::new(Collect::default()))
+        .unwrap_err();
+    assert_eq!(error.code, "vpnSetupRequired");
+    assert_eq!(lab.core.ssh_session_count(), 0);
+}
+
+#[test]
+fn local_terminal_never_gates() {
+    let (lab, _, _, pings) = vpn_lab();
+    let shell = lab.dir.path().join("fake-shell");
+    std::fs::write(&shell, FAKE_SHELL).unwrap();
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&shell, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    lab.core.set_local_shell(Some(rd_ssh::local::LocalShell {
+        program: shell,
+        args: Vec::new(),
+    }));
+    let sink = Arc::new(Collect::default());
+    let for_core: Arc<dyn Sink> = sink.clone();
+    lab.core
+        .open_local_terminal(80, 24, None, move |_| for_core)
+        .unwrap();
+    sink.wait_output("READY");
+    assert!(pings.lock().unwrap().is_empty());
+}
+
+#[test]
+fn an_invalid_connection_fails_before_the_vpn_comes_up() {
+    let (lab, connection, fake, pings) = vpn_lab_on("-oProxyCommand=evil");
+    let error = lab
+        .core
+        .open_ssh_session(&connection, 80, 24, |_| Arc::new(Collect::default()))
+        .unwrap_err();
+    assert_eq!(error.code, "invalidHost");
+    assert_eq!(fake.0.ups.load(std::sync::atomic::Ordering::SeqCst), 0);
+    assert!(pings.lock().unwrap().is_empty());
+}

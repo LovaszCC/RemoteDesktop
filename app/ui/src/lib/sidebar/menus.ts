@@ -56,6 +56,7 @@ export type MenuActions = Pick<
   | 'saveAsSplit'
   | 'renameSavedSplit'
   | 'deleteSavedSplit'
+  | 'releaseVpn'
 >;
 
 export interface MenuContext {
@@ -67,6 +68,8 @@ export interface MenuContext {
   platform?: Platform;
   /** Where new items from the empty-area menu go. */
   selectedFolderId: string | null;
+  /** The VPN an external launch of the entry holds (macOS), for "Release VPN". */
+  externalVpn?: (entryId: string) => string | null;
   actions: MenuActions;
 }
 
@@ -225,7 +228,7 @@ function connectionMenu(ctx: MenuContext, connection: ConnectionDto, tag: string
       action: () => void actions.setupSshKey(connection),
     });
   }
-  items.push(separator);
+  items.push(...releaseVpnItems(ctx, connection.entryId), separator);
   if (!readOnly) {
     items.push(
       { label: t('Edit…'), action: () => actions.editEntry(connection.entryId, connection.id) },
@@ -259,6 +262,15 @@ function connectionMenu(ctx: MenuContext, connection: ConnectionDto, tag: string
   return items;
 }
 
+/** "Release VPN "…"" when an external launch of the entry holds a VPN (macOS). */
+function releaseVpnItems(ctx: MenuContext, entryId: string): MenuItem[] {
+  if ((ctx.platform ?? 'macos') !== 'macos') return [];
+  const profile = ctx.externalVpn?.(entryId) ?? null;
+  return profile
+    ? [{ label: t('Release VPN "%@"', profile), action: () => void ctx.actions.releaseVpn(entryId) }]
+    : [];
+}
+
 /**
  * The menu of an entry row with several connections: Connect ▸ (each connection, the default checked),
  * then the entry's own items. The connection-specific items live on the child rows.
@@ -270,6 +282,7 @@ function entryMenu(ctx: MenuContext, entry: EntryDto, connections: ConnectionDto
       label: t('Connect'),
       submenu: connectMenuItems(connections, entry.defaultConnectionId, (c) => void actions.connect(c)),
     },
+    ...releaseVpnItems(ctx, entry.id),
     separator,
   ];
   if (!readOnly) {

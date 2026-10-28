@@ -1,1 +1,1 @@
-doc-valid-idents = ["MikroTik", "WinBox", "RouterOS", "OpenSSH", "IronRDP", "FreeRDP", "OpenSSL", "WinPR", "AltGr", ".."]
+doc-valid-idents = ["MikroTik", "WinBox", "RouterOS", "OpenSSH", "IronRDP", "FreeRDP", "OpenSSL", "WinPR", "AltGr", "MacVPN", "WinVPN", ".."]

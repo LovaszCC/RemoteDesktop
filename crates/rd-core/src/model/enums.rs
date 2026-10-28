@@ -95,6 +95,23 @@ impl ConnectionType {
 }
 
 raw_enum! {
+    /// How the VPN gate tests whether an entry is reachable without its VPN.
+    VpnTestMode {
+        /// Ping the entry's host.
+        Host = "host",
+        /// Ping the entry's test address (one only reachable over the VPN).
+        Address = "address",
+    }
+}
+
+#[allow(clippy::derivable_impls, reason = "raw_enum! fixes the derive list")]
+impl Default for VpnTestMode {
+    fn default() -> Self {
+        Self::Host
+    }
+}
+
+raw_enum! {
     /// Where an SSH session runs.
     SshTerminal {
         /// A tab inside the app.

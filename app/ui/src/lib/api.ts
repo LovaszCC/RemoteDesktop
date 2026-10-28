@@ -65,6 +65,9 @@ import type {
   UpdateProgressDto,
   WinboxStatusDto,
   TransferDirection,
+  VpnProfileDto,
+  VpnProgressDto,
+  VpnStatusDto,
 } from './types';
 
 /** What every command rejects with. `message` is English and doubles as the translation key. */
@@ -125,6 +128,9 @@ export const EVENTS = {
   rdpPromptClosed: 'rdp-prompt-closed',
   updateProgress: 'update-progress',
   entryRequested: 'entry-requested',
+  vpnProgress: 'vpn-progress',
+  vpnChanged: 'vpn-changed',
+  vpnDropped: 'vpn-dropped',
 } as const;
 
 /** Payload of `menu-command`: the clicked native menu item's command id. */
@@ -146,6 +152,16 @@ export function onMenuCommand(listen: Listen, handler: (payload: MenuCommandPayl
 }
 export function onShortcutsChanged(listen: Listen, handler: (rows: ShortcutDto[]) => void) {
   return listen<ShortcutDto[]>(EVENTS.shortcutsChanged, handler);
+}
+
+export function onVpnProgress(listen: Listen, handler: (progress: VpnProgressDto) => void) {
+  return listen<VpnProgressDto>(EVENTS.vpnProgress, handler);
+}
+export function onVpnChanged(listen: Listen, handler: () => void) {
+  return listen<null>(EVENTS.vpnChanged, () => handler());
+}
+export function onVpnDropped(listen: Listen, handler: (dropped: { profileName: string }) => void) {
+  return listen<{ profileName: string }>(EVENTS.vpnDropped, handler);
 }
 
 export function onSshEvent(listen: Listen, handler: (event: SshEventDto) => void) {
@@ -343,6 +359,16 @@ export function createApi(invoke: Invoke = tauriBridge.invoke) {
     shortcutReset: (command: ShortcutCommand) => call<ShortcutDto[]>('shortcut_reset', { command }),
     shortcutsResetAll: () => call<ShortcutDto[]>('shortcuts_reset_all'),
 
+    // Connect with VPN (macOS)
+    vpnStatus: () => call<VpnStatusDto>('vpn_status'),
+    /** The MacVPN connections RemoteDesktop may use; rejects with `vpnNotRunning`, `vpnNotPaired`… */
+    vpnProfiles: () => call<VpnProfileDto[]>('vpn_profiles'),
+    /** Waits (up to about 2½ minutes) for the user to answer MacVPN's pairing window. */
+    vpnPair: () => call<void>('vpn_pair'),
+    vpnUnpair: () => call<void>('vpn_unpair'),
+    vpnCancel: (requestId: string) => call<void>('vpn_cancel', { requestId }),
+    vpnReleaseEntry: (entryId: string) => call<void>('vpn_release_entry', { entryId }),
+    vpnReleaseProfile: (profileId: string) => call<void>('vpn_release_profile', { profileId }),
     // Embedded SSH
     /** Starts a session; its raw output arrives on `onData` (a Tauri `Channel`). */
     openSshSession: (connectionId: string, cols: number, rows: number, onData: unknown) =>

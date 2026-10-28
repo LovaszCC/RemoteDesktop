@@ -1,6 +1,6 @@
 // Whether the Settings sheet is open and which tab it shows ("General" or "Keyboard Shortcuts").
 
-export type SettingsTab = 'general' | 'shortcuts';
+export type SettingsTab = 'general' | 'shortcuts' | 'vpn';
 
 export function createSettingsWindowStore() {
   let open = $state(false);

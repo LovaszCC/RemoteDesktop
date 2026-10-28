@@ -40,6 +40,7 @@ pub mod settings;
 pub mod ssh;
 pub mod transfer;
 pub mod updates;
+pub mod vpn;
 
 use std::sync::Arc;
 

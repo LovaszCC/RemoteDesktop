@@ -116,6 +116,41 @@ fn save_entry_creates_and_edits_connections() {
 }
 
 #[test]
+fn save_entry_keeps_the_vpn_setting() {
+    let env = Env::new();
+    let core = env.unlocked();
+    let vpn = rd_core::draft::EntryVpnDraft {
+        connection_id: "6F1C2A4E-0B6D-4E43-9C55-1D2A7B8E9F01".into(),
+        test_mode: rd_core::VpnTestMode::Address,
+        test_address: "10.20.0.1".into(),
+    };
+    let draft = EntryDraft {
+        vpn: Some(vpn.clone()),
+        ..entry_draft("web01", "10.20.0.15")
+    };
+    let id = core
+        .save_entry(None, &draft, &[default_save(None, ConnectionType::Ssh, "root")])
+        .unwrap();
+    assert_eq!(entry(&core.library(), &id).vpn, Some(vpn.clone()));
+
+    let missing = EntryDraft {
+        vpn: Some(rd_core::draft::EntryVpnDraft {
+            test_address: String::new(),
+            ..vpn
+        }),
+        ..entry_draft("web01", "10.20.0.15")
+    };
+    let error = core
+        .save_entry(
+            Some(&id),
+            &missing,
+            &[default_save(None, ConnectionType::Ssh, "root")],
+        )
+        .unwrap_err();
+    assert_eq!(error.code, "emptyVpnTestAddress");
+}
+
+#[test]
 fn save_entry_needs_a_connection() {
     let env = Env::new();
     let core = env.unlocked();

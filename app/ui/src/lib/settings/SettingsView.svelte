@@ -1,18 +1,18 @@
 <script lang="ts">
-  // The Settings sheet (Swift `SettingsView`, 520×560): "General" and "Keyboard Shortcuts".
+  // The Settings sheet (Swift `SettingsView`, 520×560): "General", "Keyboard Shortcuts" and, on macOS, "VPN".
   import Button from '../components/Button.svelte';
   import Modal from '../components/Modal.svelte';
   import Segmented from '../components/Segmented.svelte';
   import { t } from '../i18n/index.svelte';
   import { recorder } from '../shortcuts/recorder.svelte';
-  import { settingsWindow, type SettingsTab } from '../stores/settingsWindow.svelte';
+  import { app } from '../stores/app.svelte';
+  import { settingsWindow } from '../stores/settingsWindow.svelte';
   import GeneralSettings from './GeneralSettings.svelte';
+  import { settingsTabs } from './model';
   import ShortcutsSettings from './ShortcutsSettings.svelte';
+  import VpnSettings from './VpnSettings.svelte';
 
-  const tabs = $derived<{ value: SettingsTab; label: string }[]>([
-    { value: 'general', label: t('General') },
-    { value: 'shortcuts', label: t('Keyboard Shortcuts') },
-  ]);
+  const tabs = $derived(settingsTabs(app.platform));
 
   function close() {
     // Esc while recording only cancels the recording (the recorder swallows it first).
@@ -33,6 +33,8 @@
     <div class="page">
       {#if settingsWindow.tab === 'general'}
         <GeneralSettings />
+      {:else if settingsWindow.tab === 'vpn' && app.platform === 'macos'}
+        <VpnSettings />
       {:else}
         <ShortcutsSettings />
       {/if}
@@ -55,7 +57,7 @@
     justify-content: center;
   }
   .tabs :global(.segmented) {
-    width: 300px;
+    width: 360px;
   }
   .page {
     flex: 1;

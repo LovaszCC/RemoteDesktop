@@ -93,7 +93,7 @@ fn v14_adds_entry_tables() {
     let conn = Connection::open(&path).unwrap();
 
     assert_eq!(
-        columns(&conn, "entry"),
+        columns(&conn, "entry")[..10],
         [
             "id",
             "folderId",
@@ -146,7 +146,7 @@ fn file_database_uses_rollback_journal() {
 }
 
 #[test]
-fn opening_a_swift_database_only_adds_v14() {
+fn opening_a_swift_database_only_adds_this_apps_migrations() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("connections.sqlite");
     std::fs::copy(fixture("swift-v13.sqlite"), &path).unwrap();
@@ -168,6 +168,7 @@ fn opening_a_swift_database_only_adds_v14() {
         let old = columns(&swift, &table);
         let mut ours = rows(&conn, &table, &old);
         if table == "grdb_migrations" {
+            assert_eq!(ours.pop(), Some(vec!["v15-entry-vpn".to_owned().into()]));
             assert_eq!(ours.pop(), Some(vec!["v14-entries".to_owned().into()]));
         }
         let mut theirs = rows(&swift, &table, &old);
@@ -181,4 +182,31 @@ fn opening_a_swift_database_only_adds_v14() {
         assert!(columns(&conn, &table).starts_with(&old), "table {table}");
     }
     assert!(Database::open_in_memory().unwrap().path().is_none());
+}
+
+#[test]
+fn v15_adds_entry_vpn_columns_with_defaults() {
+    let mut conn = Connection::open_in_memory().unwrap();
+    migrate_up_to(&mut conn, "v14-entries").unwrap();
+    conn.execute(
+        "INSERT INTO entry (id, name, host, createdAt, updatedAt) \
+         VALUES ('E', 'Old', 'old.example.com', '2025-01-01 00:00:00', '2025-01-01 00:00:00')",
+        [],
+    )
+    .unwrap();
+    migrate_up_to(&mut conn, "v15-entry-vpn").unwrap();
+
+    assert_eq!(
+        columns(&conn, "entry")[10..],
+        ["vpnConnectionId", "vpnTestMode", "vpnTestAddress"]
+    );
+    let row: (Option<String>, String, String) = conn
+        .query_row(
+            "SELECT vpnConnectionId, vpnTestMode, vpnTestAddress FROM entry WHERE id = 'E'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .unwrap();
+    assert_eq!(row, (None, "host".to_owned(), String::new()));
+    assert_eq!(MIGRATION_IDS.last(), Some(&"v15-entry-vpn"));
 }

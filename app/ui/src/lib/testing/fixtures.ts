@@ -78,6 +78,7 @@ export function entry(
     isFavorite: first?.isFavorite ?? false,
     defaultConnectionId: first?.id ?? null,
     connectionIds: connections.map((c) => c.id),
+    vpn: null,
     ...overrides,
   };
 }

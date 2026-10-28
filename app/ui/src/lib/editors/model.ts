@@ -15,6 +15,7 @@ import type {
   CredentialInput,
   EntryDraft,
   EntryDto,
+  EntryVpnDto,
   LabelColor,
   LibraryDto,
   MikrotikMode,
@@ -104,7 +105,11 @@ export interface EntryForm {
   connections: ConnectionForm[];
   /** The key of the default connection. */
   defaultKey: string | null;
+  /** The VPN setting; an empty `connectionId` means no VPN. */
+  vpn: EntryVpnDto;
 }
+
+const NO_VPN: EntryVpnDto = { connectionId: '', testMode: 'host', testAddress: '' };
 
 let newKeys = 0;
 
@@ -174,6 +179,7 @@ export function newEntryForm(type: ConnectionType, folderId: string | null): Ent
     isFavorite: false,
     connections: [connection],
     defaultKey: connection.key,
+    vpn: { ...NO_VPN },
   };
 }
 
@@ -188,6 +194,7 @@ export function entryFormFrom(entry: EntryDto, connections: readonly ConnectionD
     isFavorite: entry.isFavorite,
     connections: connections.map(connectionFormFrom),
     defaultKey: entry.defaultConnectionId ?? connections[0]?.id ?? null,
+    vpn: entry.vpn ? { ...entry.vpn } : { ...NO_VPN },
   };
 }
 
@@ -248,6 +255,7 @@ export function buildEntrySave(form: EntryForm): { entry: EntryDraft; connection
       notes: form.notes,
       color: form.color,
       isFavorite: form.isFavorite,
+      vpn: form.vpn.connectionId === '' ? null : { ...form.vpn },
     },
     connections: form.connections.map((c) => buildConnectionSave(c, c.key === form.defaultKey)),
   };
@@ -356,7 +364,7 @@ export function canSave(name: string): boolean {
   return name.trim() !== '';
 }
 
-export type DraftField = 'name' | 'host' | 'port';
+export type DraftField = 'name' | 'host' | 'port' | 'vpnTestAddress';
 
 /** The field a Rust validation code belongs to, or `null` for errors shown at the bottom. */
 export function errorField(code: string): DraftField | null {
@@ -368,6 +376,8 @@ export function errorField(code: string): DraftField | null {
       return 'host';
     case 'invalidPort':
       return 'port';
+    case 'emptyVpnTestAddress':
+      return 'vpnTestAddress';
     default:
       return null;
   }

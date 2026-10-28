@@ -179,11 +179,17 @@ mod tests {
             crate::migrate_up_to(&mut conn, "v13-saved-split").unwrap();
         }
         let before = std::fs::read(&path).unwrap();
-        assert_eq!(pending_migrations(&path).unwrap(), vec!["v14-entries"]);
+        assert_eq!(
+            pending_migrations(&path).unwrap(),
+            vec!["v14-entries", "v15-entry-vpn"]
+        );
         assert_eq!(std::fs::read(&path).unwrap(), before, "the peek must not write");
 
         let db = Database::open_unmigrated(&path).unwrap();
-        assert_eq!(db.pending_migrations().unwrap(), vec!["v14-entries"]);
+        assert_eq!(
+            db.pending_migrations().unwrap(),
+            vec!["v14-entries", "v15-entry-vpn"]
+        );
         db.migrate().unwrap();
         assert!(db.pending_migrations().unwrap().is_empty());
         drop(db);
