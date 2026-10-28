@@ -312,7 +312,13 @@ struct Gate {
 
 fn gate_lab(vpn: Option<EntryVpnDraft>) -> Gate {
     let env = Env::new();
-    let core = Arc::new(env.unlocked());
+    let core = env.unlocked();
+    gate_lab_on(env, core, vpn, ConnectionDraft::new(ConnectionType::Ssh))
+}
+
+/// Like [`gate_lab`] with another core (a recording launcher) and connection draft.
+fn gate_lab_on(env: Env, core: AppCore, vpn: Option<EntryVpnDraft>, connection: ConnectionDraft) -> Gate {
+    let core = Arc::new(core);
     let draft = EntryDraft {
         vpn,
         ..entry_draft("web01", "10.20.0.15")
@@ -323,8 +329,8 @@ fn gate_lab(vpn: Option<EntryVpnDraft>) -> Gate {
             &draft,
             &[super::ConnectionSave {
                 id: None,
-                draft: ConnectionDraft::new(ConnectionType::Ssh),
-                password: None,
+                draft: connection,
+                password: Some("pw".into()),
                 passphrase: None,
                 is_default: true,
             }],
@@ -555,4 +561,108 @@ fn status_lists_holders() {
     assert_eq!(status.held[0].profile_name, "Office");
     assert_eq!(status.held[0].open_holders, 1);
     assert_eq!(lab.core.vpn_profiles().unwrap().len(), 1);
+}
+
+// Every connect path
+
+fn held(lab: &Gate) -> Vec<(usize, u32)> {
+    lab.core
+        .vpn_status()
+        .held
+        .iter()
+        .map(|h| (h.external_entries.len(), h.open_holders))
+        .collect()
+}
+
+#[test]
+fn external_launch_keeps_the_vpn() {
+    let env = Env::new();
+    let (core, recorder) = super::launch_tests::recording(&env, None);
+    let mut draft = ConnectionDraft::new(ConnectionType::Web);
+    draft.port = "8443".into();
+    let lab = gate_lab_on(env, core, Some(office(VpnTestMode::Host, "")), draft);
+    lab.core.connect_web(&lab.connection).unwrap();
+    assert_eq!(
+        recorder.calls().len(),
+        2,
+        "the browser opened, the password was copied"
+    );
+    assert_eq!(held(&lab), [(1, 0)]);
+    lab.core.connect_web(&lab.connection).unwrap();
+    assert_eq!(held(&lab), [(1, 0)], "one hold per entry");
+    lab.core.vpn_release_entry(&lab.entry);
+    assert!(held(&lab).is_empty());
+}
+
+#[test]
+fn a_failed_gate_launches_nothing() {
+    let env = Env::new();
+    let (core, recorder) = super::launch_tests::recording(&env, None);
+    let lab = gate_lab_on(
+        env,
+        core,
+        Some(office(VpnTestMode::Host, "")),
+        ConnectionDraft::new(ConnectionType::Rdp),
+    );
+    lab.fake
+        .0
+        .failures
+        .lock()
+        .unwrap()
+        .push(CommandError::new("vpnNotAllowed", "x"));
+    assert_eq!(
+        lab.core.connect_rdp_external(&lab.connection).unwrap_err().code,
+        "vpnNotAllowed"
+    );
+    assert!(recorder.calls().is_empty());
+}
+
+#[test]
+fn forward_stop_releases_the_vpn() {
+    let server = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let mut draft = ConnectionDraft::new(ConnectionType::Ssh);
+    draft.port = server.local_addr().unwrap().port().to_string();
+    draft.username = "tester".into();
+    let env = Env::new();
+    let core = env.unlocked();
+    let lab = gate_lab_on(env, core, Some(office(VpnTestMode::Host, "")), draft);
+    let local = std::net::TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port();
+    let id = lab
+        .core
+        .port_forward_save(&rd_core::forward::PortForwardDraft {
+            id: None,
+            connection_id: lab.connection.clone(),
+            name: String::new(),
+            local_port: local.to_string(),
+            remote_host: "127.0.0.1".into(),
+            remote_port: "5432".into(),
+        })
+        .unwrap();
+    lab.core.port_forward_start(&id).unwrap();
+    assert_eq!(held(&lab), [(0, 1)]);
+    lab.core.port_forward_stop(&id);
+    assert!(held(&lab).is_empty());
+}
+
+#[test]
+fn files_close_releases_the_vpn() {
+    let port = std::net::TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port();
+    let mut draft = ConnectionDraft::new(ConnectionType::Ssh);
+    draft.port = port.to_string();
+    draft.username = "tester".into();
+    let env = Env::new();
+    let core = env.unlocked();
+    let lab = gate_lab_on(env, core, Some(office(VpnTestMode::Host, "")), draft);
+    let opened = lab.core.files_open(&lab.connection, None, None).unwrap();
+    assert_eq!(held(&lab), [(0, 1)]);
+    lab.core.files_close(&opened.browser_id);
+    assert!(held(&lab).is_empty());
 }

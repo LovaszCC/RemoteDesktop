@@ -75,6 +75,8 @@ struct Entry {
     generation: u64,
     state: ForwardState,
     tunnel: Option<Tunnel>,
+    /// The VPN the tunnel goes through, kept up until the forward stops.
+    _vpn: Option<super::VpnHold>,
 }
 
 struct PendingHostKey {
@@ -311,6 +313,7 @@ impl AppCore {
             (forward, resolved, secrets)
         };
         let spec = self.background_spec(&connection, secrets)?;
+        let vpn = self.vpn_gate(&forward.connection_id)?;
 
         self.forwards.stop(id);
         let generation = {
@@ -325,6 +328,7 @@ impl AppCore {
                 generation,
                 state: ForwardState::Starting,
                 tunnel: None,
+                _vpn: vpn,
             },
         );
         let weak: Weak<ForwardShared> = Arc::downgrade(&self.forwards);

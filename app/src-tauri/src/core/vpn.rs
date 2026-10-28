@@ -619,6 +619,20 @@ impl super::AppCore {
         self.vpn.notify(VpnNotice::Changed);
     }
 
+    /// Keeps the gate's hold of an external launch (when the gate took one), named after its entry.
+    pub(super) fn keep_external(&self, hold: Option<VpnHold>) {
+        let Some(hold) = hold else { return };
+        let name = {
+            let inner = self.inner();
+            Self::unlocked(&inner)
+                .ok()
+                .and_then(|(db, _)| db.entry(hold.entry_id()).ok().flatten())
+                .map_or_else(|| hold.entry_id().to_owned(), |entry| entry.name)
+        };
+        let entry_id = hold.entry_id().to_owned();
+        self.hold_external(&entry_id, &name, hold);
+    }
+
     /// "Release VPN" on an entry: drops its external launch's hold.
     pub fn vpn_release_entry(&self, entry_id: &str) {
         let old = lock(&self.vpn.external).remove(entry_id);

@@ -220,6 +220,8 @@ struct Browser {
     state: BrowserState,
     remote: Option<Arc<RemoteFiles>>,
     transfer: Option<Running>,
+    /// The VPN the browser goes through, kept up while its window is open.
+    vpn: Option<super::VpnHold>,
 }
 
 struct Pending<T> {
@@ -443,6 +445,7 @@ impl AppCore {
             });
         }
         let (connection, spec) = self.files_connection(connection_id)?;
+        let vpn = self.vpn_gate(connection_id)?;
         let start_path = start_path
             .filter(|p| !p.trim().is_empty())
             .or_else(|| {
@@ -462,6 +465,7 @@ impl AppCore {
                 state: BrowserState::Connecting,
                 remote: None,
                 transfer: None,
+                vpn,
             },
         );
         self.files_connect(&id, spec);
@@ -538,11 +542,20 @@ impl AppCore {
     /// # Errors
     /// `browserNotFound`, `locked`, `notFound`, `notSsh`, `emptyHost`.
     pub fn files_reconnect(&self, browser_id: &str) -> Result<(), CommandError> {
-        let connection_id = lock(&self.files.browsers)
+        let (connection_id, vpn_alive) = lock(&self.files.browsers)
             .get(browser_id)
-            .map(|b| b.connection_id.clone())
+            .map(|b| {
+                let alive = b.vpn.as_ref().is_some_and(super::VpnHold::is_alive);
+                (b.connection_id.clone(), alive)
+            })
             .ok_or_else(|| not_open(browser_id))?;
         let (_, spec) = self.files_connection(&connection_id)?;
+        if !vpn_alive {
+            let vpn = self.vpn_gate(&connection_id)?;
+            if let Some(browser) = lock(&self.files.browsers).get_mut(browser_id) {
+                browser.vpn = vpn;
+            }
+        }
         self.files_connect(browser_id, spec);
         Ok(())
     }

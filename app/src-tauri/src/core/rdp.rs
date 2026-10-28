@@ -302,6 +302,8 @@ struct Entry {
     translator: KeyboardTranslator,
     view: (u32, u32),
     desktop: (u32, u32),
+    /// The VPN the session goes through, kept up while the tab is open.
+    vpn: Option<super::VpnHold>,
 }
 
 /// The RDP state of the app; shared with the session handlers.
@@ -686,6 +688,7 @@ impl AppCore {
         make_sink: impl FnOnce(&str) -> Arc<dyn RdpSink>,
     ) -> Result<String, CommandError> {
         let (config, connection_name, can_save) = self.rdp_config(connection_id, width, height)?;
+        let vpn = self.vpn_gate(connection_id)?;
         let session_id = new_id();
         lock(&self.rdp.sessions).insert(
             session_id.clone(),
@@ -699,6 +702,7 @@ impl AppCore {
                 translator: KeyboardTranslator::new(KeyboardPlatform::current()),
                 view: (width, height),
                 desktop: (width, height),
+                vpn,
             },
         );
         if let Err(e) = self.start_rdp_run(&session_id, config) {
@@ -715,22 +719,32 @@ impl AppCore {
     /// # Errors
     /// `sessionNotFound`, or the errors of [`open_rdp_session`](Self::open_rdp_session).
     pub fn rdp_reconnect(&self, session_id: &str, width: u32, height: u32) -> Result<(), CommandError> {
-        let (connection_id, old) = {
+        let (connection_id, old, vpn_alive) = {
             let mut sessions = lock(&self.rdp.sessions);
             let entry = sessions
                 .get_mut(session_id)
                 .ok_or_else(|| session_not_found(session_id))?;
             entry.current = 0;
-            (entry.connection_id.clone(), entry.run.take())
+            let alive = entry.vpn.as_ref().is_some_and(super::VpnHold::is_alive);
+            (entry.connection_id.clone(), entry.run.take(), alive)
         };
         if let Some(old) = old {
             old.close();
         }
         self.rdp.cancel_prompts(session_id);
         let (config, connection_name, can_save) = self.rdp_config(&connection_id, width, height)?;
+        // A live VPN hold carries over; otherwise (none, or it dropped) the gate runs again.
+        let vpn = if vpn_alive {
+            None
+        } else {
+            Some(self.vpn_gate(&connection_id)?)
+        };
         if let Some(entry) = lock(&self.rdp.sessions).get_mut(session_id) {
             entry.connection_name = connection_name;
             entry.can_save = can_save;
+            if let Some(vpn) = vpn {
+                entry.vpn = vpn;
+            }
         }
         self.start_rdp_run(session_id, config)?;
         self.rdp.sessions_changed();
