@@ -318,5 +318,15 @@
   "MacVPN closed the connection.": "MacVPN closed the connection.",
   "MacVPN sent an unexpected answer.": "MacVPN sent an unexpected answer.",
   "The MacVPN token could not be saved.": "The MacVPN token could not be saved.",
-  "The VPN \"%@\" went down.": "The VPN \"%@\" went down."
+  "The VPN \"%@\" went down.": "The VPN \"%@\" went down.",
+  "VPN": "VPN",
+  "VPN profile": "VPN profile",
+  "Unknown profile": "Unknown profile",
+  "Ping the entry's host": "Ping the entry's host",
+  "Ping a test address": "Ping a test address",
+  "Test with": "Test with",
+  "Test address": "Test address",
+  "An address only reachable over this VPN.": "An address only reachable over this VPN.",
+  "Reachable → connects directly. Not reachable → connects the VPN first.": "Reachable → connects directly. Not reachable → connects the VPN first.",
+  "Pair with MacVPN…": "Pair with MacVPN…"
 }

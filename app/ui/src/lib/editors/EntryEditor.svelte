@@ -14,7 +14,8 @@
   import { t } from '../i18n/index.svelte';
   import { CONNECTION_TYPES, typeName } from '../sidebar/model';
   import type { EntryEditorRequest } from '../stores/editor.svelte';
-  import type { ConnectionType } from '../types';
+  import { settingsWindow } from '../stores/settingsWindow.svelte';
+  import type { ConnectionType, VpnProfileDto, VpnTestMode } from '../types';
   import ConnectionFields from './ConnectionFields.svelte';
   import FormRow from './FormRow.svelte';
   import FormSection from './FormSection.svelte';
@@ -69,13 +70,40 @@
           : GENERAL,
     ),
   );
-  let errors = $state<{ name?: string; host?: string; port?: { key: string; message: string } }>({});
+  let errors = $state<{
+    name?: string;
+    host?: string;
+    port?: { key: string; message: string };
+    vpnTestAddress?: string;
+  }>({});
   let failure = $state<string | null>(null);
   let saving = $state(false);
   /** Per connection key: the host of a pasted URL that differs from the entry's. */
   let hostOffers = $state<Record<string, string>>({});
 
   const library = $derived(deps.library.library);
+
+  // Connect with VPN (macOS): MacVPN's profiles for the picker; why they can't be listed.
+  const vpnAvailable = deps.platform === 'macos';
+  let vpnProfiles = $state<VpnProfileDto[]>([]);
+  let vpnProblem = $state<{ code: string; message: string } | null>(null);
+  if (vpnAvailable) {
+    deps.api.vpnProfiles().then(
+      (profiles) => (vpnProfiles = profiles),
+      (error: unknown) => (vpnProblem = { code: toCommandError(error).code, message: errorMessage(error) }),
+    );
+  }
+  const vpnOptions = $derived([
+    ...(form.vpn.connectionId !== '' && !vpnProfiles.some((p) => p.id === form.vpn.connectionId)
+      ? [{ value: form.vpn.connectionId, label: t('Unknown profile') }]
+      : []),
+    { value: '', label: t('None') },
+    ...vpnProfiles.map((p) => ({ value: p.id, label: p.name })),
+  ]);
+  const testModes = $derived<{ value: VpnTestMode; label: string }[]>([
+    { value: 'host', label: t("Ping the entry's host") },
+    { value: 'address', label: t('Ping a test address') },
+  ]);
   const typeOptions = $derived(CONNECTION_TYPES.map((type) => ({ value: type, label: typeName(type) })));
   const tabs = $derived([
     { id: GENERAL, label: t('General') },
@@ -152,7 +180,7 @@
     hostOffers = {};
   }
 
-  function edited(field: 'name' | 'host' | 'port') {
+  function edited(field: 'name' | 'host' | 'port' | 'vpnTestAddress') {
     if (errors[field]) errors = { ...errors, [field]: undefined };
   }
 
@@ -172,6 +200,11 @@
     if (field === 'name' || field === 'host') {
       errors = { [field]: message };
       void focus(GENERAL, id(field));
+      return;
+    }
+    if (field === 'vpnTestAddress') {
+      errors = { vpnTestAddress: message };
+      void focus(GENERAL, id('vpn-address'));
       return;
     }
     const key =
@@ -264,6 +297,52 @@
             <Toggle label={t('Favorite')} bind:checked={form.isFavorite} />
           </FormRow>
         </FormSection>
+        {#if vpnAvailable}
+          <FormSection title={t('VPN')}>
+            <FormRow label={t('VPN profile')}>
+              <Select
+                value={form.vpn.connectionId}
+                label={t('VPN profile')}
+                options={vpnOptions}
+                onchange={(v) => (form.vpn.connectionId = v)}
+              />
+            </FormRow>
+            {#if vpnProblem}
+              <FormRow>
+                <div class="vpn-problem">
+                  <span>{vpnProblem.message}</span>
+                  {#if vpnProblem.code === 'vpnNotPaired' || vpnProblem.code === 'vpnNotRunning'}
+                    <Button onclick={() => settingsWindow.open('vpn')}>{t('Pair with MacVPN…')}</Button>
+                  {/if}
+                </div>
+              </FormRow>
+            {/if}
+            {#if form.vpn.connectionId !== ''}
+              <FormRow
+                label={t('Test with')}
+                hint={t('Reachable → connects directly. Not reachable → connects the VPN first.')}
+              >
+                <Segmented bind:value={form.vpn.testMode} options={testModes} label={t('Test with')} />
+              </FormRow>
+              {#if form.vpn.testMode === 'address'}
+                <FormRow
+                  label={t('Test address')}
+                  for={id('vpn-address')}
+                  error={errors.vpnTestAddress}
+                  hint={t('An address only reachable over this VPN.')}
+                >
+                  <TextField
+                    id={id('vpn-address')}
+                    bind:value={form.vpn.testAddress}
+                    placeholder="10.0.0.1"
+                    invalid={!!errors.vpnTestAddress}
+                    oninput={() => edited('vpnTestAddress')}
+                  />
+                </FormRow>
+              {/if}
+            {/if}
+          </FormSection>
+        {/if}
         <FormSection title={t('Notes')}>
           <textarea bind:value={form.notes} aria-label={t('Notes')} rows="3"></textarea>
         </FormSection>
@@ -333,5 +412,11 @@
     flex: 1;
     margin: 0;
     color: var(--danger);
+  }
+  .vpn-problem {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--fg-secondary);
   }
 </style>

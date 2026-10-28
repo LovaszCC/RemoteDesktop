@@ -318,5 +318,15 @@
   "MacVPN closed the connection.": "A MacVPN lezárta a kapcsolatot.",
   "MacVPN sent an unexpected answer.": "A MacVPN váratlan választ küldött.",
   "The MacVPN token could not be saved.": "A MacVPN tokent nem sikerült elmenteni.",
-  "The VPN \"%@\" went down.": "A(z) „%@” VPN megszakadt."
+  "The VPN \"%@\" went down.": "A(z) „%@” VPN megszakadt.",
+  "VPN": "VPN",
+  "VPN profile": "VPN profil",
+  "Unknown profile": "Ismeretlen profil",
+  "Ping the entry's host": "Az entry hostjának pingelése",
+  "Ping a test address": "Teszt cím pingelése",
+  "Test with": "Teszt",
+  "Test address": "Teszt cím",
+  "An address only reachable over this VPN.": "Egy cím, ami csak ezen a VPN-en át érhető el.",
+  "Reachable → connects directly. Not reachable → connects the VPN first.": "Elérhető → közvetlenül kapcsolódik. Nem elérhető → előbb a VPN-t kapcsolja fel.",
+  "Pair with MacVPN…": "Párosítás a MacVPN-nel…"
 }

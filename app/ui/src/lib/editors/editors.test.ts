@@ -53,6 +53,115 @@ function key(element: Element, name: string) {
 
 const edit = (id: string) => ({ request: { mode: 'edit' as const, id }, onclose: () => {} });
 
+const PROFILES = [
+  { id: 'P1', name: 'Office', kind: 'openvpn', state: 'disconnected' },
+  { id: 'P2', name: 'Lab', kind: 'wireguard', state: 'connected' },
+];
+
+/** Clicks a segmented control's option by its text. */
+function pick(label: string) {
+  const option = [...document.querySelectorAll<HTMLElement>('[role="radio"]')].find(
+    (r) => r.textContent?.trim() === label,
+  );
+  if (!option) throw new Error(`no option "${label}"`);
+  click(option);
+}
+
+const selectOptions = (label: string) =>
+  [...document.querySelectorAll<HTMLOptionElement>(`select[aria-label="${label}"] option`)].map((o) => [
+    o.value,
+    o.textContent?.trim(),
+  ]);
+
+describe('EntryEditor VPN', () => {
+  it('vpn_section_is_macos_only', async () => {
+    renderView(EntryEditor, edit('e1'), { library: multiEntryLibrary(), platform: 'windows' });
+    await settle();
+    expect(document.querySelector('select[aria-label="VPN profile"]')).toBeNull();
+  });
+
+  it('choosing_a_profile_saves_it', async () => {
+    const { bridge } = renderView(EntryEditor, edit('e1'), {
+      library: multiEntryLibrary(),
+      replies: { vpn_profiles: PROFILES, save_entry: 'e1' },
+    });
+    await settle();
+    expect(selectOptions('VPN profile')).toEqual([
+      ['', 'None'],
+      ['P1', 'Office'],
+      ['P2', 'Lab'],
+    ]);
+    expect(document.querySelector('[aria-label="Test with"]')).toBeNull();
+    choose('VPN profile', 'P1');
+    expect(text()).toContain('Reachable → connects directly. Not reachable → connects the VPN first.');
+    expect(input('Test address')).toBeNull();
+    pick('Ping a test address');
+    type(input('Test address'), '10.20.0.1');
+    click(buttonByText('Save'));
+    await settle();
+    const [, args] = bridge.invoke.mock.calls.find(([c]) => c === 'save_entry')!;
+    expect((args as { entry: { vpn: unknown } }).entry.vpn).toEqual({
+      connectionId: 'P1',
+      testMode: 'address',
+      testAddress: '10.20.0.1',
+    });
+  });
+
+  it('address_mode_requires_an_address', async () => {
+    renderView(EntryEditor, edit('e1'), {
+      library: multiEntryLibrary(),
+      replies: {
+        vpn_profiles: PROFILES,
+        save_entry: () => {
+          throw { code: 'emptyVpnTestAddress', message: 'Enter the test address.', detail: null };
+        },
+      },
+    });
+    await settle();
+    choose('VPN profile', 'P1');
+    pick('Ping a test address');
+    click(tab('Console'));
+    click(buttonByText('Save'));
+    await settle();
+    expect(selectedTab()).toBe('General');
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain('Enter the test address.');
+  });
+
+  it('unknown_profile_is_kept', async () => {
+    const library = multiEntryLibrary();
+    library.entries = library.entries.map((e) =>
+      e.id === 'e1' ? { ...e, vpn: { connectionId: 'GONE', testMode: 'host', testAddress: '' } } : e,
+    );
+    const { bridge } = renderView(EntryEditor, edit('e1'), {
+      library,
+      replies: { vpn_profiles: PROFILES, save_entry: 'e1' },
+    });
+    await settle();
+    expect(selectOptions('VPN profile')[0]).toEqual(['GONE', 'Unknown profile']);
+    click(buttonByText('Save'));
+    await settle();
+    const [, args] = bridge.invoke.mock.calls.find(([c]) => c === 'save_entry')!;
+    expect((args as { entry: { vpn: { connectionId: string } } }).entry.vpn.connectionId).toBe('GONE');
+  });
+
+  it('not_paired_offers_pairing', async () => {
+    const { settingsWindow } = await import('../stores/settingsWindow.svelte');
+    renderView(EntryEditor, edit('e1'), {
+      library: multiEntryLibrary(),
+      replies: {
+        vpn_profiles: () => {
+          throw { code: 'vpnNotPaired', message: 'RemoteDesktop is not paired with MacVPN.', detail: null };
+        },
+      },
+    });
+    await settle();
+    expect(text()).toContain('RemoteDesktop is not paired with MacVPN.');
+    click(buttonByText('Pair with MacVPN…'));
+    expect(settingsWindow.tab).toBe('vpn');
+    settingsWindow.close();
+  });
+});
+
 describe('EntryEditor', () => {
   it('opens on the add tab when asked to add a connection', () => {
     renderView(
