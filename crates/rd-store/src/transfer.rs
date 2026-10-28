@@ -332,7 +332,8 @@ fn plan_entry(
     entry.is_favorite = item.is_favorite;
     // A file without a VPN setting (an older build's, or a CSV) keeps the entry's own.
     if let Some(v) = &item.vpn {
-        entry.vpn = Some(rd_core::EntryVpn {
+        // A setting without a profile id means no VPN.
+        entry.vpn = (!v.connection_id.trim().is_empty()).then(|| rd_core::EntryVpn {
             connection_id: v.connection_id.clone(),
             test_mode: v.test_mode,
             test_address: v.test_address.clone(),
@@ -742,6 +743,25 @@ mod tests {
         };
         db.import_transfer(&payload, &decisions, &vault).unwrap();
         assert_eq!(db.library().unwrap().entries[0].vpn, entry.vpn);
+    }
+
+    #[test]
+    fn an_imported_vpn_without_a_profile_id_is_none() {
+        let (source, source_vault) = setup();
+        let (entry, _) = seed(&source, &source_vault);
+        let mut payload = export(&source, &source_vault, &entry, None);
+        payload.entries[0].vpn = Some(rd_core::transfer::ExportedVpn {
+            connection_id: String::new(),
+            test_mode: rd_core::VpnTestMode::Host,
+            test_address: String::new(),
+        });
+        let (db, vault) = setup();
+        let decisions = TransferDecisions {
+            entries: all(1, TransferAction::New),
+            credentials: vec![],
+        };
+        db.import_transfer(&payload, &decisions, &vault).unwrap();
+        assert_eq!(db.library().unwrap().entries[0].vpn, None);
     }
 
     #[test]

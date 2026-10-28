@@ -1,7 +1,29 @@
 // Copied from SepsiG/MacVPN `examples/macvpn-control-client/src/lib.rs` at commit
-// bec152b0763a2fbac2fb53eea945dc6040493b40 (MIT License, Copyright (c) SepsiG). Changes: the Windows named-pipe
-// transport and `default_endpoint` are left out (WinVPN is not supported yet), so non-Unix builds use the
-// "no transport" stub, and the doc example names `rd_platform::macvpn`. Keep the rest as upstream ships it (not rustfmt'ed), so updates stay a plain copy.
+// bec152b0763a2fbac2fb53eea945dc6040493b40. Changes: the Windows named-pipe transport and `default_endpoint` are
+// left out (WinVPN is not supported yet), so non-Unix builds use the "no transport" stub, and the doc example
+// names `rd_platform::macvpn`. Keep the rest as upstream ships it (not rustfmt'ed), so updates stay a plain copy.
+//
+// MIT License
+//
+// Copyright (c) 2026 SepsiG
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 #![allow(
     clippy::pedantic,
     missing_docs,

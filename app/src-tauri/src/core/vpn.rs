@@ -15,6 +15,10 @@ use serde::Serialize;
 
 use super::error::CommandError;
 
+/// How long a `busy` MacVPN is asked again, and how often.
+const BUSY_RETRY_FOR: std::time::Duration = std::time::Duration::from_secs(5);
+const BUSY_RETRY_EVERY: std::time::Duration = std::time::Duration::from_millis(300);
+
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
@@ -71,10 +75,12 @@ impl CancelFlag {
 
     /// Registers how to close the waiting socket (at once when already cancelled).
     pub fn set_closer(&self, close: Box<dyn Fn() + Send>) {
+        // Stored first, then the flag checked: a cancel in between finds the closer.
+        let mut slot = lock(&self.closer);
+        let close = slot.insert(close);
         if self.is_cancelled() {
             close();
         }
-        *lock(&self.closer) = Some(close);
     }
 
     /// Forgets the socket once the `up` is over, so a late cancel can't close a lease.
@@ -202,6 +208,7 @@ enum Slot {
     /// An `up` is running; joiners wait for it.
     Connecting {
         generation: u64,
+        profile_name: String,
     },
     Up(UpSlot),
 }
@@ -278,9 +285,13 @@ impl VpnShared {
         }
     }
 
-    /// Whether `profile_id` is up for the holds right now.
-    pub fn is_up(&self, profile_id: &str) -> bool {
-        matches!(lock(&self.registry).profiles.get(profile_id), Some(Slot::Up(_)))
+    /// The profile's name when it is up or coming up for the holds (the gate then holds it without a
+    /// ping, and needs no `list`).
+    pub fn held_name(&self, profile_id: &str) -> Option<String> {
+        match lock(&self.registry).profiles.get(profile_id)? {
+            Slot::Up(up) => Some(up.profile_name.clone()),
+            Slot::Connecting { profile_name, .. } => Some(profile_name.clone()),
+        }
     }
 
     /// A hold on `profile_id` for `entry_id`: joins the profile's lease, or the `up` already running for
@@ -312,29 +323,20 @@ impl VpnShared {
                         on_phase(VpnPhase::Connected);
                         return Ok(self.hold(profile_id, entry_id, generation));
                     }
-                    Some(Slot::Connecting { generation }) => {
+                    Some(Slot::Connecting { generation, .. }) => {
                         let joined = *generation;
-                        on_phase(VpnPhase::Connecting);
-                        registry = self
-                            .changed
-                            .wait_while(registry, |r| {
-                                !cancel.is_cancelled()
-                                    && matches!(r.profiles.get(profile_id),
-                                        Some(Slot::Connecting { generation }) if *generation == joined)
-                            })
-                            .unwrap_or_else(PoisonError::into_inner);
-                        if cancel.is_cancelled() {
-                            return Err(cancelled());
-                        }
-                        if let Some(error) = registry.failures.get(&joined) {
-                            return Err(error.clone());
-                        }
+                        drop(registry);
+                        registry = self.join(profile_id, joined, on_phase, cancel)?;
                     }
                     None => {
                         let generation = self.next_generation.fetch_add(1, Ordering::SeqCst);
-                        registry
-                            .profiles
-                            .insert(profile_id.to_owned(), Slot::Connecting { generation });
+                        registry.profiles.insert(
+                            profile_id.to_owned(),
+                            Slot::Connecting {
+                                generation,
+                                profile_name: profile_name.to_owned(),
+                            },
+                        );
                         break generation;
                     }
                 }
@@ -344,7 +346,8 @@ impl VpnShared {
         let result = self.backend().up(profile_id, on_phase, cancel);
         let mut registry = lock(&self.registry);
         let ours = matches!(registry.profiles.get(profile_id),
-            Some(Slot::Connecting { generation: g }) if *g == generation);
+            Some(Slot::Connecting { generation: g, .. }) if *g == generation);
+        let mut unwatched = false;
         let outcome = match result {
             Ok(lease) if ours && !registry.closed => {
                 registry.profiles.insert(
@@ -357,7 +360,7 @@ impl VpnShared {
                         close: lease.closer(),
                     }),
                 );
-                self.watch(lease, profile_id, generation);
+                unwatched = !self.watch(lease, profile_id, generation);
                 Ok(self.hold(profile_id, entry_id, generation))
             }
             Ok(lease) => {
@@ -378,10 +381,54 @@ impl VpnShared {
         };
         drop(registry);
         self.changed.notify_all();
+        if unwatched {
+            // No thread to read the socket: MacVPN would drop it, so it counts as dropped now.
+            self.dropped(profile_id, generation);
+        }
         if outcome.is_ok() {
             self.notify(VpnNotice::Changed);
         }
         outcome
+    }
+
+    /// Waits until the `up` of generation `joined` is over, then hands the registry back to look again.
+    /// A cancel wakes the wait: its closer takes the lock (no lost wakeup) and notifies; it is registered
+    /// without the lock held, as it may run at once.
+    ///
+    /// # Errors
+    /// `vpnCancelled` after this connect's cancel; the `up`'s error, except a cancel of that other connect
+    /// (this one then runs its own `up`).
+    fn join(
+        self: &Arc<Self>,
+        profile_id: &str,
+        joined: u64,
+        on_phase: &mut dyn FnMut(VpnPhase),
+        cancel: &CancelFlag,
+    ) -> Result<MutexGuard<'_, Registry>, CommandError> {
+        on_phase(VpnPhase::Connecting);
+        let shared = Arc::downgrade(self);
+        cancel.set_closer(Box::new(move || {
+            if let Some(shared) = shared.upgrade() {
+                drop(lock(&shared.registry));
+                shared.changed.notify_all();
+            }
+        }));
+        let registry = self
+            .changed
+            .wait_while(lock(&self.registry), |r| {
+                !cancel.is_cancelled()
+                    && matches!(r.profiles.get(profile_id),
+                        Some(Slot::Connecting { generation, .. }) if *generation == joined)
+            })
+            .unwrap_or_else(PoisonError::into_inner);
+        cancel.clear_closer();
+        if cancel.is_cancelled() {
+            return Err(cancelled());
+        }
+        match registry.failures.get(&joined) {
+            Some(error) if error.code != "vpnCancelled" => Err(error.clone()),
+            _ => Ok(registry),
+        }
     }
 
     fn hold(self: &Arc<Self>, profile_id: &str, entry_id: &str, generation: u64) -> VpnHold {
@@ -393,8 +440,9 @@ impl VpnShared {
         }
     }
 
-    /// Reads the lease until it ends; a drop (not our own close) removes the slot and tells the UI.
-    fn watch(self: &Arc<Self>, mut lease: Box<dyn VpnLease>, profile_id: &str, generation: u64) {
+    /// Reads the lease until it ends; a drop (not our own close) removes the slot and tells the UI. `false`
+    /// when the thread couldn't start (the caller then drops the lease, without the registry lock).
+    fn watch(self: &Arc<Self>, mut lease: Box<dyn VpnLease>, profile_id: &str, generation: u64) -> bool {
         let shared = Arc::downgrade(self);
         let id = profile_id.to_owned();
         let spawned = std::thread::Builder::new()
@@ -410,9 +458,7 @@ impl VpnShared {
                     shared.dropped(&id, generation);
                 }
             });
-        if spawned.is_err() {
-            self.dropped(profile_id, generation);
-        }
+        spawned.is_ok()
     }
 
     fn dropped(&self, profile_id: &str, generation: u64) {
@@ -532,14 +578,22 @@ impl super::AppCore {
         let Some((entry_id, entry_name, host, vpn)) = self.entry_vpn(connection_id)? else {
             return Ok(None);
         };
-        let backend = self.vpn.backend();
-        let profile = backend
-            .list()
-            .ok()
-            .and_then(|list| list.into_iter().find(|p| p.id == vpn.connection_id));
-        let profile_name = profile
-            .as_ref()
-            .map_or_else(|| "VPN".to_owned(), |p| p.name.clone());
+        // Held or coming up for us: hold it, no `list` and no ping. Otherwise MacVPN's state decides: any
+        // state but down (up, coming up, going down) means the VPN path, and no ping either.
+        let held = self.vpn.held_name(&vpn.connection_id);
+        let profile = match held {
+            Some(_) => None,
+            None => self
+                .vpn
+                .backend()
+                .list()
+                .ok()
+                .and_then(|list| list.into_iter().find(|p| p.id == vpn.connection_id)),
+        };
+        let profile_name = held
+            .clone()
+            .or_else(|| profile.as_ref().map(|p| p.name.clone()))
+            .unwrap_or_else(|| "VPN".to_owned());
         let request = Arc::new(CancelFlag::default());
         let request_id = rd_core::new_id();
         lock(&self.vpn.requests).insert(request_id.clone(), Arc::clone(&request));
@@ -553,8 +607,10 @@ impl super::AppCore {
             }));
         };
         progress("testing", None);
-        let already_up =
-            self.vpn.is_up(&vpn.connection_id) || profile.as_ref().is_some_and(|p| p.state == "connected");
+        let already_up = held.is_some()
+            || profile
+                .as_ref()
+                .is_some_and(|p| p.state != "disconnected" && p.state != "failed");
         let target = match vpn.test_mode {
             rd_core::VpnTestMode::Host => host,
             rd_core::VpnTestMode::Address => vpn.test_address.clone(),
@@ -566,8 +622,9 @@ impl super::AppCore {
             if unreachable.is_some() {
                 progress("connecting", unreachable);
             }
-            self.vpn
-                .acquire(
+            let started = std::time::Instant::now();
+            loop {
+                let attempt = self.vpn.acquire(
                     &vpn.connection_id,
                     &profile_name,
                     &entry_id,
@@ -578,8 +635,20 @@ impl super::AppCore {
                         VpnPhase::Connected | VpnPhase::Down => {}
                     },
                     &request,
-                )
-                .map(Some)
+                );
+                // `busy`: MacVPN is still taking the VPN down (a tab closed a moment ago); it asks to
+                // retry after a short wait.
+                match attempt {
+                    Err(e)
+                        if e.code == "vpnBusy"
+                            && started.elapsed() < BUSY_RETRY_FOR
+                            && !request.is_cancelled() =>
+                    {
+                        std::thread::sleep(BUSY_RETRY_EVERY);
+                    }
+                    other => break other.map(Some),
+                }
+            }
         };
         lock(&self.vpn.requests).remove(&request_id);
         progress(if result.is_ok() { "done" } else { "failed" }, None);
@@ -598,7 +667,7 @@ impl super::AppCore {
             return Ok(None);
         };
         Ok(library.entry(&connection.entry_id).and_then(|entry| {
-            let vpn = entry.vpn.clone()?;
+            let vpn = entry.vpn.clone().filter(|v| !v.connection_id.trim().is_empty())?;
             Some((entry.id.clone(), entry.name.clone(), entry.host.clone(), vpn))
         }))
     }
@@ -925,7 +994,12 @@ impl MacVpnBackend {
 #[cfg(target_os = "macos")]
 impl VpnBackend for MacVpnBackend {
     fn list(&self) -> Result<Vec<VpnProfileDto>, CommandError> {
-        let connections = self.open()?.list().map_err(|e| self.error(&e))?;
+        let mut client = self.open()?;
+        // A hung MacVPN must not hang the connect (the gate lists before it pings).
+        client
+            .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+            .map_err(|e| self.error(&rd_platform::macvpn::Error::Io(e)))?;
+        let connections = client.list().map_err(|e| self.error(&e))?;
         Ok(connections
             .into_iter()
             .map(|c| VpnProfileDto {

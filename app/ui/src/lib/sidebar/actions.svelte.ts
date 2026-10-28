@@ -2,7 +2,7 @@
 // delete, duplicate, link, saved splits, copy). Errors show the alert, as Swift's `perform` does.
 
 import { api as defaultApi, isCommandError, type Api } from '../api';
-import { errorMessage } from '../errors';
+import { errorMessage, isUserCancel } from '../errors';
 import { t } from '../i18n/index.svelte';
 import { alerts as defaultAlerts, type AlertStore } from '../stores/alert.svelte';
 import { dialogs as defaultDialogs, type DialogStore } from '../stores/dialogs.svelte';
@@ -68,7 +68,7 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
     try {
       return await work();
     } catch (error) {
-      alerts.show(errorMessage(error));
+      if (!isUserCancel(error)) alerts.show(errorMessage(error));
       return undefined;
     }
   }

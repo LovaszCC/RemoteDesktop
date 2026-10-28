@@ -24,6 +24,7 @@ pub(super) struct FakeBackend {
     /// When set, `up` waits for a message (or the cancel) before it answers.
     pub(super) gate: Mutex<Option<Receiver<()>>>,
     pub(super) list_error: Mutex<Option<CommandError>>,
+    pub(super) lists: AtomicUsize,
 }
 
 struct FakeLease {
@@ -58,6 +59,7 @@ impl VpnLease for FakeLease {
 
 impl VpnBackend for FakeBackend {
     fn list(&self) -> Result<Vec<VpnProfileDto>, CommandError> {
+        self.lists.fetch_add(1, Ordering::SeqCst);
         if let Some(error) = self.list_error.lock().unwrap().clone() {
             return Err(error);
         }
@@ -456,9 +458,8 @@ fn concurrent_gates_join_one_up() {
         std::thread::spawn(move || core.vpn_gate(&connection))
     };
     let (first, second) = (run(), run());
-    // Each gate reports "connecting" twice once it waits: after the ping, and from the up it runs or joins.
     wait_until("both gates waiting", || {
-        phases(&lab).iter().filter(|p| *p == "connecting").count() >= 4
+        gate_connecting(&lab, 0) && gate_connecting(&lab, 1)
     });
     open.send(()).unwrap();
     let holds = [first.join().unwrap().unwrap(), second.join().unwrap().unwrap()];
@@ -665,4 +666,169 @@ fn files_close_releases_the_vpn() {
     assert_eq!(held(&lab), [(0, 1)]);
     lab.core.files_close(&opened.browser_id);
     assert!(held(&lab).is_empty());
+}
+
+// Final review fixes
+
+/// Starts a gate on its own thread.
+fn gate_in_background(
+    lab: &Gate,
+) -> std::thread::JoinHandle<Result<Option<super::vpn::VpnHold>, CommandError>> {
+    let (core, connection) = (Arc::clone(&lab.core), lab.connection.clone());
+    std::thread::spawn(move || core.vpn_gate(&connection))
+}
+
+fn request_ids(lab: &Gate) -> Vec<String> {
+    let mut ids: Vec<String> = Vec::new();
+    for p in lab.progress.lock().unwrap().iter() {
+        if !ids.contains(&p.request_id) {
+            ids.push(p.request_id.clone());
+        }
+    }
+    ids
+}
+
+/// Whether the `n`th gate (in start order) reported "connecting" (it runs or joined the `up`).
+fn gate_connecting(lab: &Gate, n: usize) -> bool {
+    let ids = request_ids(lab);
+    ids.get(n).is_some_and(|id| {
+        lab.progress
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|p| &p.request_id == id && p.phase == "connecting")
+    })
+}
+
+#[test]
+fn cancel_wakes_a_joined_gate() {
+    let lab = gate_lab(Some(office(VpnTestMode::Host, "")));
+    let (open, gate) = channel();
+    *lab.fake.0.gate.lock().unwrap() = Some(gate);
+    let first = gate_in_background(&lab);
+    wait_until("the first gate's MFA", || {
+        phases(&lab).iter().any(|p| p == "waitingForMfa")
+    });
+    let second = gate_in_background(&lab);
+    wait_until("the join", || gate_connecting(&lab, 1));
+    lab.core.vpn_cancel(&request_ids(&lab)[1]);
+    let started = Instant::now();
+    assert_eq!(second.join().unwrap().unwrap_err().code, "vpnCancelled");
+    assert!(
+        started.elapsed() < Duration::from_secs(2),
+        "the joined gate woke at once"
+    );
+    open.send(()).unwrap();
+    assert!(first.join().unwrap().unwrap().is_some());
+}
+
+#[test]
+fn joined_gate_takes_over_when_the_owner_cancels() {
+    let lab = gate_lab(Some(office(VpnTestMode::Host, "")));
+    let (_open, gate) = channel::<()>();
+    *lab.fake.0.gate.lock().unwrap() = Some(gate);
+    let first = gate_in_background(&lab);
+    wait_until("the first gate's MFA", || {
+        phases(&lab).iter().any(|p| p == "waitingForMfa")
+    });
+    let second = gate_in_background(&lab);
+    wait_until("the join", || gate_connecting(&lab, 1));
+    lab.core.vpn_cancel(&request_ids(&lab)[0]);
+    assert_eq!(first.join().unwrap().unwrap_err().code, "vpnCancelled");
+    let hold = second.join().unwrap().unwrap();
+    assert!(
+        hold.is_some_and(|h| h.is_alive()),
+        "the other connect ran its own up"
+    );
+    assert_eq!(lab.fake.0.ups.load(Ordering::SeqCst), 2);
+}
+
+#[test]
+fn gate_joins_a_profile_that_is_coming_up() {
+    let lab = gate_lab(Some(office(VpnTestMode::Host, "")));
+    let (open, gate) = channel();
+    *lab.fake.0.gate.lock().unwrap() = Some(gate);
+    let first = gate_in_background(&lab);
+    wait_until("the first gate's MFA", || {
+        phases(&lab).iter().any(|p| p == "waitingForMfa")
+    });
+    lab.reachable.store(true, Ordering::SeqCst); // the tunnel already routes
+    let second = gate_in_background(&lab);
+    wait_until("the second gate", || request_ids(&lab).len() == 2);
+    open.send(()).unwrap();
+    let holds = [first.join().unwrap().unwrap(), second.join().unwrap().unwrap()];
+    assert!(
+        holds.iter().all(Option::is_some),
+        "a ping through a VPN coming up must not skip the hold"
+    );
+    assert_eq!(lab.pings.lock().unwrap().len(), 1, "only the first gate pinged");
+}
+
+#[test]
+fn a_busy_profile_is_retried() {
+    let lab = gate_lab(Some(office(VpnTestMode::Host, "")));
+    lab.fake.0.failures.lock().unwrap().extend([
+        CommandError::new("vpnBusy", "x"),
+        CommandError::new("vpnBusy", "x"),
+    ]);
+    assert!(lab.core.vpn_gate(&lab.connection).unwrap().is_some());
+    assert_eq!(lab.fake.0.ups.load(Ordering::SeqCst), 3);
+}
+
+#[test]
+fn a_profile_going_down_or_coming_up_skips_the_ping() {
+    for state in ["disconnecting", "connecting"] {
+        let lab = gate_lab(Some(office(VpnTestMode::Host, "")));
+        lab.reachable.store(true, Ordering::SeqCst);
+        lab.fake.0.profiles.lock().unwrap()[0].state = state.into();
+        assert!(lab.core.vpn_gate(&lab.connection).unwrap().is_some(), "{state}");
+        assert!(lab.pings.lock().unwrap().is_empty(), "{state}");
+    }
+}
+
+#[test]
+fn gate_skips_list_when_the_profile_is_held() {
+    let lab = gate_lab(Some(office(VpnTestMode::Host, "")));
+    let _hold = lab.core.vpn_gate(&lab.connection).unwrap().unwrap();
+    let lists = lab.fake.0.lists.load(Ordering::SeqCst);
+    let _again = lab.core.vpn_gate(&lab.connection).unwrap().unwrap();
+    assert_eq!(lab.fake.0.lists.load(Ordering::SeqCst), lists);
+    assert_eq!(
+        lab.progress.lock().unwrap().last().unwrap().profile_name,
+        "Office"
+    );
+}
+
+#[test]
+fn forward_failure_releases_the_vpn() {
+    let mut draft = ConnectionDraft::new(ConnectionType::Ssh);
+    draft.username = "tester".into();
+    let env = Env::new();
+    let core = env.unlocked();
+    let lab = gate_lab_on(env, core, Some(office(VpnTestMode::Host, "")), draft);
+    // The local port is taken: the tunnel fails at once.
+    let busy = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let id = lab
+        .core
+        .port_forward_save(&rd_core::forward::PortForwardDraft {
+            id: None,
+            connection_id: lab.connection.clone(),
+            name: String::new(),
+            local_port: busy.local_addr().unwrap().port().to_string(),
+            remote_host: "127.0.0.1".into(),
+            remote_port: "5432".into(),
+        })
+        .unwrap();
+    lab.core.port_forward_start(&id).unwrap();
+    wait_until("the failed tunnel to release its VPN", || held(&lab).is_empty());
+}
+
+#[test]
+fn an_empty_imported_profile_id_is_no_vpn() {
+    let lab = gate_lab(Some(EntryVpnDraft {
+        connection_id: "  ".into(),
+        ..office(VpnTestMode::Host, "")
+    }));
+    assert!(lab.core.vpn_gate(&lab.connection).unwrap().is_none());
+    assert_eq!(lab.fake.0.ups.load(Ordering::SeqCst), 0);
 }

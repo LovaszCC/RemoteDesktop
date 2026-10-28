@@ -142,6 +142,11 @@ const DETAIL_SUFFIX = new Set([
   'vpnFailed',
 ]);
 
+/** The user stopped it (Cancel while the VPN came up): nothing to report. */
+export function isUserCancel(error: unknown): boolean {
+  return toCommandError(error).code === 'vpnCancelled';
+}
+
 /** The user-facing, translated text for anything a command threw. */
 export function errorMessage(error: unknown): string {
   const e: CommandError = toCommandError(error);

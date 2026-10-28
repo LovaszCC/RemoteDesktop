@@ -37,6 +37,18 @@ function setup(replies: Parameters<typeof fakeBridge>[0] = {}, data = sidebarLib
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe('sidebar actions', () => {
+  it('stays quiet when the user cancelled the VPN', async () => {
+    const { actions, sessions, alerts, library } = setup();
+    sessions.open.mockRejectedValueOnce({
+      code: 'vpnCancelled',
+      message: 'The VPN connection was cancelled.',
+      detail: null,
+    });
+    await actions.connect(library.connection('c1')!, { mode: 'ssh', terminal: 'embedded' });
+    expect(sessions.open).toHaveBeenCalled();
+    expect(alerts.current).toBeNull();
+  });
+
   it("releases an entry's VPN and shows a failure", async () => {
     const { actions, vpn, alerts } = setup();
     await actions.releaseVpn('e1');

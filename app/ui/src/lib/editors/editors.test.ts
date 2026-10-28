@@ -160,6 +160,28 @@ describe('EntryEditor VPN', () => {
     expect(settingsWindow.tab).toBe('vpn');
     settingsWindow.close();
   });
+
+  it('reloads the profiles after Settings closed', async () => {
+    const { settingsWindow } = await import('../stores/settingsWindow.svelte');
+    let paired = false;
+    renderView(EntryEditor, edit('e1'), {
+      library: multiEntryLibrary(),
+      replies: {
+        vpn_profiles: () => {
+          if (!paired)
+            throw { code: 'vpnNotPaired', message: 'RemoteDesktop is not paired with MacVPN.', detail: null };
+          return PROFILES;
+        },
+      },
+    });
+    await settle();
+    click(buttonByText('Pair with MacVPN…'));
+    paired = true;
+    settingsWindow.close();
+    await settle();
+    expect(text()).not.toContain('RemoteDesktop is not paired with MacVPN.');
+    expect(selectOptions('VPN profile').map(([v]) => v)).toEqual(['', 'P1', 'P2']);
+  });
 });
 
 describe('EntryEditor', () => {

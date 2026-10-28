@@ -87,12 +87,23 @@
   const vpnAvailable = deps.platform === 'macos';
   let vpnProfiles = $state<VpnProfileDto[]>([]);
   let vpnProblem = $state<{ code: string; message: string } | null>(null);
-  if (vpnAvailable) {
+  function loadVpnProfiles() {
     deps.api.vpnProfiles().then(
-      (profiles) => (vpnProfiles = profiles),
+      (profiles) => {
+        vpnProfiles = profiles;
+        vpnProblem = null;
+      },
       (error: unknown) => (vpnProblem = { code: toCommandError(error).code, message: errorMessage(error) }),
     );
   }
+  if (vpnAvailable) loadVpnProfiles();
+  // Back from Settings (where "Pair with MacVPN…" leads): the pairing may have changed.
+  let settingsWasOpen = false;
+  $effect(() => {
+    const open = settingsWindow.isOpen;
+    if (vpnAvailable && settingsWasOpen && !open) untrack(loadVpnProfiles);
+    settingsWasOpen = open;
+  });
   const vpnOptions = $derived([
     ...(form.vpn.connectionId !== '' && !vpnProfiles.some((p) => p.id === form.vpn.connectionId)
       ? [{ value: form.vpn.connectionId, label: t('Unknown profile') }]

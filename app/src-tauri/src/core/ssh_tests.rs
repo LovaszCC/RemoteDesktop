@@ -728,6 +728,10 @@ fn a_local_terminal_opened_from_another_starts_in_its_directory() {
 
 /// A lab whose MacVPN is the fake and whose ping never answers; the connection's entry uses the profile.
 fn vpn_lab() -> (Lab, String, super::vpn_tests::SharedFake, Arc<Mutex<Vec<String>>>) {
+    vpn_lab_on("u")
+}
+
+fn vpn_lab_on(user: &str) -> (Lab, String, super::vpn_tests::SharedFake, Arc<Mutex<Vec<String>>>) {
     let lab = Lab::new();
     let fake = super::vpn_tests::SharedFake::default();
     lab.core.set_vpn_backend(Box::new(fake.clone()));
@@ -739,7 +743,7 @@ fn vpn_lab() -> (Lab, String, super::vpn_tests::SharedFake, Arc<Mutex<Vec<String
     }));
     let mut draft = ConnectionDraft::new(ConnectionType::Ssh);
     draft.port = "2222".into();
-    draft.username = "u".into();
+    draft.username = user.into();
     let entry = rd_core::draft::EntryDraft {
         vpn: Some(rd_core::draft::EntryVpnDraft {
             connection_id: super::vpn_tests::PROFILE.into(),
@@ -820,5 +824,17 @@ fn local_terminal_never_gates() {
         .open_local_terminal(80, 24, None, move |_| for_core)
         .unwrap();
     sink.wait_output("READY");
+    assert!(pings.lock().unwrap().is_empty());
+}
+
+#[test]
+fn an_invalid_connection_fails_before_the_vpn_comes_up() {
+    let (lab, connection, fake, pings) = vpn_lab_on("-oProxyCommand=evil");
+    let error = lab
+        .core
+        .open_ssh_session(&connection, 80, 24, |_| Arc::new(Collect::default()))
+        .unwrap_err();
+    assert_eq!(error.code, "invalidHost");
+    assert_eq!(fake.0.ups.load(std::sync::atomic::Ordering::SeqCst), 0);
     assert!(pings.lock().unwrap().is_empty());
 }

@@ -516,16 +516,17 @@ impl AppCore {
         rows: u16,
         make_sink: impl FnOnce(&str) -> Arc<dyn Sink>,
     ) -> Result<String, CommandError> {
-        let vpn = match &target {
-            Target::Connection(id) => self.vpn_gate(id)?,
-            Target::Local => None,
-        };
         let session_id = new_id();
-        let sink = make_sink(&session_id);
         let prepared = Prepared {
             cwd,
             ..self.prepare_target(&target, &session_id)?
         };
+        // After the checks, so a connection that can't start never brings a VPN up (or asks for MFA).
+        let vpn = match &target {
+            Target::Connection(id) => self.vpn_gate(id)?,
+            Target::Local => None,
+        };
+        let sink = make_sink(&session_id);
         lock(&self.ssh.sessions).insert(
             session_id.clone(),
             Entry {
@@ -575,15 +576,15 @@ impl AppCore {
         }
         self.ssh.cancel_prompts(session_id);
         // A live VPN hold carries over; otherwise (none, or it dropped) the gate runs again.
+        let language = self.inner().settings.language.clone();
+        sink.output(format!("\r\n\u{1b}[2m— {} —\u{1b}[0m\r\n", tr(&language, "Reconnecting")).into_bytes());
+        let prepared = self.prepare_target(&target, session_id)?;
         if let (Target::Connection(id), false) = (&target, vpn_alive) {
             let vpn = self.vpn_gate(id)?;
             if let Some(entry) = lock(&self.ssh.sessions).get_mut(session_id) {
                 entry.vpn = vpn;
             }
         }
-        let language = self.inner().settings.language.clone();
-        sink.output(format!("\r\n\u{1b}[2m— {} —\u{1b}[0m\r\n", tr(&language, "Reconnecting")).into_bytes());
-        let prepared = self.prepare_target(&target, session_id)?;
         let run = self.spawn_run(session_id, prepared, cols, rows)?;
         let old = lock(&self.ssh.sessions)
             .get_mut(session_id)
@@ -787,9 +788,9 @@ impl AppCore {
     /// # Errors
     /// Those of [`open_ssh_session`](Self::open_ssh_session), and `terminalFailed`.
     pub fn open_external_terminal(&self, connection_id: &str) -> Result<String, CommandError> {
-        let vpn = self.vpn_gate(connection_id)?;
         let label = format!("external-{}", new_id());
         let prepared = self.prepare(connection_id, &label)?;
+        let vpn = self.vpn_gate(connection_id)?;
         let lossy = |s: &std::ffi::OsStr| s.to_string_lossy().into_owned();
         let command = SshCommand {
             program: lossy(prepared.program.as_os_str()),

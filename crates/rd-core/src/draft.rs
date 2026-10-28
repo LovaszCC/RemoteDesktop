@@ -70,11 +70,15 @@ impl EntryDraft {
         entry.notes.clone_from(&self.notes);
         entry.color = self.color;
         entry.is_favorite = self.is_favorite;
-        entry.vpn = self.vpn.as_ref().map(|vpn| EntryVpn {
-            connection_id: vpn.connection_id.clone(),
-            test_mode: vpn.test_mode,
-            test_address: trim(&vpn.test_address).to_owned(),
-        });
+        entry.vpn = self
+            .vpn
+            .as_ref()
+            .filter(|vpn| !trim(&vpn.connection_id).is_empty())
+            .map(|vpn| EntryVpn {
+                connection_id: vpn.connection_id.clone(),
+                test_mode: vpn.test_mode,
+                test_address: trim(&vpn.test_address).to_owned(),
+            });
     }
 }
 
@@ -517,6 +521,13 @@ mod tests {
         entry.vpn = None;
         entry.apply_to(&mut saved);
         assert_eq!(saved.vpn, None);
+
+        entry.vpn = Some(EntryVpnDraft {
+            connection_id: " ".into(),
+            ..EntryVpnDraft::default()
+        });
+        entry.apply_to(&mut saved);
+        assert_eq!(saved.vpn, None, "no profile id is no VPN");
     }
 
     #[test]
