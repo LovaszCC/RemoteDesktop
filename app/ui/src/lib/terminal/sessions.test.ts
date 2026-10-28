@@ -136,6 +136,25 @@ describe('sessions store', () => {
     expect(tabs.displayTitle(tabs.session('S3')!)).toBe('root@web01: ~ (2)');
   });
 
+  it("starts a local terminal in another one's directory only when asked", async () => {
+    let n = 0;
+    const { sessions, bridge, channels } = setup({
+      open_local_terminal: () => ({ sessionId: `L${++n}` }),
+    });
+    await sessions.openLocal({ inheritFrom: 'L0' });
+    expect(bridge.invoke).toHaveBeenCalledWith('open_local_terminal', {
+      cols: 100,
+      rows: 30,
+      fromSessionId: 'L0',
+      onData: channels[0],
+    });
+    await sessions.open(connection, { inheritFrom: 'L1' });
+    expect(bridge.invoke).toHaveBeenLastCalledWith(
+      'open_ssh_session',
+      expect.not.objectContaining({ fromSessionId: 'L1' }),
+    );
+  });
+
   it('opens numbered local terminals that reconnect and close like SSH sessions', async () => {
     let n = 0;
     const { sessions, tabs, bridge, channels } = setup({
@@ -145,6 +164,7 @@ describe('sessions store', () => {
     expect(bridge.invoke).toHaveBeenCalledWith('open_local_terminal', {
       cols: 100,
       rows: 30,
+      fromSessionId: null,
       onData: channels[0],
     });
     expect(bridge.invoke).not.toHaveBeenCalledWith('open_ssh_session', expect.anything());

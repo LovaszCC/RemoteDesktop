@@ -60,6 +60,8 @@ export interface PaneHost {
 export interface OpenOptions {
   /** Open as a split pane: no tab of its own. */
   pane?: boolean;
+  /** A local terminal only: start in the current directory of this local terminal session (Cmd+T). */
+  inheritFrom?: string;
 }
 
 /** Events kept for a session whose `open_ssh_session` hasn't answered yet. */
@@ -302,7 +304,7 @@ export function createSessionsStore(deps: Partial<SessionsDeps> = {}) {
       const local = isLocalTerminal(connection.id);
       try {
         ({ sessionId } = local
-          ? await api.openLocalTerminal(size.cols, size.rows, channel)
+          ? await api.openLocalTerminal(size.cols, size.rows, channel, options.inheritFrom ?? null)
           : await api.openSshSession(connection.id, size.cols, size.rows, channel));
       } catch (error) {
         handle.dispose();

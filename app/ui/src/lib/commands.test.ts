@@ -250,9 +250,20 @@ describe('command runner', () => {
   it('opens a local terminal while unlocked', () => {
     const { deps, run } = setup();
     run('newLocalTerminal');
-    expect(deps.actions.openLocalTerminal).toHaveBeenCalledOnce();
+    expect(deps.actions.openLocalTerminal).toHaveBeenCalledExactlyOnceWith(undefined);
     const locked = setup({ unlocked: false });
     locked.run('newLocalTerminal');
     expect(locked.deps.actions.openLocalTerminal).not.toHaveBeenCalled();
+  });
+
+  it("starts a new local terminal in the active local terminal's directory only", () => {
+    const local = setup({
+      session: { id: 'L1', connectionId: 'local-terminal', status: { kind: 'running' } },
+    });
+    local.run('newLocalTerminal');
+    expect(local.deps.actions.openLocalTerminal).toHaveBeenCalledWith('L1');
+    const ssh = setup({ session: { id: 'S1', connectionId: '2', status: { kind: 'running' } } });
+    ssh.run('newLocalTerminal');
+    expect(ssh.deps.actions.openLocalTerminal).toHaveBeenCalledWith(undefined);
   });
 });
