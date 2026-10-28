@@ -26,6 +26,7 @@ import {
   tagItems,
   toggledExpansion,
 } from './model';
+import { vpn as defaultVpn, type VpnStore } from '../vpn/vpn.svelte';
 
 export { MAX_PANES };
 
@@ -40,6 +41,7 @@ export interface SidebarDeps {
   sessions: Pick<SessionsStore, 'open' | 'openLocal'>;
   rdpSessions: Pick<RdpSessionsStore, 'open'>;
   splits: Pick<SplitsStore, 'open' | 'openSaved'>;
+  vpn: Pick<VpnStore, 'releaseEntry'>;
 }
 
 export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
@@ -53,6 +55,7 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
   const sessions = deps.sessions ?? defaultSessions;
   const rdpSessions = deps.rdpSessions ?? defaultRdpSessions;
   const splits = deps.splits ?? defaultSplits;
+  const vpn = deps.vpn ?? defaultVpn;
 
   /** Expansion changed here but not yet confirmed by Rust (keeps the tree from flickering). */
   let pendingExpansion = $state<string[] | null>(null);
@@ -144,6 +147,11 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
           await perform(() => rdpSessions.open(connection));
           return;
       }
+    },
+
+    /** "Release VPN": lets go of the VPN an external launch of the entry holds. */
+    async releaseVpn(entryId: string) {
+      await perform(() => vpn.releaseEntry(entryId));
     },
 
     /**

@@ -34,6 +34,7 @@ function render({
   live = [] as string[],
   library = sidebarLibrary(),
   rdpSessions = undefined as { open: (connection: ConnectionDto) => Promise<string> } | undefined,
+  vpnHeld = [] as string[],
 } = {}) {
   const bridge = fakeBridge({
     settings_set: (args?: Record<string, unknown>) => settingsDto(args?.patch as object),
@@ -61,6 +62,7 @@ function render({
       readOnly,
       forwards,
       connectionTabs: { isLive: (id: string) => live.includes(id) },
+      vpn: { holds: (id: string) => vpnHeld.includes(id), externalProfile: () => null },
     },
   });
   flushSync();
@@ -293,6 +295,14 @@ describe('port forward indicator', () => {
     forwards.apply({ id: 'p1', connectionId: 'c1', state: 'failed', code: 'timeout', error: 'late' });
     flushSync();
     expect(indicator()).toBeNull();
+  });
+});
+
+describe('VPN badge', () => {
+  it('badge_on_held_entries', () => {
+    render({ vpnHeld: ['c1'] });
+    expect(row('e:c1').querySelector('[aria-label="VPN in use"]')).toBeTruthy();
+    expect(row('e:c5').querySelector('[aria-label="VPN in use"]')).toBeNull();
   });
 });
 

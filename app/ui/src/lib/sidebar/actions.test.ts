@@ -29,6 +29,7 @@ function setup(replies: Parameters<typeof fakeBridge>[0] = {}, data = sidebarLib
     sessions: { open: vi.fn(async () => 'S1'), openLocal: vi.fn(async () => 'L1') },
     rdpSessions: { open: vi.fn(async () => 'R1') },
     splits: { open: vi.fn(async () => 'split-1'), openSaved: vi.fn(async () => 'split-1') },
+    vpn: { releaseEntry: vi.fn(async () => {}) },
   };
   return { bridge, ...deps, actions: createSidebarActions(deps) };
 }
@@ -36,6 +37,19 @@ function setup(replies: Parameters<typeof fakeBridge>[0] = {}, data = sidebarLib
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe('sidebar actions', () => {
+  it("releases an entry's VPN and shows a failure", async () => {
+    const { actions, vpn, alerts } = setup();
+    await actions.releaseVpn('e1');
+    expect(vpn.releaseEntry).toHaveBeenCalledWith('e1');
+    vpn.releaseEntry.mockRejectedValueOnce({
+      code: 'vpnFailed',
+      message: 'The VPN could not connect.',
+      detail: null,
+    });
+    await actions.releaseVpn('e1');
+    expect(alerts.current).toBe('The VPN could not connect.');
+  });
+
   it('toasts when a folder cycle was refused', async () => {
     const { actions, toast, bridge } = setup({ move_items: { moved: 1, cycleRefused: 1 } });
     await actions.move(['f:f1', 'e:c1'], 'f2');

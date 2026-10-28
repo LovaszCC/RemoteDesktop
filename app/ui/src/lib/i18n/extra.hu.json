@@ -345,5 +345,11 @@
   "Still used by %lld open tabs": {
     "one": "Még %lld nyitott tab használja",
     "other": "Még %lld nyitott tab használja"
-  }
+  },
+  "VPN in use": "VPN használatban",
+  "Release VPN \"%@\"": "„%@” VPN elengedése",
+  "Connecting VPN \"%@\"…": "„%@” VPN kapcsolódik…",
+  "%@ did not answer the ping.": "A(z) %@ nem válaszolt a pingre.",
+  "MacVPN needs your sign-in code — look at its window.": "A MacVPN bejelentkezési kódot kér — nézd meg az ablakát.",
+  "MacVPN needs your password — look at its window.": "A MacVPN jelszót kér — nézd meg az ablakát."
 }

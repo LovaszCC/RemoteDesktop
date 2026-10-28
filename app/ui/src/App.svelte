@@ -27,6 +27,7 @@
   import UpdateDialog from './lib/updates/UpdateDialog.svelte';
   import { updates } from './lib/updates/updates.svelte';
   import { vpn } from './lib/vpn/vpn.svelte';
+  import VpnProgressDialog from './lib/vpn/VpnProgressDialog.svelte';
 
   onMount(() => {
     const commands = installCommands();
@@ -82,4 +83,5 @@
 <HostKeyDialog />
 <HostKeyDialog store={sessions.hostKeyPrompts} />
 <UpdateDialog />
+<VpnProgressDialog />
 <AlertHost />

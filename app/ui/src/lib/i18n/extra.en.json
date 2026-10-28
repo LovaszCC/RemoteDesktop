@@ -345,5 +345,11 @@
   "Still used by %lld open tabs": {
     "one": "Still used by %lld open tab",
     "other": "Still used by %lld open tabs"
-  }
+  },
+  "VPN in use": "VPN in use",
+  "Release VPN \"%@\"": "Release VPN \"%@\"",
+  "Connecting VPN \"%@\"…": "Connecting VPN \"%@\"…",
+  "%@ did not answer the ping.": "%@ did not answer the ping.",
+  "MacVPN needs your sign-in code — look at its window.": "MacVPN needs your sign-in code — look at its window.",
+  "MacVPN needs your password — look at its window.": "MacVPN needs your password — look at its window."
 }
