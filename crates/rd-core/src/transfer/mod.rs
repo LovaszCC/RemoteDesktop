@@ -12,7 +12,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::model::{ConnectionType, LabelColor, MikrotikMode, RdpClient, SshTerminal};
+use crate::model::{ConnectionType, LabelColor, MikrotikMode, RdpClient, SshTerminal, VpnTestMode};
 
 pub use build::{ExportSelection, OpenSecret, build_payload};
 pub use conflicts::{TransferConflicts, conflicts};
@@ -98,6 +98,23 @@ pub struct ExportedEntry {
     /// The entry's connections in their order.
     #[serde(default)]
     pub connections: Vec<ExportedConnection>,
+    /// The entry's VPN setting; missing in files from builds without it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vpn: Option<ExportedVpn>,
+}
+
+/// An exported entry's VPN setting (MacVPN team-catalog ids are the same on every Mac).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportedVpn {
+    /// The MacVPN connection id.
+    pub connection_id: String,
+    /// What the gate pings.
+    #[serde(default)]
+    pub test_mode: VpnTestMode,
+    /// The test address.
+    #[serde(default)]
+    pub test_address: String,
 }
 
 /// One connection of an exported entry.

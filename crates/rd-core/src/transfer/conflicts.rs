@@ -68,6 +68,7 @@ mod tests {
             folder_path: path.iter().map(|s| (*s).to_owned()).collect(),
             default_connection: None,
             connections: Vec::new(),
+            vpn: None,
         }
     }
 

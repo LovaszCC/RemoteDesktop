@@ -330,6 +330,14 @@ fn plan_entry(
     entry.notes.clone_from(&item.notes);
     entry.color = item.color;
     entry.is_favorite = item.is_favorite;
+    // A file without a VPN setting (an older build's, or a CSV) keeps the entry's own.
+    if let Some(v) = &item.vpn {
+        entry.vpn = Some(rd_core::EntryVpn {
+            connection_id: v.connection_id.clone(),
+            test_mode: v.test_mode,
+            test_address: v.test_address.clone(),
+        });
+    }
     entry.updated_at = now;
 
     let mut taken = HashSet::new();
@@ -706,6 +714,54 @@ mod tests {
             imported.default_connection_id.as_deref(),
             Some(connections[0].id.as_str())
         );
+    }
+
+    #[test]
+    fn export_keeps_entry_vpn() {
+        let (source, source_vault) = setup();
+        let (mut entry, _) = seed(&source, &source_vault);
+        entry.vpn = Some(rd_core::EntryVpn {
+            connection_id: "6F1C2A4E-0B6D-4E43-9C55-1D2A7B8E9F01".into(),
+            test_mode: rd_core::VpnTestMode::Address,
+            test_address: "10.20.0.1".into(),
+        });
+        let connections: Vec<Connection> = source
+            .library()
+            .unwrap()
+            .connections_of(&entry.id)
+            .into_iter()
+            .cloned()
+            .collect();
+        source.write_entry(&entry, &connections, &[]).unwrap();
+        let payload = export(&source, &source_vault, &entry, None);
+
+        let (db, vault) = setup();
+        let decisions = TransferDecisions {
+            entries: all(1, TransferAction::New),
+            credentials: vec![],
+        };
+        db.import_transfer(&payload, &decisions, &vault).unwrap();
+        assert_eq!(db.library().unwrap().entries[0].vpn, entry.vpn);
+    }
+
+    #[test]
+    fn import_of_an_old_export_has_no_vpn() {
+        let (source, source_vault) = setup();
+        let (entry, _) = seed(&source, &source_vault);
+        let json = serde_json::to_value(export(&source, &source_vault, &entry, None)).unwrap();
+        assert!(
+            json["entries"][0].get("vpn").is_none(),
+            "no vpn key without a profile"
+        );
+        let payload: ExportPayload = serde_json::from_value(json).unwrap();
+
+        let (db, vault) = setup();
+        let decisions = TransferDecisions {
+            entries: all(1, TransferAction::New),
+            credentials: vec![],
+        };
+        db.import_transfer(&payload, &decisions, &vault).unwrap();
+        assert_eq!(db.library().unwrap().entries[0].vpn, None);
     }
 
     #[test]

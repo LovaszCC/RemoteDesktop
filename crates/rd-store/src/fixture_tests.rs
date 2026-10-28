@@ -82,7 +82,7 @@ fn hex(bytes: &[u8]) -> String {
 }
 
 /// The v13 rows are unchanged by the upgrade (a web row's URL is split into host and port now): the Swift
-/// columns hold the same values, and the migration list only gains `v14-entries`.
+/// columns hold the same values, and the migration list only gains `v14-entries` and `v15-entry-vpn`.
 #[test]
 fn reads_swift_rows_exactly() {
     let (_dir, db) = swift_copy();
@@ -92,6 +92,7 @@ fn reads_swift_rows_exactly() {
         let rows = rows.as_array().unwrap();
         let mut ours = ours[table].as_array().unwrap().clone();
         if table == "grdb_migrations" {
+            assert_eq!(ours.pop(), Some(json!({ "identifier": "v15-entry-vpn" })));
             assert_eq!(ours.pop(), Some(json!({ "identifier": "v14-entries" })));
         }
         // Web rows' host and port are split now; blank them on both sides.

@@ -5,6 +5,8 @@ mod records;
 mod values;
 
 pub(crate) use enums::raw_enum;
-pub use enums::{ConnectionType, LabelColor, MikrotikMode, RdpClient, SshTerminal, UnknownValue};
-pub use records::{Connection, Credential, Entry, Folder, PortForward, SavedSplit};
+pub use enums::{
+    ConnectionType, LabelColor, MikrotikMode, RdpClient, SshTerminal, UnknownValue, VpnTestMode,
+};
+pub use records::{Connection, Credential, Entry, EntryVpn, Folder, PortForward, SavedSplit};
 pub use values::{Sealed, Timestamp, TimestampError, new_id};

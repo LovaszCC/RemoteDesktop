@@ -437,7 +437,10 @@ fn a_read_only_open_refuses_a_database_that_needs_migrating() {
     assert_eq!(code, "readOnlyNeedsUpgrade");
     assert!(error.starts_with("This database needs an upgrade"), "{error}");
     assert_eq!(std::fs::read(&path).unwrap(), before, "the file is untouched");
-    assert_eq!(rd_store::pending_migrations(&path).unwrap(), vec!["v14-entries"]);
+    assert_eq!(
+        rd_store::pending_migrations(&path).unwrap(),
+        vec!["v14-entries", "v15-entry-vpn"]
+    );
     assert_eq!(stamp(&path).as_deref(), Some("1.6.6"));
     assert_eq!(
         core.save_folder(&FolderInput::default()).unwrap_err().code,
@@ -490,7 +493,7 @@ fn a_writable_open_stamps_before_migrating() {
     assert_eq!(code, "openFailed");
     assert_eq!(
         rd_store::pending_migrations(&broken).unwrap(),
-        vec!["v14-entries"]
+        vec!["v14-entries", "v15-entry-vpn"]
     );
     assert_eq!(stamp(&broken).as_deref(), Some("1.6.7"));
     assert!(!DbLock::path_for(&broken).exists());

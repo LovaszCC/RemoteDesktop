@@ -89,6 +89,19 @@ export interface EntryDto {
   defaultConnectionId: string | null;
   /** Its connections in order. */
   connectionIds: string[];
+  /** The MacVPN profile and its test; `null` for no VPN. */
+  vpn: EntryVpnDto | null;
+}
+
+/** What the VPN gate pings: the entry's host or its test address. */
+export type VpnTestMode = 'host' | 'address';
+
+/** An entry's VPN setting (`rd-core::draft::EntryVpnDraft`). */
+export interface EntryVpnDto {
+  /** The MacVPN connection id, exactly as its control API lists it. */
+  connectionId: string;
+  testMode: VpnTestMode;
+  testAddress: string;
 }
 
 export interface CredentialDto {
@@ -325,6 +338,7 @@ export interface EntryDraft {
   notes?: string;
   color?: LabelColor | null;
   isFavorite?: boolean;
+  vpn?: EntryVpnDto | null;
 }
 
 /** One connection's own fields (`rd-core::draft::ConnectionDraft`); `port` is the typed text. */

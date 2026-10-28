@@ -1,6 +1,8 @@
 //! The stored records. Field names follow the Swift models; secrets stay [`Sealed`].
 
-use super::{ConnectionType, LabelColor, MikrotikMode, RdpClient, Sealed, SshTerminal, Timestamp, new_id};
+use super::{
+    ConnectionType, LabelColor, MikrotikMode, RdpClient, Sealed, SshTerminal, Timestamp, VpnTestMode, new_id,
+};
 
 /// A sidebar folder; folders nest through `parent_id`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -50,10 +52,23 @@ pub struct Entry {
     pub is_favorite: bool,
     /// The connection double-click opens; `None` (or a stale id) means the first one.
     pub default_connection_id: Option<String>,
+    /// The MacVPN profile connects to this entry go through when it isn't reachable directly.
+    pub vpn: Option<EntryVpn>,
     /// Creation time.
     pub created_at: Timestamp,
     /// Last change; the repository sets it on save.
     pub updated_at: Timestamp,
+}
+
+/// An entry's VPN setting: which MacVPN connection to bring up, and how to test for it first.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EntryVpn {
+    /// The MacVPN connection id, exactly as its control API lists it (case-sensitive).
+    pub connection_id: String,
+    /// What the gate pings.
+    pub test_mode: VpnTestMode,
+    /// The address pinged in [`VpnTestMode::Address`] (kept in the other mode, so switching back keeps it).
+    pub test_address: String,
 }
 
 impl Entry {
@@ -70,6 +85,7 @@ impl Entry {
             color: None,
             is_favorite: false,
             default_connection_id: None,
+            vpn: None,
             created_at: now,
             updated_at: now,
         }
@@ -88,6 +104,7 @@ impl Entry {
             color: connection.color,
             is_favorite: connection.is_favorite,
             default_connection_id: Some(connection.id.clone()),
+            vpn: None,
             created_at: connection.created_at,
             updated_at: connection.updated_at,
         }

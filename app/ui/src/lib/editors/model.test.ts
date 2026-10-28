@@ -154,6 +154,7 @@ describe('entry form', () => {
       notes: '',
       color: null,
       isFavorite: false,
+      vpn: null,
     });
     expect(save.connections.map((c) => [c.id, c.draft.type, c.isDefault])).toEqual([
       ['h2', 'rdp', true],
@@ -162,6 +163,26 @@ describe('entry form', () => {
     ]);
     form.defaultKey = added.key;
     expect(buildEntrySave(form).connections.map((c) => c.isDefault)).toEqual([false, true, false]);
+  });
+
+  it('saves the VPN setting only with a profile', () => {
+    const form = newEntryForm('ssh', null);
+    expect(form.vpn).toEqual({ connectionId: '', testMode: 'host', testAddress: '' });
+    expect(buildEntrySave(form).entry.vpn).toBeNull();
+    form.vpn = { connectionId: 'P1', testMode: 'address', testAddress: '10.20.0.1' };
+    expect(buildEntrySave(form).entry.vpn).toEqual({
+      connectionId: 'P1',
+      testMode: 'address',
+      testAddress: '10.20.0.1',
+    });
+    const library = multiEntryLibrary();
+    const entry = library.entries.find((e) => e.id === 'e1')!;
+    const loaded = entryFormFrom(
+      { ...entry, vpn: { connectionId: 'P2', testMode: 'host', testAddress: '' } },
+      library.connections.filter((c) => c.entryId === 'e1'),
+    );
+    expect(loaded.vpn).toEqual({ connectionId: 'P2', testMode: 'host', testAddress: '' });
+    expect(entryFormFrom({ ...entry, vpn: null }, []).vpn.connectionId).toBe('');
   });
 
   it('starts a new entry with one connection of the type, its default', () => {
@@ -257,6 +278,7 @@ describe('validation and pickers', () => {
     expect(errorField('invalidUrl')).toBe('host');
     expect(errorField('emptyHost')).toBe('host');
     expect(errorField('invalidPort')).toBe('port');
+    expect(errorField('emptyVpnTestAddress')).toBe('vpnTestAddress');
     expect(errorField('database')).toBeNull();
   });
 

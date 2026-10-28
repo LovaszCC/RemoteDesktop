@@ -134,6 +134,7 @@ describe('EntryEditor', () => {
         notes: '',
         color: null,
         isFavorite: false,
+        vpn: null,
       },
       connections: [
         {
@@ -306,6 +307,7 @@ describe('EntryEditor', () => {
         notes: '',
         color: null,
         isFavorite: false,
+        vpn: null,
       },
       connections: [
         {

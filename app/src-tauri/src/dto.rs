@@ -1,7 +1,7 @@
 //! What the webview receives. Every DTO is secret-free: sealed bytes and plaintexts never leave Rust, only
 //! `has…` flags do. Field names are camelCase, enums are their raw strings.
 
-use rd_core::draft::web_url;
+use rd_core::draft::{EntryVpnDraft, web_url};
 use rd_core::import::{ImportKind, Skipped};
 use rd_core::shortcuts::{KeyShortcut, Platform, ShortcutCommand, ShortcutSettings};
 use rd_core::tree::{self, TreeNode};
@@ -195,6 +195,8 @@ pub struct EntryDto {
     pub default_connection_id: Option<String>,
     /// Its connections in order.
     pub connection_ids: Vec<String>,
+    /// The MacVPN profile and its test; `null` for no VPN.
+    pub vpn: Option<EntryVpnDraft>,
 }
 
 impl EntryDto {
@@ -216,6 +218,11 @@ impl EntryDto {
                 .iter()
                 .map(|c| c.id.clone())
                 .collect(),
+            vpn: entry.vpn.as_ref().map(|v| EntryVpnDraft {
+                connection_id: v.connection_id.clone(),
+                test_mode: v.test_mode,
+                test_address: v.test_address.clone(),
+            }),
         }
     }
 }
