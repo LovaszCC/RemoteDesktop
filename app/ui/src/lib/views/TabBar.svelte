@@ -5,6 +5,7 @@
   import Columns2 from '@lucide/svelte/icons/columns-2';
   import Grid2x2 from '@lucide/svelte/icons/grid-2x2';
   import Info from '@lucide/svelte/icons/info';
+  import SquareSplitHorizontal from '@lucide/svelte/icons/square-split-horizontal';
   import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
   import X from '@lucide/svelte/icons/x';
   import { tick } from 'svelte';
@@ -14,13 +15,23 @@
   import { colorTitle } from '../sidebar/model';
   import { settings as defaultSettings, type SettingsStore } from '../stores/settings.svelte';
   import { tabs as defaultTabs, type TabSession, type TabsStore } from '../tabs.svelte';
+  import SplitTabsDialog from '../terminal/SplitTabsDialog.svelte';
   import { splits as defaultSplits, type SplitsStore } from '../terminal/splits.svelte';
   import { LABEL_COLORS, type LabelColor } from '../types';
 
   interface Props {
     tabs?: TabsStore;
     settings?: SettingsStore;
-    splits?: Pick<SplitsStore, 'canSplitActive' | 'splitActive' | 'save' | 'canUpdateSaved' | 'updateSaved'>;
+    splits?: Pick<
+      SplitsStore,
+      | 'canSplitActive'
+      | 'splitActive'
+      | 'save'
+      | 'canUpdateSaved'
+      | 'updateSaved'
+      | 'mergeCandidates'
+      | 'mergeTabs'
+    >;
   }
 
   let { tabs = defaultTabs, settings = defaultSettings, splits = defaultSplits }: Props = $props();
@@ -28,9 +39,17 @@
   let renaming = $state<string | null>(null);
   let draft = $state('');
   let field: HTMLInputElement | undefined = $state();
+  /** "Split tabs…" is open. */
+  let picking = $state(false);
 
   const closeHint = $derived(settings.shortcut('closeTab')?.display ?? null);
   const splitHint = $derived(settings.shortcut('splitTerminal')?.display ?? '');
+  const mergeCandidates = $derived(
+    splits.mergeCandidates.flatMap((id) => {
+      const session = tabs.session(id);
+      return session ? [session] : [];
+    }),
+  );
 
   function background(active: boolean, color: LabelColor | null): string {
     if (color) return `color-mix(in srgb, var(--label-${color}) ${active ? 32 : 14}%, transparent)`;
@@ -179,7 +198,31 @@
       <Columns2 size={14} />
     </button>
   {/if}
+  {#if mergeCandidates.length >= 2}
+    <button
+      type="button"
+      class="split-button"
+      aria-label={t('Split tabs…')}
+      title={t('Put open tabs side by side')}
+      onclick={() => (picking = true)}
+    >
+      <SquareSplitHorizontal size={14} />
+    </button>
+  {/if}
 </div>
+
+{#if picking}
+  <SplitTabsDialog
+    candidates={mergeCandidates}
+    titleOf={(session) => tabs.displayTitle(session)}
+    initial={tabs.active === null ? [] : [tabs.active]}
+    onconfirm={(ids) => {
+      picking = false;
+      splits.mergeTabs(ids);
+    }}
+    oncancel={() => (picking = false)}
+  />
+{/if}
 
 <style>
   .tab-bar {

@@ -15,7 +15,7 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-function render(canSplit = false) {
+function render(canSplit = false, mergeCandidates: string[] = []) {
   const tabs = new TabsStore();
   tabs.openSession({ id: 'a', title: 'web01', type: 'ssh', color: 'red' });
   tabs.openSession({ id: 'b', title: 'db01', type: 'rdp', color: null });
@@ -26,6 +26,8 @@ function render(canSplit = false) {
     save: vi.fn(async () => {}),
     canUpdateSaved: vi.fn(() => true),
     updateSaved: vi.fn(async () => {}),
+    mergeCandidates,
+    mergeTabs: vi.fn((): string | null => 'T'),
   };
   mounted = mount(TabBar, { target: document.body, props: { tabs, settings, splits } });
   flushSync();
@@ -146,5 +148,48 @@ describe('TabBar', () => {
     const { splits } = render(true);
     document.querySelector<HTMLButtonElement>('.split-button')!.click();
     expect(splits.splitActive).toHaveBeenCalled();
+  });
+
+  it('offers Split tabs with two terminal tabs and merges the ticked ones', () => {
+    const button = () => document.querySelector<HTMLButtonElement>('[aria-label="Split tabs…"]');
+    render(false, ['a']);
+    expect(button()).toBeNull();
+    unmount(mounted!);
+    mounted = undefined;
+
+    const { tabs, splits } = render(false, ['a', 'b']);
+    tabs.openSession({ id: 'c', title: 'other', type: 'ssh', color: null });
+    tabs.select('a');
+    flushSync();
+    button()!.click();
+    flushSync();
+    const boxes = () => [...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input')];
+    const labels = [...document.querySelectorAll('[role="dialog"] li')].map((l) => l.textContent?.trim());
+    expect(labels).toEqual(['web01', 'db01']);
+    expect(boxes().map((b) => b.checked)).toEqual([true, false]);
+    const split = () =>
+      [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(
+        (b) => b.textContent?.trim() === 'Split',
+      )!;
+    expect(split().disabled).toBe(true);
+    boxes()[1]!.click();
+    flushSync();
+    expect(split().disabled).toBe(false);
+    split().click();
+    flushSync();
+    expect(splits.mergeTabs).toHaveBeenCalledWith(['a', 'b']);
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('closes Split tabs on Cancel without merging', () => {
+    const { splits } = render(false, ['a', 'b']);
+    document.querySelector<HTMLButtonElement>('[aria-label="Split tabs…"]')!.click();
+    flushSync();
+    [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')]
+      .find((b) => b.textContent?.trim() === 'Cancel')!
+      .click();
+    flushSync();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(splits.mergeTabs).not.toHaveBeenCalled();
   });
 });
