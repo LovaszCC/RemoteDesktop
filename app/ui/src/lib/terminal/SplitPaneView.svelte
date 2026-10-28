@@ -1,11 +1,11 @@
 <script lang="ts">
   // Swift `PaneView`: one terminal of a split. The header shows the connection colour, title, root warning,
-  // the BROADCAST badge, the copy-next-output button, the broadcast toggle and Close; then the terminal and,
-  // after a non-zero exit, the exit bar. Frame: green on the pane you type into, orange on the other
-  // broadcasting panes.
+  // the BROADCAST badge, the copy-next-output button, the broadcast toggle, "Move to its own tab" and Close;
+  // then the terminal and, after a non-zero exit, the exit bar. No frame: the focused pane has a bold title.
   import CircleDot from '@lucide/svelte/icons/circle-dot';
   import CircleStop from '@lucide/svelte/icons/circle-stop';
   import RadioTower from '@lucide/svelte/icons/radio-tower';
+  import SquareArrowOutUpRight from '@lucide/svelte/icons/square-arrow-out-up-right';
   import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
   import X from '@lucide/svelte/icons/x';
   import { t } from '../i18n/index.svelte';
@@ -94,6 +94,15 @@
       <button
         type="button"
         class="icon"
+        aria-label={t('Move to its own tab')}
+        title={t('Move to its own tab')}
+        onclick={() => splits.detachPane(pane.id)}
+      >
+        <SquareArrowOutUpRight size={12} />
+      </button>
+      <button
+        type="button"
+        class="icon"
         aria-label={t('Close this terminal')}
         title={t('Close this terminal')}
         onclick={() => splits.closePane(pane.id)}
@@ -122,19 +131,6 @@
     min-width: 0;
     min-height: 0;
     background: var(--terminal-bg);
-  }
-  .pane::after {
-    position: absolute;
-    inset: 0;
-    border: 2px solid transparent;
-    content: '';
-    pointer-events: none;
-  }
-  .pane.broadcasting::after {
-    border-color: var(--label-orange);
-  }
-  .pane.focused::after {
-    border-color: var(--label-green);
   }
   .header {
     display: flex;

@@ -4,7 +4,8 @@
 // `ssh_broadcast_input`. A pane closes on exit 0 (the tab with the last pane); other exits keep the pane
 // with its exit bar. "Split terminal" turns a single terminal tab into a split, keeping its live session.
 // Local terminal panes can be added and split like the others, but are left out of saved splits.
-// "Split tabs…" moves 2–4 open terminal tabs, with their live sessions, into one new split tab.
+// "Split tabs…" moves 2–4 open terminal tabs, with their live sessions, into one new split tab; "Move to
+// its own tab" takes a pane back out (the last pane left becomes a tab too).
 
 import { api as defaultApi, type Api } from '../api';
 import { errorMessage } from '../errors';
@@ -79,6 +80,22 @@ export function createSplitsStore(deps: Partial<SplitsDeps> = {}) {
       root: states.some((s) => s?.root === true),
       split: true,
       broadcasting: split.broadcasting.length > 0,
+    };
+  }
+
+  /** The tab a pane's session gets of its own, as `sessions.open` would give it; `undefined` when gone. */
+  function paneTab(pane: SplitPane): TabSession | undefined {
+    const state = sessions.state(pane.id);
+    if (!state) return undefined;
+    const local = isLocalTerminal(pane.connectionId);
+    const connection = local ? undefined : library.connection(pane.connectionId);
+    return {
+      id: pane.id,
+      title: state.title,
+      root: state.root,
+      type: connection?.type ?? 'ssh',
+      color: connection?.color ?? null,
+      ...(local ? {} : { group: connection?.entryId ?? pane.connectionId }),
     };
   }
 
@@ -208,6 +225,35 @@ export function createSplitsStore(deps: Partial<SplitsDeps> = {}) {
 
     /** Closes one pane (and the tab with the last one). */
     closePane,
+
+    /**
+     * "Move to its own tab": the pane's session leaves the split, live, for a tab of its own right after the
+     * split. When one pane would be left, it takes the split tab's place as a plain tab and the split ends.
+     */
+    detachPane(paneId: string) {
+      const split = byPane(paneId);
+      const pane = split?.panes.find((p) => p.id === paneId);
+      const tab = pane && paneTab(pane);
+      if (!split || !tab) return;
+      const rest = withoutPane(split, paneId);
+      sessions.release(paneId);
+      if (rest.panes.length > 1) {
+        put(rest);
+        tabs.openSession(tab, split.id);
+        return;
+      }
+      const last = rest.panes[0];
+      const lastTab = last && paneTab(last);
+      if (last) sessions.release(last.id);
+      drop(split.id);
+      // The split's name and colour were the split's: the terminal left in its place starts without them.
+      const inPlace = lastTab ?? tab;
+      tabs.replaceSession(split.id, inPlace);
+      tabs.rename(inPlace.id, '');
+      tabs.resetColor(inPlace.id);
+      if (lastTab) tabs.openSession(tab, lastTab.id);
+      else tabs.select(tab.id);
+    },
 
     /** The pane the keyboard goes to (clicked or focused). */
     focus(paneId: string) {

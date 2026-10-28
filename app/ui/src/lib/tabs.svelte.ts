@@ -163,12 +163,13 @@ export class TabsStore extends SessionTabs {
 
   /**
    * Adds a session and activates its tab. A grouped one opens right after the group's last tab and takes
-   * the lowest number free among the group's tabs with the same title; anything else goes to the end.
+   * the lowest number free among the group's tabs with the same title; anything else (or the group's first
+   * open tab) goes right after the open tab `after`, else to the end.
    */
-  openSession(session: TabSession) {
+  openSession(session: TabSession, after?: string) {
     if (this.session(session.id)) return this.open(session.id);
     const group = session.group === undefined ? [] : this.sessions.filter((s) => s.group === session.group);
-    const last = group.at(-1);
+    const last = group.at(-1) ?? this.session(after ?? '');
     let next = session;
     if (session.group !== undefined) {
       const used = group.filter((s) => s.title === session.title).map((s) => s.ordinal ?? 1);

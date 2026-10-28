@@ -162,6 +162,15 @@ describe('TabsStore', () => {
     expect(closed).toEqual(['s1']);
   });
 
+  it('opens an ungrouped session right after a given tab', () => {
+    const store = new TabsStore();
+    for (const id of ['a', 'b']) store.openSession({ id, title: id, type: 'ssh', color: null });
+    store.openSession({ id: 'c', title: 'c', type: 'ssh', color: null }, 'a');
+    store.openSession({ id: 'd', title: 'd', type: 'ssh', color: null }, 'nope');
+    expect(store.ids).toEqual(['a', 'c', 'b', 'd']);
+    expect(store.sessions.map((s) => s.id)).toEqual(store.ids);
+  });
+
   it('detaches a session tab without telling the listeners', () => {
     const store = new TabsStore();
     const closed: string[] = [];

@@ -12,6 +12,7 @@ import { libraryOf } from '../testing/fixtures';
 import type { LabelColor, SshEvent, SshEventDto } from '../types';
 import { createSessionsStore, type OutputChannel } from './sessions.svelte';
 import { createSplitsStore } from './splits.svelte';
+import { LOCAL_TERMINAL } from './local';
 import type { TerminalHandle, TerminalOptions } from './xterm';
 
 function setup(
@@ -352,6 +353,63 @@ describe('splits store', () => {
     expect(splits.mergeTabs(['T1', 'S3'])).toBeNull();
   });
 
+  it('moves a pane to its own tab, live, right after the split', async () => {
+    let n = 0;
+    const { splits, sessions, tabs, library, terminals, bridge } = setup({
+      open_local_terminal: () => ({ sessionId: `L${++n}` }),
+    });
+    const closed: string[] = [];
+    tabs.onSessionClosed((id) => closed.push(id));
+    await splits.open([library.connection('a')!, LOCAL_TERMINAL, library.connection('b')!]);
+    tabs.openSession({ id: 'rdp', title: 'desk', type: 'rdp', color: null });
+    splits.toggleBroadcast('L1');
+    splits.toggleBroadcast('S2');
+
+    splits.detachPane('L1');
+    expect(tabs.ids).toEqual(['T1', 'L1', 'rdp']);
+    expect(tabs.active).toBe('L1');
+    expect(tabs.session('L1')).toMatchObject({ title: 'Local Terminal', type: 'ssh', color: null });
+    expect(tabs.session('L1')?.group).toBeUndefined();
+    expect(sessions.isPane('L1')).toBe(false);
+    expect(panes(splits, 'T1')).toEqual(['S1', 'S2']);
+    expect(splits.get('T1')!.broadcasting).toEqual(['S2']);
+    expect(splits.mergeCandidates).toEqual(['L1']);
+    expect(closed).toEqual([]);
+    expect(terminals[1]!.handle.dispose).not.toHaveBeenCalled();
+    expect(bridge.invoke.mock.calls.some(([c]) => c === 'ssh_close')).toBe(false);
+
+    // Typing in the moved-out terminal goes to it alone.
+    terminals[1]!.options.onInput('x');
+    expect(bridge.invoke).toHaveBeenLastCalledWith('ssh_input', { sessionId: 'L1', data: 'x' });
+    splits.detachPane('nope');
+  });
+
+  it("turns the last pane into a plain tab in the split's place", async () => {
+    const { splits, sessions, tabs, library } = setup();
+    await splits.open([library.connection('a')!, library.connection('b')!]);
+    tabs.rename('T1', 'pair');
+    tabs.setColor('blue', 'T1');
+    tabs.openSession({ id: 'rdp', title: 'desk', type: 'rdp', color: null });
+
+    splits.detachPane('S1');
+    expect(splits.has('T1')).toBe(false);
+    expect(tabs.ids).toEqual(['S2', 'S1', 'rdp']);
+    expect(tabs.active).toBe('S1');
+    expect(tabs.session('S2')).toMatchObject({ title: 'b', group: 'b', color: 'red' });
+    expect(tabs.displayTitle(tabs.session('S2')!)).toBe('b');
+    expect(tabs.displayColor(tabs.session('S2')!)).toBe('red');
+    expect(tabs.session('S1')).toMatchObject({ title: 'a', group: 'a', color: 'red' });
+    expect(sessions.isPane('S1') || sessions.isPane('S2')).toBe(false);
+    expect(splits.mergeCandidates).toEqual(['S2', 'S1']);
+
+    // A split down to one pane (others closed) becomes that pane's tab.
+    expect(splits.mergeTabs(['S1', 'S2'])).toBe('T2');
+    splits.closePane('S2');
+    splits.detachPane('S1');
+    expect(tabs.ids).toEqual(['S1', 'rdp']);
+    expect(sessions.isPane('S1')).toBe(false);
+  });
+
   it('saves the panes as a split and updates the saved split it came from', async () => {
     const { splits, library, bridge, prompt, toast } = setup();
     const a = library.connection('a')!;
@@ -459,5 +517,12 @@ describe('SplitView', () => {
     flushSync();
     expect(document.querySelectorAll('[data-pane]')).toHaveLength(2);
     expect(document.querySelectorAll('.column')).toHaveLength(2);
+
+    pane('S2').querySelector<HTMLButtonElement>('[aria-label="Move to its own tab"]')!.click();
+    flushSync();
+    expect(splits.has('T1')).toBe(false);
+    expect(sessions.isPane('S1')).toBe(false);
+    expect(sessions.isPane('S2')).toBe(false);
+    expect(document.querySelector('[data-pane]')).toBeNull();
   });
 });
