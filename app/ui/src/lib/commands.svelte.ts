@@ -160,9 +160,15 @@ export function createCommandRunner(deps: Partial<CommandDeps> = {}) {
         }
         return;
       }
-      case 'newLocalTerminal':
-        if (app.isUnlocked) void actions.openLocalTerminal();
+      case 'newLocalTerminal': {
+        if (!app.isUnlocked) return;
+        // From a local terminal (or a split's focused local pane) the new one starts in its directory.
+        const session = sessions.active;
+        void actions.openLocalTerminal(
+          session && isLocalTerminal(session.connectionId) ? session.id : undefined,
+        );
         return;
+      }
       case 'closeTab':
         tabs.closeActive();
         return;

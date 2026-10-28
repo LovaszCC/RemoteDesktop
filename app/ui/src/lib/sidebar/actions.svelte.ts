@@ -146,9 +146,12 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
       }
     },
 
-    /** The "Local Terminal" entry: this machine's shell in a new tab. */
-    async openLocalTerminal() {
-      await perform(() => sessions.openLocal());
+    /**
+     * The "Local Terminal" entry: this machine's shell in a new tab, in home; with `inheritFrom` (Cmd+T on a
+     * local terminal) in that terminal's current directory.
+     */
+    async openLocalTerminal(inheritFrom?: string) {
+      await perform(() => sessions.openLocal(inheritFrom === undefined ? {} : { inheritFrom }));
     },
 
     // Editors

@@ -347,9 +347,12 @@ export function createApi(invoke: Invoke = tauriBridge.invoke) {
     /** Starts a session; its raw output arrives on `onData` (a Tauri `Channel`). */
     openSshSession: (connectionId: string, cols: number, rows: number, onData: unknown) =>
       call<{ sessionId: string }>('open_ssh_session', { connectionId, cols, rows, onData }),
-    /** Starts a local terminal (this machine's shell); the `ssh*` calls below apply to it too. */
-    openLocalTerminal: (cols: number, rows: number, onData: unknown) =>
-      call<{ sessionId: string }>('open_local_terminal', { cols, rows, onData }),
+    /**
+     * Starts a local terminal (this machine's shell); the `ssh*` calls below apply to it too. With
+     * `fromSessionId` (a local terminal) it starts in that shell's current directory, else in home.
+     */
+    openLocalTerminal: (cols: number, rows: number, onData: unknown, fromSessionId: string | null = null) =>
+      call<{ sessionId: string }>('open_local_terminal', { cols, rows, fromSessionId, onData }),
     /** Typed text (`onData`) or raw bytes (`onBinary`). */
     sshInput: (sessionId: string, data: string | number[]) => call<void>('ssh_input', { sessionId, data }),
     /** Input typed into a broadcasting split pane: to the source, then to the targets (paste markers

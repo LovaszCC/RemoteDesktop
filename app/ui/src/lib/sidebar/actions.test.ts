@@ -372,7 +372,9 @@ describe('sidebar actions', () => {
   it('opens a local terminal and shows a failure in the alert', async () => {
     const { actions, alerts, sessions } = setup();
     await actions.openLocalTerminal();
-    expect(sessions.openLocal).toHaveBeenCalledOnce();
+    expect(sessions.openLocal).toHaveBeenCalledWith({});
+    await actions.openLocalTerminal('L1');
+    expect(sessions.openLocal).toHaveBeenLastCalledWith({ inheritFrom: 'L1' });
     sessions.openLocal.mockRejectedValueOnce({
       code: 'spawnFailed',
       message: "Couldn't start the shell.",
