@@ -623,7 +623,10 @@ fn local_terminal_runs_the_shell_without_a_connection_or_the_vault() {
 
     let sink = Arc::new(Collect::default());
     let for_core: Arc<dyn Sink> = sink.clone();
-    let id = lab.core.open_local_terminal(80, 24, move |_| for_core).unwrap();
+    let id = lab
+        .core
+        .open_local_terminal(80, 24, None, move |_| for_core)
+        .unwrap();
     sink.wait_output("READY");
     assert_eq!(sink.value("ARGS"), "-l");
     assert_eq!(sink.value("TERM"), "xterm-256color");
@@ -668,4 +671,55 @@ fn local_terminal_runs_the_shell_without_a_connection_or_the_vault() {
     assert_eq!(lab.core.running_count(), 1);
     lab.core.ssh_close(&id);
     assert_eq!(lab.core.ssh_session_count(), 0);
+}
+
+#[test]
+fn a_local_terminal_opened_from_another_starts_in_its_directory() {
+    let lab = Lab::new();
+    let inner = lab.dir.path().join("inner");
+    std::fs::create_dir(&inner).unwrap();
+    let marker = lab.dir.path().join("first");
+    // The first shell moves into `inner`; the later ones stay where they started.
+    let script = format!(
+        "#!/bin/sh\nif [ ! -e '{marker}' ]; then touch '{marker}'; cd '{inner}'; fi\n\
+         printf 'DIR=%s\\nREADY\\n' \"$(pwd -P)\"\nread line\n",
+        marker = marker.display(),
+        inner = inner.display(),
+    );
+    let shell = lab.dir.path().join("fake-shell");
+    std::fs::write(&shell, script).unwrap();
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&shell, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    lab.core.set_local_shell(Some(rd_ssh::local::LocalShell {
+        program: shell,
+        args: Vec::new(),
+    }));
+    let open = |from: Option<&str>| {
+        let sink = Arc::new(Collect::default());
+        let for_core: Arc<dyn Sink> = sink.clone();
+        let id = lab
+            .core
+            .open_local_terminal(80, 24, from, move |_| for_core)
+            .unwrap();
+        sink.wait_output("READY");
+        (id, PathBuf::from(sink.value("DIR")))
+    };
+    let home = std::fs::canonicalize(dirs::home_dir().unwrap()).unwrap();
+    let inner = std::fs::canonicalize(inner).unwrap();
+
+    let (first, dir) = open(None);
+    assert_eq!(dir, inner);
+    let (second, dir) = open(Some(&first));
+    assert_eq!(dir, inner, "Cmd+T keeps the directory");
+    let (_, dir) = open(None);
+    assert_eq!(dir, home, "the sidebar starts in home");
+    let (_, dir) = open(Some("no-such-session"));
+    assert_eq!(dir, home);
+
+    lab.core.ssh_close(&second);
+    lab.core.ssh_close(&first);
+    let (_, dir) = open(Some(&first));
+    assert_eq!(dir, home, "a closed terminal leaves nothing to follow");
 }

@@ -288,6 +288,8 @@ struct Prepared {
     env: Vec<(String, std::ffi::OsString)>,
     ticket: Option<Ticket>,
     key_file: Option<UnlockedKeyFile>,
+    /// The start directory (home when `None`); only a new local terminal opened from another sets it.
+    cwd: Option<PathBuf>,
 }
 
 fn args_error(error: &ArgsError) -> CommandError {
@@ -368,6 +370,7 @@ impl AppCore {
             env,
             ticket: Some(ticket),
             key_file,
+            cwd: None,
         })
     }
 
@@ -390,6 +393,7 @@ impl AppCore {
             env: Vec::new(),
             ticket: None,
             key_file: None,
+            cwd: None,
         }
     }
 
@@ -433,6 +437,7 @@ impl AppCore {
             login_user: prepared.login_user,
             cols,
             rows,
+            cwd: prepared.cwd,
         };
         let message = match spec.kind {
             SessionKind::Ssh => "Couldn't start ssh.",
@@ -462,14 +467,17 @@ impl AppCore {
     ) -> Result<String, CommandError> {
         self.open_session(
             Target::Connection(connection_id.to_owned()),
+            None,
             cols,
             rows,
             make_sink,
         )
     }
 
-    /// Opens a local terminal: this machine's shell in the home directory, as a session like the SSH ones
-    /// (input, resize, reconnect, close and split panes work the same). It needs no unlocked vault: no
+    /// Opens a local terminal: this machine's shell as a session like the SSH ones (input, resize,
+    /// reconnect, close and split panes work the same). It starts in the directory the local terminal
+    /// `from` is in now (Cmd+T on a local terminal), else — no `from`, not a local terminal, or the OS
+    /// can't tell — in the home directory; a reconnect starts in home. It needs no unlocked vault: no
     /// secret is involved. Returns the session id.
     ///
     /// # Errors
@@ -478,21 +486,40 @@ impl AppCore {
         &self,
         cols: u16,
         rows: u16,
+        from: Option<&str>,
         make_sink: impl FnOnce(&str) -> Arc<dyn Sink>,
     ) -> Result<String, CommandError> {
-        self.open_session(Target::Local, cols, rows, make_sink)
+        let cwd = from.and_then(|id| self.local_terminal_directory(id));
+        self.open_session(Target::Local, cwd, cols, rows, make_sink)
+    }
+
+    /// Where the shell of local terminal `session_id` is now; `None` for other sessions.
+    fn local_terminal_directory(&self, session_id: &str) -> Option<PathBuf> {
+        let session = {
+            let sessions = lock(&self.ssh.sessions);
+            let entry = sessions.get(session_id)?;
+            if !matches!(entry.target, Target::Local) {
+                return None;
+            }
+            Arc::clone(&entry.run.as_ref()?.session)
+        };
+        session.process_directory()
     }
 
     fn open_session(
         &self,
         target: Target,
+        cwd: Option<PathBuf>,
         cols: u16,
         rows: u16,
         make_sink: impl FnOnce(&str) -> Arc<dyn Sink>,
     ) -> Result<String, CommandError> {
         let session_id = new_id();
         let sink = make_sink(&session_id);
-        let prepared = self.prepare_target(&target, &session_id)?;
+        let prepared = Prepared {
+            cwd,
+            ..self.prepare_target(&target, &session_id)?
+        };
         lock(&self.ssh.sessions).insert(
             session_id.clone(),
             Entry {

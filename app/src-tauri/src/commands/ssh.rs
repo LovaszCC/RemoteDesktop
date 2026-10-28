@@ -147,17 +147,19 @@ pub async fn open_ssh_session(
 }
 
 /// Opens a local terminal (this machine's shell) as an embedded session; the other `ssh_*` commands
-/// apply to it like to an SSH session, and `ssh_reconnect` starts a new shell. Errors: `spawnFailed`.
+/// apply to it like to an SSH session, and `ssh_reconnect` starts a new shell. With `from_session_id` (a
+/// local terminal) it starts in that shell's current directory, else in home. Errors: `spawnFailed`.
 #[tauri::command]
 pub async fn open_local_terminal(
     app: AppHandle,
     core: State<'_, Core>,
     cols: u16,
     rows: u16,
+    from_session_id: Option<String>,
     on_data: Channel<InvokeResponseBody>,
 ) -> Result<OpenSessionDto, CommandError> {
     blocking(&core, move |c| {
-        let session_id = c.open_local_terminal(cols, rows, |session_id| {
+        let session_id = c.open_local_terminal(cols, rows, from_session_id.as_deref(), |session_id| {
             Arc::new(WebviewSink {
                 app,
                 session_id: session_id.to_owned(),
