@@ -163,12 +163,13 @@ export class TabsStore extends SessionTabs {
 
   /**
    * Adds a session and activates its tab. A grouped one opens right after the group's last tab and takes
-   * the lowest number free among the group's tabs with the same title; anything else goes to the end.
+   * the lowest number free among the group's tabs with the same title; anything else (or the group's first
+   * open tab) goes right after the open tab `after`, else to the end.
    */
-  openSession(session: TabSession) {
+  openSession(session: TabSession, after?: string) {
     if (this.session(session.id)) return this.open(session.id);
     const group = session.group === undefined ? [] : this.sessions.filter((s) => s.group === session.group);
-    const last = group.at(-1);
+    const last = group.at(-1) ?? this.session(after ?? '');
     let next = session;
     if (session.group !== undefined) {
       const used = group.filter((s) => s.title === session.title).map((s) => s.ordinal ?? 1);
@@ -195,6 +196,16 @@ export class TabsStore extends SessionTabs {
         : { ...next, group: current.group, ordinal: current.ordinal };
     this.sessions = this.sessions.map((s) => (s.id === old ? kept : s));
     this.replace(old, next.id);
+  }
+
+  /**
+   * Removes a session's tab without closing the session: nobody hears about a closed tab (its session lives
+   * on as a split pane). Unknown ids are ignored.
+   */
+  detachSession(id: string) {
+    if (!this.session(id)) return;
+    this.sessions = this.sessions.filter((s) => s.id !== id);
+    this.close(id);
   }
 
   /** Closes a session and its tab. */

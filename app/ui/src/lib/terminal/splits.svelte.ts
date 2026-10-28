@@ -4,6 +4,8 @@
 // `ssh_broadcast_input`. A pane closes on exit 0 (the tab with the last pane); other exits keep the pane
 // with its exit bar. "Split terminal" turns a single terminal tab into a split, keeping its live session.
 // Local terminal panes can be added and split like the others, but are left out of saved splits.
+// "Split tabs…" moves 2–4 open terminal tabs, with their live sessions, into one new split tab; "Move to
+// its own tab" takes a pane back out (the last pane left becomes a tab too).
 
 import { api as defaultApi, type Api } from '../api';
 import { errorMessage } from '../errors';
@@ -78,6 +80,22 @@ export function createSplitsStore(deps: Partial<SplitsDeps> = {}) {
       root: states.some((s) => s?.root === true),
       split: true,
       broadcasting: split.broadcasting.length > 0,
+    };
+  }
+
+  /** The tab a pane's session gets of its own, as `sessions.open` would give it; `undefined` when gone. */
+  function paneTab(pane: SplitPane): TabSession | undefined {
+    const state = sessions.state(pane.id);
+    if (!state) return undefined;
+    const local = isLocalTerminal(pane.connectionId);
+    const connection = local ? undefined : library.connection(pane.connectionId);
+    return {
+      id: pane.id,
+      title: state.title,
+      root: state.root,
+      type: connection?.type ?? 'ssh',
+      color: connection?.color ?? null,
+      ...(local ? {} : { group: connection?.entryId ?? pane.connectionId }),
     };
   }
 
@@ -208,6 +226,35 @@ export function createSplitsStore(deps: Partial<SplitsDeps> = {}) {
     /** Closes one pane (and the tab with the last one). */
     closePane,
 
+    /**
+     * "Move to its own tab": the pane's session leaves the split, live, for a tab of its own right after the
+     * split. When one pane would be left, it takes the split tab's place as a plain tab and the split ends.
+     */
+    detachPane(paneId: string) {
+      const split = byPane(paneId);
+      const pane = split?.panes.find((p) => p.id === paneId);
+      const tab = pane && paneTab(pane);
+      if (!split || !tab) return;
+      const rest = withoutPane(split, paneId);
+      sessions.release(paneId);
+      if (rest.panes.length > 1) {
+        put(rest);
+        tabs.openSession(tab, split.id);
+        return;
+      }
+      const last = rest.panes[0];
+      const lastTab = last && paneTab(last);
+      if (last) sessions.release(last.id);
+      drop(split.id);
+      // The split's name and colour were the split's: the terminal left in its place starts without them.
+      const inPlace = lastTab ?? tab;
+      tabs.replaceSession(split.id, inPlace);
+      tabs.rename(inPlace.id, '');
+      tabs.resetColor(inPlace.id);
+      if (lastTab) tabs.openSession(tab, lastTab.id);
+      else tabs.select(tab.id);
+    },
+
     /** The pane the keyboard goes to (clicked or focused). */
     focus(paneId: string) {
       const split = byPane(paneId);
@@ -270,6 +317,32 @@ export function createSplitsStore(deps: Partial<SplitsDeps> = {}) {
       splits = { ...splits, [next.id]: next };
       tabs.replaceSession(active, { id: next.id, ...tabInfo(next) });
       await store.addPane(next.id, connection);
+    },
+
+    /** Tabs "Split tabs…" can put side by side: single terminal tabs (not splits), in tab bar order. */
+    get mergeCandidates(): string[] {
+      return tabs.ids.filter((id) => sessions.has(id) && !sessions.isPane(id) && !(id in splits));
+    },
+
+    /**
+     * "Split tabs…": the given candidate tabs (in tab bar order, at most 4) become the panes of one new split
+     * tab, keeping their sessions and terminals. The split takes the first tab's place; the active tab's
+     * pane gets the focus. The tab id, or `null` (nothing changes) when fewer than 2 are candidates.
+     */
+    mergeTabs(ids: readonly string[]): string | null {
+      const chosen = store.mergeCandidates.filter((id) => ids.includes(id)).slice(0, MAX_PANES);
+      const [first, ...rest] = chosen;
+      if (first === undefined || rest.length === 0) return null;
+      const panes = chosen.map((id) => ({ id, connectionId: sessions.state(id)?.connectionId ?? '' }));
+      const active = tabs.active;
+      const split = newSplit(newId(), panes);
+      if (active !== null && chosen.includes(active)) split.focused = active;
+      for (const id of chosen) sessions.adopt(id);
+      splits = { ...splits, [split.id]: split };
+      tabs.replaceSession(first, { id: split.id, ...tabInfo(split) });
+      for (const id of rest) tabs.detachSession(id);
+      tabs.select(split.id);
+      return split.id;
     },
 
     /** "Save split…": asks the name (the tab's title by default) and saves the panes' connections. */

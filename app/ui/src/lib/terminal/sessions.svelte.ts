@@ -230,6 +230,10 @@ export function createSessionsStore(deps: Partial<SessionsDeps> = {}) {
     adopt(id: string) {
       if (id in states) panes.add(id);
     },
+    /** Turns a pane's session back into a tab's (the caller opens the tab); the terminal and process stay. */
+    release(id: string) {
+      panes.delete(id);
+    },
     /** Ends a pane's session. */
     end,
     /** The changed host key prompts, for `HostKeyDialog`. */
