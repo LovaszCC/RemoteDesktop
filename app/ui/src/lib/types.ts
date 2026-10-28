@@ -818,3 +818,42 @@ export interface UpdateProgressDto {
   downloaded: number;
   total: number | null;
 }
+
+// Connect with VPN (macOS)
+
+/** One MacVPN connection RemoteDesktop may use (`vpn_profiles`). */
+export interface VpnProfileDto {
+  id: string;
+  name: string;
+  kind: string;
+  state: string;
+}
+
+/** A connect's VPN gate (event `vpn-progress`). */
+export interface VpnProgressDto {
+  requestId: string;
+  phase: 'testing' | 'connecting' | 'waitingForMfa' | 'waitingForCredentials' | 'done' | 'failed';
+  profileName: string;
+  entryName: string;
+  /** The address that did not answer the ping. */
+  unreachable: string | null;
+}
+
+/** A VPN RemoteDesktop holds up. */
+export interface HeldVpnDto {
+  profileId: string;
+  profileName: string;
+  /** External launches holding it ("Release" drops these). */
+  externalEntries: { entryId: string; entryName: string }[];
+  /** Every entry holding it (sidebar badge). */
+  entryIds: string[];
+  /** Open tabs, panes, files windows and forwards holding it. */
+  openHolders: number;
+}
+
+/** `vpn_status`: pairing and the held VPNs. */
+export interface VpnStatusDto {
+  supported: boolean;
+  paired: boolean;
+  held: HeldVpnDto[];
+}

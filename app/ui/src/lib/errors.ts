@@ -46,6 +46,18 @@ const READ_ONLY_NEEDS_UPGRADE =
  * master password is wrong." on a password change).
  */
 const CODE_KEYS: Record<string, string> = {
+  vpnNotRunning: "MacVPN is not running, or it doesn't let other apps control VPNs.",
+  vpnNotPaired: 'RemoteDesktop is not paired with MacVPN.',
+  vpnNotAllowed: "MacVPN doesn't let RemoteDesktop use this VPN.",
+  vpnUnknownProfile: 'This VPN no longer exists in MacVPN.',
+  vpnSetupRequired: "MacVPN's setup is incomplete.",
+  vpnCancelled: 'The VPN connection was cancelled.',
+  vpnMfaTimeout: "MacVPN's sign-in prompt timed out.",
+  vpnLocked: 'MacVPN is locked. Unlock it, then connect again.',
+  vpnBusy: 'MacVPN is busy with this VPN. Try again.',
+  vpnPairingDenied: 'MacVPN did not allow the pairing.',
+  vpnFailed: 'The VPN could not connect.',
+  emptyVpnTestAddress: 'Enter the test address.',
   noDatabase: 'No database is open.',
   locked: 'RemoteDesktop is locked.',
   readOnly: 'The database is open read-only because another computer is using it.',
@@ -127,6 +139,7 @@ const DETAIL_SUFFIX = new Set([
   'windowFailed',
   'updateCheckFailed',
   'updateInstallFailed',
+  'vpnFailed',
 ]);
 
 /** The user-facing, translated text for anything a command threw. */

@@ -855,8 +855,8 @@ pub fn macvpn_error(error: &rd_platform::macvpn::Error) -> CommandError {
         }
         Error::Api { code, message, .. } => {
             let (code, text) = match code {
-                ErrorCode::Unauthorized => ("vpnNotPaired", "Remote Desktop is not paired with MacVPN."),
-                ErrorCode::NotAllowed => ("vpnNotAllowed", "MacVPN doesn't let Remote Desktop use this VPN."),
+                ErrorCode::Unauthorized => ("vpnNotPaired", "RemoteDesktop is not paired with MacVPN."),
+                ErrorCode::NotAllowed => ("vpnNotAllowed", "MacVPN doesn't let RemoteDesktop use this VPN."),
                 ErrorCode::UnknownConnection => ("vpnUnknownProfile", "This VPN no longer exists in MacVPN."),
                 ErrorCode::SetupRequired => ("vpnSetupRequired", "MacVPN's setup is incomplete."),
                 ErrorCode::MfaCancelled | ErrorCode::CredentialsCancelled => {
@@ -917,7 +917,7 @@ impl MacVpnBackend {
         let token = self
             .tokens
             .load()
-            .ok_or_else(|| CommandError::new("vpnNotPaired", "Remote Desktop is not paired with MacVPN."))?;
+            .ok_or_else(|| CommandError::new("vpnNotPaired", "RemoteDesktop is not paired with MacVPN."))?;
         rd_platform::macvpn::Client::open(&Self::socket()?, &token).map_err(|e| self.error(&e))
     }
 }

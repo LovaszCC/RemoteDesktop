@@ -26,6 +26,7 @@
   import { terminals } from './lib/stores/terminals.svelte';
   import UpdateDialog from './lib/updates/UpdateDialog.svelte';
   import { updates } from './lib/updates/updates.svelte';
+  import { vpn } from './lib/vpn/vpn.svelte';
 
   onMount(() => {
     const commands = installCommands();
@@ -45,6 +46,8 @@
       ]);
       void terminals.load();
       await Promise.all([app.start().catch(report), library.start().catch(report)]);
+      // Connect with VPN is macOS only (MacVPN).
+      if (app.platform === 'macos') void vpn.start().catch(report);
       // A launcher that started the app: its entry opens once the library is there.
       void entryRequests.check();
       // The silent launch check (Swift `checkAutomaticallyIfDue`): Rust skips it when off or not due.
@@ -63,6 +66,7 @@
       askpass.stop();
       forwards.stop();
       hostKeys.stop();
+      vpn.stop();
     };
   });
 </script>
