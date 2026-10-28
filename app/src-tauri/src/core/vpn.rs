@@ -892,6 +892,10 @@ pub fn system_backend() -> Box<dyn VpnBackend> {
 
 /// The phase a MacVPN state means (unknown states are in progress).
 #[cfg(unix)]
+#[cfg_attr(
+    not(target_os = "macos"),
+    allow(dead_code, reason = "the macOS backend uses it; tested on every Unix")
+)]
 pub fn phase_of(state: &rd_platform::macvpn::State) -> VpnPhase {
     use rd_platform::macvpn::State;
     match state {
@@ -905,6 +909,10 @@ pub fn phase_of(state: &rd_platform::macvpn::State) -> VpnPhase {
 
 /// The app's error for a MacVPN client error. `locked` arrives as `failed` with the wire code kept.
 #[cfg(unix)]
+#[cfg_attr(
+    not(target_os = "macos"),
+    allow(dead_code, reason = "the macOS backend uses it; tested on every Unix")
+)]
 pub fn macvpn_error(error: &rd_platform::macvpn::Error) -> CommandError {
     use rd_platform::macvpn::{Error, ErrorCode};
     match error {
