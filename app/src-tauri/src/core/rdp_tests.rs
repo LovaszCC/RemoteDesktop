@@ -732,3 +732,68 @@ fn rdp_session_holds_the_vpn_and_reconnect_regates_after_a_drop() {
     core.rdp_close(&session);
     assert!(holders(&core).is_empty());
 }
+
+fn set_iso_swap(core: &AppCore, swap: bool) {
+    core.settings_set(&SettingsPatch {
+        swap_iso_keys: Some(swap),
+        ..SettingsPatch::default()
+    })
+    .unwrap();
+}
+
+/// What pressing the key next to left Shift (`IntlBackslash` on a Mac) sends in the newest session.
+fn iso_key_scancode(core: &AppCore, session: &str, run: &FakeRun) -> u16 {
+    run.inputs.lock().unwrap().clear();
+    core.rdp_input(
+        session,
+        vec![RdpInput::Key {
+            code: "IntlBackslash".into(),
+            key: "0".into(),
+            down: true,
+        }],
+    )
+    .unwrap();
+    match run.inputs.lock().unwrap()[..] {
+        [InputEvent::Scancode { code, down: true }] => code,
+        ref other => panic!("unexpected input {other:?}"),
+    }
+}
+
+#[test]
+fn the_iso_swap_setting_applies_to_sessions_opened_after_it() {
+    let env = Env::new();
+    let core = env.unlocked();
+    let starts = fake_engine(&core);
+    let id = rdp_connection(&core, "u", Some("p"));
+    let swapped = if cfg!(target_os = "macos") { 0x29 } else { 0x56 };
+
+    set_iso_swap(&core, true);
+    let (on, _) = open(&core, &id);
+    let on_run = Arc::clone(&starts.lock().unwrap()[0].run);
+    assert_eq!(iso_key_scancode(&core, &on, &on_run), swapped);
+
+    set_iso_swap(&core, false);
+    // The open session keeps the swap it started with.
+    assert_eq!(iso_key_scancode(&core, &on, &on_run), swapped);
+    let (off, _) = open(&core, &id);
+    let off_run = Arc::clone(&starts.lock().unwrap()[1].run);
+    assert_eq!(iso_key_scancode(&core, &off, &off_run), 0x56);
+}
+
+#[test]
+fn settings_carry_the_iso_swap_choice_and_detection() {
+    let env = Env::new();
+    let core = env.unlocked();
+    let settings = core.settings_get();
+    assert_eq!(settings.swap_iso_keys, None);
+    assert_eq!(
+        settings.iso_keyboard,
+        rd_platform::iso_keyboard::is_iso_keyboard()
+    );
+    set_iso_swap(&core, false);
+    assert_eq!(core.settings_get().swap_iso_keys, Some(false));
+    assert_eq!(
+        rd_platform::Settings::load(&env.settings_dir()).swap_iso_keys,
+        Some(false)
+    );
+}

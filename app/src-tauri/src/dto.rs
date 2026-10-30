@@ -566,7 +566,10 @@ pub struct AppStatusDto {
 }
 
 /// The settings the UI can show and change.
-#[allow(clippy::struct_excessive_bools, reason = "independent settings, flat for the UI")]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "independent settings, flat for the UI"
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SettingsDto {
