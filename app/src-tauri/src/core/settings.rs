@@ -33,6 +33,9 @@ pub struct SettingsPatch {
     pub selection_shows: Option<String>,
     /// Entries have launchers in the OS search.
     pub show_in_system_search: Option<bool>,
+    /// macOS embedded RDP: swap the key left of 1 with the key next to left Shift (an explicit choice;
+    /// the automatic default can't be set back).
+    pub swap_iso_keys: Option<bool>,
 }
 
 impl AppCore {
@@ -53,6 +56,8 @@ impl AppCore {
             winbox_path: settings.winbox_path.as_ref().map(|p| p.display().to_string()),
             selection_shows: settings.selection_shows.clone(),
             show_in_system_search: settings.show_in_system_search,
+            swap_iso_keys: settings.swap_iso_keys,
+            iso_keyboard: rd_platform::iso_keyboard::is_iso_keyboard(),
         }
     }
 
@@ -120,6 +125,9 @@ impl AppCore {
         }
         if let Some(show) = patch.show_in_system_search {
             inner.settings.show_in_system_search = show;
+        }
+        if let Some(swap) = patch.swap_iso_keys {
+            inner.settings.swap_iso_keys = Some(swap);
         }
         Self::save_settings(&inner)?;
         Ok(Self::settings_dto(&inner))

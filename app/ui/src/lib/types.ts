@@ -270,6 +270,10 @@ export interface SettingsDto {
   selectionShows: SelectionShows;
   /** Entries have launchers in Spotlight / the Start menu / the desktop search. */
   showInSystemSearch: boolean;
+  /** macOS embedded RDP: swap the key left of 1 with the key next to left Shift; `null` = automatic. */
+  swapIsoKeys: boolean | null;
+  /** A connected keyboard is ISO (what automatic follows; always `false` off macOS). */
+  isoKeyboard: boolean;
 }
 
 /** What a single click on a sidebar entry with an open connection shows: Details, or its only plain tab. */
@@ -286,6 +290,7 @@ export interface SettingsPatch {
   winboxPath?: string;
   selectionShows?: SelectionShows;
   showInSystemSearch?: boolean;
+  swapIsoKeys?: boolean;
 }
 
 export type ShortcutCommand =

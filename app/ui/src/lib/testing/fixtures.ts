@@ -127,6 +127,8 @@ export function settingsDto(overrides: Partial<SettingsDto> = {}): SettingsDto {
     winboxPath: null,
     selectionShows: 'details',
     showInSystemSearch: false,
+    swapIsoKeys: null,
+    isoKeyboard: false,
     ...overrides,
   };
 }

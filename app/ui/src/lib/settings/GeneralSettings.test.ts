@@ -73,6 +73,52 @@ describe('GeneralSettings embedded RDP', () => {
   });
 });
 
+describe('GeneralSettings ISO key swap', () => {
+  const label = 'Swap the key left of 1 with the key next to left Shift';
+  const toggle = () =>
+    document.querySelector<HTMLButtonElement>(`button[role="switch"][aria-label="${label}"]`);
+  const auto = () => document.querySelector('[data-testid="iso-swap-auto"]')?.textContent?.trim();
+
+  it('follows the detected ISO keyboard until chosen (macOS)', async () => {
+    const dto = settingsDto({ isoKeyboard: true });
+    const { bridge } = await render('macos', {
+      settings_get: () => dto,
+      settings_set: (args?: Record<string, unknown>) => ({
+        ...dto,
+        ...(args?.patch as Partial<SettingsDto>),
+      }),
+    });
+    expect(toggle()?.getAttribute('aria-checked')).toBe('true');
+    expect(auto()).toBe('Automatic: on, this Mac has an ISO keyboard.');
+    toggle()!.click();
+    await settle();
+    expect(bridge.invoke).toHaveBeenCalledWith('settings_set', { patch: { swapIsoKeys: false } });
+    expect(toggle()?.getAttribute('aria-checked')).toBe('false');
+    expect(auto()).toBeUndefined();
+  });
+
+  it('is off without an ISO keyboard and turns on', async () => {
+    const { bridge } = await render('macos');
+    expect(toggle()?.getAttribute('aria-checked')).toBe('false');
+    expect(auto()).toBe('Automatic: off, no ISO keyboard found.');
+    toggle()!.click();
+    await settle();
+    expect(bridge.invoke).toHaveBeenCalledWith('settings_set', { patch: { swapIsoKeys: true } });
+    expect(toggle()?.getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('shows the explicit choice over detection', async () => {
+    await render('macos', { settings_get: settingsDto({ swapIsoKeys: false, isoKeyboard: true }) });
+    expect(toggle()?.getAttribute('aria-checked')).toBe('false');
+    expect(auto()).toBeUndefined();
+  });
+
+  it('is macOS only', async () => {
+    await render('windows');
+    expect(toggle()).toBeNull();
+  });
+});
+
 describe('GeneralSettings sidebar', () => {
   it('chooses what a click on an entry with an open connection shows', async () => {
     const { bridge } = await render('macos');

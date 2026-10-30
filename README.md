@@ -132,6 +132,10 @@ And a few things that make everyday work nicer:
 - **🔎 Open from the system search.** Turn on *Settings → Sidebar → Show entries in system search* and
   type an entry's name into Spotlight, the Start menu or your desktop's search: opening it starts the app
   (or brings it forward) and connects, just like a double-click. See [System search](#-system-search).
+- **⌨️ ISO keyboards on the Mac.** On a Hungarian (or other ISO) Mac keyboard, Windows sessions usually
+  mix up the key left of `1` and the key next to left Shift (`0` types `í`). The embedded RDP swaps them
+  back automatically when it finds an ISO keyboard; turn it on or off in *Settings → General → Embedded
+  RDP*. Applies to sessions opened afterwards.
 - **📡 Split view with broadcast.** Open up to four terminals side by side, and type into all of them at
   once — handy for configuring several switches the same way.
 - **📋 Copy next output.** Press the shortcut, run a command, and its output lands on your clipboard as

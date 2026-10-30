@@ -566,6 +566,10 @@ pub struct AppStatusDto {
 }
 
 /// The settings the UI can show and change.
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "independent settings, flat for the UI"
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SettingsDto {
@@ -589,6 +593,10 @@ pub struct SettingsDto {
     pub selection_shows: String,
     /// Entries have launchers in the OS search.
     pub show_in_system_search: bool,
+    /// macOS embedded RDP: swap the key left of 1 with the key next to left Shift; `None` = automatic.
+    pub swap_iso_keys: Option<bool>,
+    /// A connected keyboard is ISO (what automatic follows; always `false` off macOS).
+    pub iso_keyboard: bool,
 }
 
 /// One row of the shortcut settings.

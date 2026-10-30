@@ -646,6 +646,7 @@ impl AppCore {
     /// Starts a run for the existing entry `session_id` and makes it current.
     fn start_rdp_run(&self, session_id: &str, config: RdpConfig) -> Result<(), CommandError> {
         let number = self.rdp.next_run.fetch_add(1, Ordering::SeqCst) + 1;
+        let translator = self.keyboard_translator();
         let handler = {
             let mut sessions = lock(&self.rdp.sessions);
             let entry = sessions
@@ -655,7 +656,7 @@ impl AppCore {
             entry.view = (config.width, config.height);
             let (w, h) = rd_core::rdp::initial_size(config.width, config.height);
             entry.desktop = (w, h);
-            entry.translator = KeyboardTranslator::new(KeyboardPlatform::current());
+            entry.translator = translator;
             Arc::new(Handler {
                 shared: Arc::downgrade(&self.rdp),
                 session_id: session_id.to_owned(),
@@ -673,6 +674,13 @@ impl AppCore {
             entry.run = Some(run);
         }
         Ok(())
+    }
+
+    /// A fresh translator for a run, with the ISO swap the settings give now.
+    fn keyboard_translator(&self) -> KeyboardTranslator {
+        let setting = self.inner().settings.swap_iso_keys;
+        KeyboardTranslator::new(KeyboardPlatform::current())
+            .with_iso_swap(rd_platform::iso_keyboard::swap_iso_keys(setting))
     }
 
     /// Opens an embedded RDP session for a connection in a view of `width`×`height`; frames and events
