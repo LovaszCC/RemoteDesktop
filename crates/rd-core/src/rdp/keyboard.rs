@@ -15,9 +15,16 @@
 //! - **Windows and Linux:** Ctrl, Alt and Win go out as they are. AltGr (`AltRight`) follows the Option
 //!   rule (layout characters are typed as Unicode); the fake left Ctrl Windows sends with AltGr is
 //!   released first.
+//! - **ISO swap** (macOS ISO keyboards): the key left of `1` and the key next to left Shift arrive as
+//!   `IntlBackslash` and `Backquote`, the other way round than on a PC; with the swap on they go out as
+//!   each other's scancode.
 
 use std::collections::HashSet;
 
+/// The key left of `1` on a PC (`Backquote`).
+pub const SC_GRAVE: u16 = 0x29;
+/// The extra ISO key next to left Shift (`IntlBackslash`).
+pub const SC_OEM_102: u16 = 0x56;
 /// Left Shift.
 pub const SC_LSHIFT: u16 = 0x2A;
 /// Right Shift.
@@ -269,10 +276,18 @@ fn typed(key: &str) -> Typed<'_> {
     }
 }
 
+/// How [`SC_GRAVE`] and [`SC_OEM_102`] go out (see [`KeyboardTranslator::with_iso_swap`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum IsoKeys {
+    AsIs,
+    Swapped,
+}
+
 /// Translates canvas key events into RDP key actions, keeping track of what is held.
 #[derive(Debug, Clone)]
 pub struct KeyboardTranslator {
     platform: KeyboardPlatform,
+    iso_keys: IsoKeys,
     /// Modifier scancodes sent down and not yet released, in press order.
     held_modifiers: Vec<u16>,
     /// Ordinary keys sent down and not yet released.
@@ -293,6 +308,7 @@ impl KeyboardTranslator {
     pub fn new(platform: KeyboardPlatform) -> Self {
         Self {
             platform,
+            iso_keys: IsoKeys::AsIs,
             held_modifiers: Vec::new(),
             held_keys: Vec::new(),
             swallowed: HashSet::new(),
@@ -301,6 +317,23 @@ impl KeyboardTranslator {
             dead_key_pending: false,
             altgr_control: false,
         }
+    }
+
+    /// The same translator, sending the key left of `1` and the key next to left Shift as each other's
+    /// scancode when `swap` is on (macOS ISO keyboards).
+    #[must_use]
+    pub fn with_iso_swap(mut self, swap: bool) -> Self {
+        self.iso_keys = if swap { IsoKeys::Swapped } else { IsoKeys::AsIs };
+        self
+    }
+
+    /// The scancode `code` goes out as.
+    fn scancode(&self, code: &str) -> Option<u16> {
+        scancode(code).map(|sc| match sc {
+            SC_GRAVE if self.iso_keys == IsoKeys::Swapped => SC_OEM_102,
+            SC_OEM_102 if self.iso_keys == IsoKeys::Swapped => SC_GRAVE,
+            sc => sc,
+        })
     }
 
     fn held(&self, code: &str) -> bool {
@@ -457,7 +490,7 @@ impl KeyboardTranslator {
         }
         self.dead_key_pending = false;
 
-        let Some(scancode) = scancode(code) else {
+        let Some(scancode) = self.scancode(code) else {
             // No physical key RDP knows: type what it produces, if anything.
             return match typed {
                 Typed::Text(text) if !command => self.type_text(text, code),
@@ -489,7 +522,7 @@ impl KeyboardTranslator {
         if self.swallowed.remove(code) {
             return Vec::new();
         }
-        let Some(scancode) = scancode(code) else {
+        let Some(scancode) = self.scancode(code) else {
             return Vec::new();
         };
         self.held_keys.retain(|&c| c != scancode);
@@ -505,7 +538,10 @@ impl KeyboardTranslator {
             .chain(self.held_modifiers.iter().rev())
             .map(|&code| KeyAction::up(code))
             .collect();
-        *self = Self::new(self.platform);
+        *self = Self {
+            iso_keys: self.iso_keys,
+            ..Self::new(self.platform)
+        };
         actions
     }
 }
@@ -762,5 +798,39 @@ mod tests {
         assert!(release(&mut t, "", "ß").is_empty());
         assert!(press(&mut t, "Fn", "Fn").is_empty());
         assert!(release(&mut t, "Fn", "Fn").is_empty());
+    }
+
+    #[test]
+    fn without_the_iso_swap_the_two_keys_go_as_they_are() {
+        let mut t = mac();
+        assert_eq!(press(&mut t, "Backquote", "0"), [down(SC_GRAVE)]);
+        assert_eq!(release(&mut t, "Backquote", "0"), [up(SC_GRAVE)]);
+        assert_eq!(press(&mut t, "IntlBackslash", "í"), [down(SC_OEM_102)]);
+        assert_eq!(release(&mut t, "IntlBackslash", "í"), [up(SC_OEM_102)]);
+    }
+
+    #[test]
+    fn the_iso_swap_trades_the_two_scancodes_on_press_and_release() {
+        let mut t = mac().with_iso_swap(true);
+        assert_eq!(press(&mut t, "IntlBackslash", "0"), [down(SC_GRAVE)]);
+        assert_eq!(release(&mut t, "IntlBackslash", "0"), [up(SC_GRAVE)]);
+        assert_eq!(press(&mut t, "Backquote", "í"), [down(SC_OEM_102)]);
+        assert_eq!(release(&mut t, "Backquote", "í"), [up(SC_OEM_102)]);
+        assert_eq!(press(&mut t, "KeyQ", "q"), [down(KEY_Q)]);
+    }
+
+    #[test]
+    fn release_all_lets_go_of_the_swapped_key_and_keeps_the_swap() {
+        let mut t = mac().with_iso_swap(true);
+        press(&mut t, "IntlBackslash", "0");
+        assert_eq!(t.release_all(), [up(SC_GRAVE)]);
+        assert_eq!(press(&mut t, "IntlBackslash", "0"), [down(SC_GRAVE)]);
+    }
+
+    #[test]
+    fn the_iso_swap_leaves_option_characters_alone() {
+        let mut t = mac().with_iso_swap(true);
+        press(&mut t, "AltLeft", "Alt");
+        assert_eq!(press(&mut t, "IntlBackslash", "≠"), KeyAction::text("≠"));
     }
 }
