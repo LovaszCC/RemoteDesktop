@@ -111,6 +111,7 @@
     perform(() => settings.update({ checkForUpdatesAutomatically }));
   const setSystemSearch = (showInSystemSearch: boolean) =>
     perform(() => settings.update({ showInSystemSearch }));
+  const setIsoSwap = (swapIsoKeys: boolean) => perform(() => settings.update({ swapIsoKeys }));
   const setRemember = (rememberMasterKey: boolean) => perform(() => settings.update({ rememberMasterKey }));
   const choose = (mode: PickMode) => perform(() => app.chooseDatabase(mode));
 
@@ -316,6 +317,27 @@
     <FormRow label={engine?.name ?? 'FreeRDP'}>
       <span class="value selectable" data-testid="rdp-engine-version">{engine?.version ?? '—'}</span>
     </FormRow>
+    {#if platform === 'macos'}
+      <div class="row">
+        <Toggle
+          label={t('Swap the key left of 1 with the key next to left Shift')}
+          checked={values?.swapIsoKeys ?? values?.isoKeyboard ?? false}
+          onchange={(v) => void setIsoSwap(v)}
+        />
+      </div>
+      <p class="caption row">
+        {t(
+          'For ISO keyboards, where Windows otherwise types í for 0 with a Hungarian layout. Applies to new sessions.',
+        )}
+        {#if values && values.swapIsoKeys === null}
+          <span data-testid="iso-swap-auto"
+            >{values.isoKeyboard
+              ? t('Automatic: on, this Mac has an ISO keyboard.')
+              : t('Automatic: off, no ISO keyboard found.')}</span
+          >
+        {/if}
+      </p>
+    {/if}
   </FormSection>
 
   {#if platform === 'macos'}

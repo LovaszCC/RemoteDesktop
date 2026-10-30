@@ -351,5 +351,9 @@
   "Connecting VPN \"%@\"…": "Connecting VPN \"%@\"…",
   "%@ did not answer the ping.": "%@ did not answer the ping.",
   "MacVPN needs your sign-in code — look at its window.": "MacVPN needs your sign-in code — look at its window.",
-  "MacVPN needs your password — look at its window.": "MacVPN needs your password — look at its window."
+  "MacVPN needs your password — look at its window.": "MacVPN needs your password — look at its window.",
+  "Swap the key left of 1 with the key next to left Shift": "Swap the key left of 1 with the key next to left Shift",
+  "For ISO keyboards, where Windows otherwise types í for 0 with a Hungarian layout. Applies to new sessions.": "For ISO keyboards, where Windows otherwise types í for 0 with a Hungarian layout. Applies to new sessions.",
+  "Automatic: on, this Mac has an ISO keyboard.": "Automatic: on, this Mac has an ISO keyboard.",
+  "Automatic: off, no ISO keyboard found.": "Automatic: off, no ISO keyboard found."
 }
