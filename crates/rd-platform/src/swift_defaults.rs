@@ -165,6 +165,7 @@ mod tests {
                 winbox_path: None,
                 selection_shows: "details".into(),
                 show_in_system_search: false,
+                swap_iso_keys: None,
             }
         );
     }

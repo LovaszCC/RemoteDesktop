@@ -2,6 +2,7 @@
 
 pub mod clipboard;
 mod identity;
+pub mod iso_keyboard;
 pub mod keyboard_capture;
 pub mod launch;
 pub mod launchers;

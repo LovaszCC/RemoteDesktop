@@ -45,6 +45,9 @@ pub struct Settings {
     pub selection_shows: String,
     /// Keep one launcher per entry in the OS search folder (see [`crate::launchers`]).
     pub show_in_system_search: bool,
+    /// Embedded RDP on macOS: swap the key left of `1` with the key next to left Shift; `None` means
+    /// automatic (see [`crate::iso_keyboard`]).
+    pub swap_iso_keys: Option<bool>,
 }
 
 impl Default for Settings {
@@ -61,6 +64,7 @@ impl Default for Settings {
             winbox_path: None,
             selection_shows: "details".to_owned(),
             show_in_system_search: false,
+            swap_iso_keys: None,
         }
     }
 }
@@ -134,6 +138,7 @@ mod tests {
         assert_eq!(settings.database_path, None);
         assert!(settings.expanded_folders.is_empty());
         assert_eq!(settings.winbox_path, None);
+        assert_eq!(settings.swap_iso_keys, None);
     }
 
     #[test]
@@ -161,6 +166,7 @@ mod tests {
             winbox_path: Some(PathBuf::from("/opt/winbox/WinBox")),
             selection_shows: "tab".into(),
             show_in_system_search: true,
+            swap_iso_keys: Some(false),
         };
         settings.save(&nested).unwrap();
         assert_eq!(Settings::load(&nested), settings);
@@ -190,6 +196,7 @@ mod tests {
                 "rememberMasterKey",
                 "selectionShows",
                 "showInSystemSearch",
+                "swapIsoKeys",
                 "winboxPath"
             ]
         );
@@ -204,6 +211,7 @@ mod tests {
         assert_eq!(loaded.last_update_check, None);
         assert!(loaded.remember_master_key);
         assert!(!loaded.show_in_system_search);
+        assert_eq!(loaded.swap_iso_keys, None);
     }
 
     #[test]
