@@ -47,11 +47,22 @@
 
   // A sidebar selection change shows the Details tab (Swift `selection.didSet`), or with Settings →
   // Sidebar → "Its tab" the selected connection's only tab.
+  // A selection a tab switch made (below) leaves the tabs alone.
   $effect(() => {
     const selection = library.selection;
-    untrack(() =>
-      tabs.select(connectionTabs.tabForSelection(selection, settings.settings?.selectionShows ?? 'details')),
-    );
+    untrack(() => {
+      if (library.isFollowingTab(selection)) return;
+      tabs.select(connectionTabs.tabForSelection(selection, settings.settings?.selectionShows ?? 'details'));
+    });
+  });
+
+  // Switching tabs marks the tab's entry in the sidebar (no scrolling, folders stay as they are).
+  $effect(() => {
+    const active = tabs.active;
+    untrack(() => {
+      const entry = connectionTabs.entryOfTab(active);
+      if (entry && library.single !== `e:${entry}`) library.selectForTab(`e:${entry}`);
+    });
   });
 
   // Automatic tab colours follow the connections' colours.
