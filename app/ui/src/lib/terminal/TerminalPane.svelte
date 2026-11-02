@@ -38,6 +38,10 @@
   .pane {
     flex: 1;
     min-height: 0;
+    /* xterm leaves its helper textarea at the old cursor row when the pane shrinks; unclipped it made the
+       panel's content scrollable and a wheel at the end of the scrollback scrolled the whole view away.
+       `clip`, unlike `hidden`, cannot be scrolled either (focus, scrollIntoView). */
+    overflow: clip;
     padding: 4px 0 0 6px;
     background: var(--terminal-background);
   }
