@@ -44,7 +44,11 @@ describe('TabBar', () => {
     tab(0).click();
     flushSync();
     expect(tabs.active).toBeNull();
+    // An uncoloured connection's tab shows its auto colour; "None" removes it.
     expect(tab(1).querySelector('.underline')).not.toBeNull();
+    expect(tab(2).querySelector('.underline')).not.toBeNull();
+    tabs.setColor(null, 'b');
+    flushSync();
     expect(tab(2).querySelector('.underline')).toBeNull();
   });
 
@@ -103,7 +107,7 @@ describe('TabBar', () => {
     expect(tabs.active).toBe('a');
   });
 
-  it('marks a root session with a warning icon and an orange tint', () => {
+  it('marks a root session with a warning icon, and an orange tint only without a colour', () => {
     const { tabs, tab } = render();
     expect(tab(2).classList.contains('root')).toBe(false);
     tabs.updateSession('b', { root: true });
@@ -112,6 +116,10 @@ describe('TabBar', () => {
     expect(tab(2).querySelector('.root-icon')?.getAttribute('title')).toBe(
       'Root: commands run with full privileges',
     );
+    // Its auto colour stays, so two root tabs still differ; "None" brings the orange tint back.
+    expect(tab(2).style.background).toContain('--label-blue');
+    tabs.setColor(null, 'b');
+    flushSync();
     expect(tab(2).style.background).toContain('--label-orange');
     // A tab colour wins over the tint.
     tabs.updateSession('a', { root: true });
@@ -119,7 +127,7 @@ describe('TabBar', () => {
     expect(tab(1).style.background).toContain('--label-red');
   });
 
-  it('shows split tabs with their own icon, menu and orange broadcast tint', () => {
+  it('shows split tabs with their own icon, menu and orange broadcast tint without a colour', () => {
     const { tabs, tab, splits } = render();
     tabs.openSession({ id: 'T', title: 'a + b', type: 'ssh', color: null, split: true });
     flushSync();
@@ -128,6 +136,9 @@ describe('TabBar', () => {
     tabs.updateSession('T', { broadcasting: true });
     flushSync();
     expect(tab(3).classList.contains('broadcasting')).toBe(true);
+    expect(tab(3).style.background).toContain('--label-green');
+    tabs.setColor(null, 'T');
+    flushSync();
     expect(tab(3).style.background).toContain('--label-orange');
 
     tab(3).dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 5, clientY: 5 }));

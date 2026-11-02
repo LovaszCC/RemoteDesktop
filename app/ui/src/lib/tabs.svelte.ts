@@ -3,10 +3,23 @@
 // "automatic" (no key); custom titles are trimmed and an empty one restores the automatic title.
 //
 // `TabsStore` adds what the tab bar shows for each session (automatic title, type, colour, root warning).
+// A tab whose connection has no colour gets one of `AUTO_COLORS` when it opens, so tabs on the same server
+// still look different; tabs of one connection are numbered (`badge`).
 // Whoever owns a session (the embedded SSH sessions store) hears about closed tabs through
 // `onSessionClosed`, whichever way the tab was closed.
 
 import type { ConnectionType, LabelColor } from './types';
+
+/** Colours handed to uncoloured tabs, in order; no orange, which marks root and broadcasting. */
+export const AUTO_COLORS: readonly LabelColor[] = [
+  'blue',
+  'green',
+  'purple',
+  'pink',
+  'yellow',
+  'red',
+  'gray',
+];
 
 export class SessionTabs {
   ids = $state<string[]>([]);
@@ -15,6 +28,8 @@ export class SessionTabs {
   colorOverrides = $state<Record<string, LabelColor | null>>({});
   /** Names the user gave to open tabs. */
   customTitles = $state<Record<string, string>>({});
+  /** Colours given to tabs whose connection has none (`TabsStore.openSession`). */
+  autoColors = $state<Record<string, LabelColor>>({});
 
   /** Adds a session tab (once), right after `after` when that tab is open, else at the end; activates it. */
   open(id: string, after?: string) {
@@ -32,6 +47,7 @@ export class SessionTabs {
     this.ids = this.ids.filter((x) => x !== id);
     this.colorOverrides = without(this.colorOverrides, id);
     this.customTitles = without(this.customTitles, id);
+    this.autoColors = without(this.autoColors, id);
     if (this.active !== id) return;
     this.active = this.ids.length === 0 ? null : (this.ids[Math.min(index, this.ids.length - 1)] ?? null);
   }
@@ -50,6 +66,8 @@ export class SessionTabs {
       const title = this.customTitles[old] ?? '';
       this.customTitles = { ...without(this.customTitles, old), [next]: title };
     }
+    const auto = this.autoColors[old];
+    if (auto) this.autoColors = { ...without(this.autoColors, old), [next]: auto };
   }
 
   /** Renames a tab; an empty name goes back to the automatic title. Unknown ids are ignored. */
@@ -163,8 +181,9 @@ export class TabsStore extends SessionTabs {
 
   /**
    * Adds a session and activates its tab. A grouped one opens right after the group's last tab and takes
-   * the lowest number free among the group's tabs with the same title; anything else (or the group's first
-   * open tab) goes right after the open tab `after`, else to the end.
+   * the lowest number free among the group's tabs; anything else (or the group's first open tab) goes right
+   * after the open tab `after`, else to the end. Every new tab gets an auto colour (shown while neither the
+   * connection nor the user gives it one): the first of `AUTO_COLORS` no open tab shows.
    */
   openSession(session: TabSession, after?: string) {
     if (this.session(session.id)) return this.open(session.id);
@@ -172,11 +191,16 @@ export class TabsStore extends SessionTabs {
     const last = group.at(-1) ?? this.session(after ?? '');
     let next = session;
     if (session.group !== undefined) {
-      const used = group.filter((s) => s.title === session.title).map((s) => s.ordinal ?? 1);
+      const used = group.map((s) => s.ordinal ?? 1);
       let ordinal = 1;
       while (used.includes(ordinal)) ordinal += 1;
       next = { ...session, ordinal };
     }
+    const shown = this.sessions.map((s) => this.displayColor(s));
+    const auto =
+      AUTO_COLORS.find((c) => !shown.includes(c) && c !== session.color) ??
+      AUTO_COLORS[this.sessions.length % AUTO_COLORS.length]!;
+    this.autoColors = { ...this.autoColors, [session.id]: auto };
     const index = last ? this.sessions.indexOf(last) : -1;
     this.sessions = index < 0 ? [...this.sessions, next] : insertAt(this.sessions, index + 1, next);
     this.open(session.id, last?.id);
@@ -221,15 +245,27 @@ export class TabsStore extends SessionTabs {
     if (this.active !== null) this.closeSession(this.active);
   }
 
-  /** The shown title of a session tab: the user's name, else the automatic one with its number. */
+  /** The number shown on a tab while another tab of its connection is open, else `null`. */
+  badge(session: TabSession): number | null {
+    if (session.group === undefined) return null;
+    const siblings = this.sessions.some((s) => s.id !== session.id && s.group === session.group);
+    return siblings ? (session.ordinal ?? 1) : null;
+  }
+
+  /** The tab bar's title: the user's name, else the automatic one (the number is the `badge`). */
+  baseTitle(session: TabSession): string {
+    return this.title(session.id, session.title);
+  }
+
+  /** The shown title of a session tab as plain text: the user's name, else the automatic one with its number. */
   displayTitle(session: TabSession): string {
     const ordinal = session.ordinal ?? 1;
     return this.title(session.id, ordinal > 1 ? `${session.title} (${ordinal})` : session.title);
   }
 
-  /** The shown colour of a session tab. */
+  /** The shown colour of a session tab: the user's, else the connection's, else its auto colour. */
   displayColor(session: TabSession): LabelColor | null {
-    return this.color(session.id, session.color);
+    return this.color(session.id, session.color ?? this.autoColors[session.id] ?? null);
   }
 }
 
