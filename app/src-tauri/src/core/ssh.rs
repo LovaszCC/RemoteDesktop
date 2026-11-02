@@ -440,6 +440,7 @@ impl AppCore {
             cols,
             rows,
             cwd: prepared.cwd,
+            flow_control: None,
         };
         let message = match spec.kind {
             SessionKind::Ssh => "Couldn't start ssh.",

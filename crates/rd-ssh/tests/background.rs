@@ -285,6 +285,7 @@ fn system_ssh(host: &str, port: u16, known_hosts: &Path) -> Option<SessionEvent>
             cols: 120,
             rows: 40,
             cwd: None,
+            flow_control: None,
         },
         sink.clone(),
     )
