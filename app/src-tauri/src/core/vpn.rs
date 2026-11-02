@@ -251,7 +251,7 @@ impl VpnShared {
     pub fn new(backend: Box<dyn VpnBackend>) -> Arc<Self> {
         Arc::new(Self {
             backend: Mutex::new(Arc::from(backend)),
-            enabled: AtomicBool::new(cfg!(target_os = "macos")),
+            enabled: AtomicBool::new(cfg!(any(target_os = "macos", windows, target_os = "linux"))),
             pinger: Mutex::new(Arc::new(rd_platform::ping::reachable)),
             external: Mutex::default(),
             requests: Mutex::default(),
@@ -265,6 +265,11 @@ impl VpnShared {
     /// The backend (list, pair).
     pub fn backend(&self) -> Arc<dyn VpnBackend> {
         Arc::clone(&lock(&self.backend))
+    }
+
+    /// Whether "Connect with VPN" works on this system (`MacVPN`, `WinVPN` or `LinVPN` exist for it).
+    pub fn is_enabled(&self) -> bool {
+        self.enabled.load(Ordering::SeqCst)
     }
 
     /// Replaces the backend and turns the gate on (tests).
@@ -572,7 +577,7 @@ impl super::AppCore {
     /// # Errors
     /// The `vpn*` codes when the VPN is needed and can't come up (the connect stops).
     pub fn vpn_gate(&self, connection_id: &str) -> Result<Option<VpnHold>, CommandError> {
-        if !self.vpn.enabled.load(Ordering::SeqCst) {
+        if !self.vpn.is_enabled() {
             return Ok(None);
         }
         let Some((entry_id, entry_name, host, vpn)) = self.entry_vpn(connection_id)? else {
@@ -730,7 +735,7 @@ impl super::AppCore {
 
     /// Pairing state and the held VPNs.
     pub fn vpn_status(&self) -> VpnStatusDto {
-        let supported = self.vpn.enabled.load(Ordering::SeqCst);
+        let supported = self.vpn.is_enabled();
         let external: Vec<(String, String, String)> = lock(&self.vpn.external)
             .iter()
             .filter(|(_, (_, hold))| hold.is_alive())
@@ -844,8 +849,11 @@ impl Drop for VpnHold {
     }
 }
 
-/// The backend where the control API is not used (off macOS): never paired, nothing to list.
-#[cfg_attr(target_os = "macos", allow(dead_code, reason = "the backend off macOS"))]
+/// The backend where no VPN app exists (neither macOS, Windows nor Linux): never paired, nothing to list.
+#[cfg_attr(
+    any(target_os = "macos", windows, target_os = "linux"),
+    allow(dead_code, reason = "the backend of other systems")
+)]
 pub struct UnsupportedBackend;
 
 impl VpnBackend for UnsupportedBackend {
@@ -873,29 +881,31 @@ impl VpnBackend for UnsupportedBackend {
     }
 }
 
-#[cfg_attr(target_os = "macos", allow(dead_code, reason = "the backend off macOS"))]
+#[cfg_attr(
+    any(target_os = "macos", windows, target_os = "linux"),
+    allow(dead_code, reason = "the backend of other systems")
+)]
 fn unsupported() -> CommandError {
-    CommandError::new("vpnNotRunning", "Connect with VPN needs MacVPN on macOS.")
+    CommandError::new(
+        "vpnNotRunning",
+        "Connect with VPN needs MacVPN, WinVPN or LinVPN.",
+    )
 }
 
-/// The backend for this system: MacVPN's control socket on macOS, none elsewhere.
+/// The backend for this system: the control API of `MacVPN` (macOS), `WinVPN` (Windows) or `LinVPN` (Linux), with
+/// the token in the system's secret store; none elsewhere.
 pub fn system_backend() -> Box<dyn VpnBackend> {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", windows, target_os = "linux"))]
     {
         Box::new(MacVpnBackend::new(Box::new(rd_store::KeyringVpnTokens::new())))
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", windows, target_os = "linux")))]
     {
         Box::new(UnsupportedBackend)
     }
 }
 
 /// The phase a MacVPN state means (unknown states are in progress).
-#[cfg(unix)]
-#[cfg_attr(
-    not(target_os = "macos"),
-    allow(dead_code, reason = "the macOS backend uses it; tested on every Unix")
-)]
 pub fn phase_of(state: &rd_platform::macvpn::State) -> VpnPhase {
     use rd_platform::macvpn::State;
     match state {
@@ -908,11 +918,6 @@ pub fn phase_of(state: &rd_platform::macvpn::State) -> VpnPhase {
 }
 
 /// The app's error for a MacVPN client error. `locked` arrives as `failed` with the wire code kept.
-#[cfg(unix)]
-#[cfg_attr(
-    not(target_os = "macos"),
-    allow(dead_code, reason = "the macOS backend uses it; tested on every Unix")
-)]
 pub fn macvpn_error(error: &rd_platform::macvpn::Error) -> CommandError {
     use rd_platform::macvpn::{Error, ErrorCode};
     match error {
@@ -964,13 +969,14 @@ pub fn macvpn_error(error: &rd_platform::macvpn::Error) -> CommandError {
     }
 }
 
-/// MacVPN's control socket, with the token in the Keychain.
-#[cfg(target_os = "macos")]
+/// The VPN app's control API (`MacVPN`'s socket, `WinVPN`'s pipe, `LinVPN`'s socket), with the token in the system's
+/// secret store (Keychain, Credential Manager, Secret Service).
+#[cfg(any(target_os = "macos", windows, target_os = "linux"))]
 pub struct MacVpnBackend {
     tokens: Box<dyn rd_store::VpnTokens>,
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", windows, target_os = "linux"))]
 impl MacVpnBackend {
     /// A backend keeping its token in `tokens`.
     pub fn new(tokens: Box<dyn rd_store::VpnTokens>) -> Self {
@@ -978,7 +984,7 @@ impl MacVpnBackend {
     }
 
     fn socket() -> Result<std::path::PathBuf, CommandError> {
-        rd_platform::macvpn::default_socket_path().map_err(|e| macvpn_error(&e.into()))
+        rd_platform::vpn_endpoint::control_endpoint().map_err(|e| macvpn_error(&e.into()))
     }
 
     /// Maps an error; an `unauthorized` forgets the token (the pairing is gone).
@@ -999,7 +1005,7 @@ impl MacVpnBackend {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", windows, target_os = "linux"))]
 impl VpnBackend for MacVpnBackend {
     fn list(&self) -> Result<Vec<VpnProfileDto>, CommandError> {
         let mut client = self.open()?;
@@ -1059,13 +1065,13 @@ impl VpnBackend for MacVpnBackend {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", windows, target_os = "linux"))]
 struct MacVpnLease {
     client: rd_platform::macvpn::Client,
     profile: String,
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", windows, target_os = "linux"))]
 impl VpnLease for MacVpnLease {
     fn next_change(&mut self) -> Option<VpnPhase> {
         loop {
