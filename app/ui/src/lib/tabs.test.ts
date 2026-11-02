@@ -1,7 +1,7 @@
 // Ports of the Swift TabColorOverrideTests and TabRenameTests, plus the SessionTabs open/close/cycle rules.
 
 import { describe, expect, it } from 'vitest';
-import { SessionTabs, TabsStore, openTestTab } from './tabs.svelte';
+import { AUTO_COLORS, SessionTabs, TabsStore, openTestTab } from './tabs.svelte';
 
 function tabsWith(...ids: string[]) {
   const tabs = new SessionTabs();
@@ -217,7 +217,7 @@ describe('TabsStore', () => {
     expect(store.displayTitle(store.session('a3')!)).toBe('logs');
   });
 
-  it("numbers a group's tabs only among those with the same title", () => {
+  it("numbers a group's tabs uniquely, whatever their titles", () => {
     const store = new TabsStore();
     const open = (id: string, title: string) =>
       store.openSession({ id, title, type: 'ssh', color: null, group: 'e1' });
@@ -226,9 +226,97 @@ describe('TabsStore', () => {
     open('a2', 'Home · SSH');
     expect(store.sessions.map((s) => store.displayTitle(s))).toEqual([
       'Home · SSH',
-      'Home · Console',
-      'Home · SSH (2)',
+      'Home · Console (2)',
+      'Home · SSH (3)',
     ]);
+  });
+
+  it('numbers every session tab by its position, and has a base title without a number', () => {
+    const store = new TabsStore();
+    const open = (id: string, group?: string) =>
+      store.openSession({ id, title: 'web', type: 'ssh', color: null, ...(group ? { group } : {}) });
+    open('a1', 'web');
+    open('x');
+    open('a2', 'web');
+    expect(store.ids).toEqual(['a1', 'a2', 'x']);
+    expect(store.sessions.map((s) => store.badge(s))).toEqual([1, 2, 3]);
+    expect(store.baseTitle(store.session('a2')!)).toBe('web');
+    store.rename('a2', 'logs');
+    expect(store.baseTitle(store.session('a2')!)).toBe('logs');
+    store.closeSession('a1');
+    expect(store.sessions.map((s) => store.badge(s))).toEqual([1, 2]);
+    expect(store.badge({ id: 'gone', title: 'g', type: 'ssh', color: null })).toBeNull();
+  });
+
+  it('selects a tab by number, 9 being the last', () => {
+    const store = new TabsStore();
+    for (const id of ['a', 'b', 'c']) store.openSession({ id, title: id, type: 'ssh', color: null });
+    store.select(null);
+    store.selectNumber(2);
+    expect(store.active).toBe('b');
+    store.selectNumber(9);
+    expect(store.active).toBe('c');
+    store.selectNumber(5);
+    expect(store.active).toBe('c');
+    store.selectNumber(1);
+    expect(store.active).toBe('a');
+    const empty = new TabsStore();
+    empty.selectNumber(9);
+    expect(empty.active).toBeNull();
+  });
+
+  it('assigns each uncoloured tab the first auto colour no open tab shows', () => {
+    const store = new TabsStore();
+    const open = (id: string, color: 'red' | 'blue' | null = null) =>
+      store.openSession({ id, title: id, type: 'ssh', color });
+    const shown = () => store.sessions.map((s) => store.displayColor(s));
+    expect(AUTO_COLORS).not.toContain('orange');
+    open('a');
+    open('b', 'blue');
+    open('c');
+    expect(shown()).toEqual(['blue', 'blue', 'green']);
+    for (const id of ['d', 'e', 'f', 'g', 'h']) open(id);
+    expect(shown().slice(3)).toEqual(['purple', 'pink', 'yellow', 'red', 'gray']);
+    // All taken: it wraps around by count.
+    open('i');
+    expect(store.displayColor(store.session('i')!)).toBe(AUTO_COLORS[8 % AUTO_COLORS.length]);
+  });
+
+  it("a connection colour beats the auto colour and is shared by the connection's tabs", () => {
+    const store = new TabsStore();
+    store.openSession({ id: 'a1', title: 'web', type: 'ssh', color: 'red', group: 'web' });
+    store.openSession({ id: 'a2', title: 'web', type: 'ssh', color: 'red', group: 'web' });
+    expect(store.sessions.map((s) => store.displayColor(s))).toEqual(['red', 'red']);
+    expect(store.sessions.map((s) => store.badge(s))).toEqual([1, 2]);
+  });
+
+  it('override, reset and a cleared connection colour fall back to the auto colour', () => {
+    const store = new TabsStore();
+    store.openSession({ id: 'a', title: 'a', type: 'ssh', color: null });
+    const color = () => store.displayColor(store.session('a')!);
+    expect(color()).toBe('blue');
+    store.setColor('pink', 'a');
+    expect(color()).toBe('pink');
+    store.setColor(null, 'a');
+    expect(color()).toBeNull();
+    store.resetColor('a');
+    expect(color()).toBe('blue');
+    store.updateSession('a', { color: 'red' });
+    expect(color()).toBe('red');
+    store.updateSession('a', { color: null });
+    expect(color()).toBe('blue');
+  });
+
+  it('a replaced tab keeps its auto colour; a closed one frees it', () => {
+    const store = new TabsStore();
+    store.openSession({ id: 'a', title: 'a', type: 'ssh', color: null });
+    store.openSession({ id: 'b', title: 'b', type: 'ssh', color: null });
+    store.replaceSession('b', { id: 'b2', title: 'b', type: 'ssh', color: null });
+    expect(store.displayColor(store.session('b2')!)).toBe('green');
+    store.closeSession('a');
+    expect(store.autoColors).toEqual({ b2: 'green' });
+    store.openSession({ id: 'c', title: 'c', type: 'ssh', color: null });
+    expect(store.displayColor(store.session('c')!)).toBe('blue');
   });
 
   it('keeps the group and number through a reconnect, but not when the tab becomes a split', () => {

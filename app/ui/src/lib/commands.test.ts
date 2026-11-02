@@ -202,6 +202,12 @@ describe('command runner', () => {
     expect(deps.tabs.active).toBe(b);
     run('closeTab');
     expect(deps.tabs.ids).toEqual([a]);
+    run('devOpenTestTab');
+    const c = deps.tabs.ids[1];
+    run('selectTab1');
+    expect(deps.tabs.active).toBe(a);
+    run('selectTab9');
+    expect(deps.tabs.active).toBe(c);
   });
 
   it('shows the alert when locking fails', async () => {
