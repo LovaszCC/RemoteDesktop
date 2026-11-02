@@ -52,6 +52,28 @@ describe('library store', () => {
     expect(store.primary).toBeNull();
   });
 
+  it('selects for a tab switch until the user selects', () => {
+    const store = createLibraryStore(fakeBridge());
+    store.replace(libraryOf(['a', 'b']));
+    store.selectForTab('c:a');
+    expect(store.selection).toEqual(['c:a']);
+    expect(store.isFollowingTab(store.selection)).toBe(true);
+    expect(store.isFollowingTab(['c:a', 'c:b'])).toBe(false);
+    // Clicking the same row is the user's own selection again.
+    store.select('c:a');
+    expect(store.isFollowingTab(store.selection)).toBe(false);
+    for (const user of [
+      () => store.toggle('c:b'),
+      () => store.extendTo('c:b', ['c:a', 'c:b']),
+      () => store.setSelection(['c:a']),
+      () => store.clearSelection(),
+    ]) {
+      store.selectForTab('c:a');
+      user();
+      expect(store.followedTab).toBeNull();
+    }
+  });
+
   it('extends from nothing as a plain select', () => {
     const store = createLibraryStore(fakeBridge());
     store.extendTo('c:b', ['c:a', 'c:b']);
