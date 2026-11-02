@@ -231,22 +231,38 @@ describe('TabsStore', () => {
     ]);
   });
 
-  it('shows a badge only while a tab of the same group is open, and a base title without it', () => {
+  it('numbers every session tab by its position, and has a base title without a number', () => {
     const store = new TabsStore();
     const open = (id: string, group?: string) =>
       store.openSession({ id, title: 'web', type: 'ssh', color: null, ...(group ? { group } : {}) });
     open('a1', 'web');
     open('x');
-    expect(store.badge(store.session('a1')!)).toBeNull();
-    expect(store.badge(store.session('x')!)).toBeNull();
     open('a2', 'web');
-    expect(store.badge(store.session('a1')!)).toBe(1);
-    expect(store.badge(store.session('a2')!)).toBe(2);
+    expect(store.ids).toEqual(['a1', 'a2', 'x']);
+    expect(store.sessions.map((s) => store.badge(s))).toEqual([1, 2, 3]);
     expect(store.baseTitle(store.session('a2')!)).toBe('web');
     store.rename('a2', 'logs');
     expect(store.baseTitle(store.session('a2')!)).toBe('logs');
     store.closeSession('a1');
-    expect(store.badge(store.session('a2')!)).toBeNull();
+    expect(store.sessions.map((s) => store.badge(s))).toEqual([1, 2]);
+    expect(store.badge({ id: 'gone', title: 'g', type: 'ssh', color: null })).toBeNull();
+  });
+
+  it('selects a tab by number, 9 being the last', () => {
+    const store = new TabsStore();
+    for (const id of ['a', 'b', 'c']) store.openSession({ id, title: id, type: 'ssh', color: null });
+    store.select(null);
+    store.selectNumber(2);
+    expect(store.active).toBe('b');
+    store.selectNumber(9);
+    expect(store.active).toBe('c');
+    store.selectNumber(5);
+    expect(store.active).toBe('c');
+    store.selectNumber(1);
+    expect(store.active).toBe('a');
+    const empty = new TabsStore();
+    empty.selectNumber(9);
+    expect(empty.active).toBeNull();
   });
 
   it('assigns each uncoloured tab the first auto colour no open tab shows', () => {

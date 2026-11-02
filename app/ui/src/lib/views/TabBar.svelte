@@ -2,7 +2,7 @@
   // Swift `SessionTabBar`: "Details" then one tab per session. Double-click or "Rename…" edits the name
   // inline (Enter or blur saves, Esc cancels); the context menu sets the tab colour. A root shell shows a
   // warning icon and tints the tab orange (unless the tab has a colour: its own, its connection's or its
-  // auto colour). Tabs of one connection carry a number badge before the title, so truncation can't hide it.
+  // auto colour). Every session tab carries its number (⌘1…⌘9) before the title, so truncation can't hide it.
   import Columns2 from '@lucide/svelte/icons/columns-2';
   import Grid2x2 from '@lucide/svelte/icons/grid-2x2';
   import Info from '@lucide/svelte/icons/info';

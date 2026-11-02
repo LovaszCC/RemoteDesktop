@@ -4,7 +4,7 @@
 //
 // `TabsStore` adds what the tab bar shows for each session (automatic title, type, colour, root warning).
 // A tab whose connection has no colour gets one of `AUTO_COLORS` when it opens, so tabs on the same server
-// still look different; tabs of one connection are numbered (`badge`).
+// still look different; every session tab shows its position (`badge`), which ⌘1…⌘9 select.
 // Whoever owns a session (the embedded SSH sessions store) hears about closed tabs through
 // `onSessionClosed`, whichever way the tab was closed.
 
@@ -103,6 +103,12 @@ export class SessionTabs {
   select(id: string | null) {
     if (id !== null && !this.ids.includes(id)) return;
     this.active = id;
+  }
+
+  /** ⌘1…⌘9: the session tab with number `n` (1-based); 9 is always the last. Missing numbers do nothing. */
+  selectNumber(n: number) {
+    const id = n === 9 ? this.ids.at(-1) : this.ids[n - 1];
+    if (id !== undefined) this.active = id;
   }
 
   /** Cycles through [Details, …sessions], wrapping around. */
@@ -245,11 +251,10 @@ export class TabsStore extends SessionTabs {
     if (this.active !== null) this.closeSession(this.active);
   }
 
-  /** The number shown on a tab while another tab of its connection is open, else `null`. */
+  /** The number shown on a session tab: its position (⌘1…⌘9 select it); `null` for an unknown tab. */
   badge(session: TabSession): number | null {
-    if (session.group === undefined) return null;
-    const siblings = this.sessions.some((s) => s.id !== session.id && s.group === session.group);
-    return siblings ? (session.ordinal ?? 1) : null;
+    const index = this.ids.indexOf(session.id);
+    return index < 0 ? null : index + 1;
   }
 
   /** The tab bar's title: the user's name, else the automatic one (the number is the `badge`). */
