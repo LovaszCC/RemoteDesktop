@@ -25,7 +25,8 @@ export interface TerminalSize {
 
 /** What a session needs from its terminal; tests pass fakes. */
 export interface TerminalHandle {
-  write(data: Uint8Array | string): void;
+  /** `done` runs once xterm parsed the data (output flow control). */
+  write(data: Uint8Array | string, done?: () => void): void;
   /** Screen and scrollback, locally. */
   clearLocal(): void;
   attach(container: HTMLElement): void;
@@ -168,8 +169,8 @@ export const createXtermTerminal: TerminalFactory = (options) => {
   }
 
   return {
-    write(data) {
-      term.write(data);
+    write(data, done) {
+      term.write(data, done);
     },
     clearLocal() {
       term.clearSelection();

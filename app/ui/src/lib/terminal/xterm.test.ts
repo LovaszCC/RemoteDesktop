@@ -181,6 +181,13 @@ describe('xterm terminal', () => {
     expect(options.cancelRecording).toHaveBeenCalled();
   });
 
+  it('writes output with the parsed callback', () => {
+    const { handle, term } = setup();
+    const done = vi.fn();
+    handle.write('out', done);
+    expect(term.write).toHaveBeenCalledWith('out', done);
+  });
+
   it('clears screen and scrollback locally', () => {
     const { handle, term } = setup();
     handle.clearLocal();
