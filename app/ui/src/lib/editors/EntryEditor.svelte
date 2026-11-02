@@ -17,6 +17,7 @@
   import { settingsWindow } from '../stores/settingsWindow.svelte';
   import type { ConnectionType, VpnProfileDto, VpnTestMode } from '../types';
   import ConnectionFields from './ConnectionFields.svelte';
+  import { vpnText } from '../vpn/name';
   import FormRow from './FormRow.svelte';
   import FormSection from './FormSection.svelte';
   import {
@@ -83,8 +84,7 @@
 
   const library = $derived(deps.library.library);
 
-  // Connect with VPN (macOS): MacVPN's profiles for the picker; why they can't be listed.
-  const vpnAvailable = deps.platform === 'macos';
+  // Connect with VPN (MacVPN, WinVPN or LinVPN): its profiles for the picker; why they can't be listed.
   let vpnProfiles = $state<VpnProfileDto[]>([]);
   let vpnProblem = $state<{ code: string; message: string } | null>(null);
   function loadVpnProfiles() {
@@ -96,12 +96,12 @@
       (error: unknown) => (vpnProblem = { code: toCommandError(error).code, message: errorMessage(error) }),
     );
   }
-  if (vpnAvailable) loadVpnProfiles();
+  loadVpnProfiles();
   // Back from Settings (where "Pair with MacVPN…" leads): the pairing may have changed.
   let settingsWasOpen = false;
   $effect(() => {
     const open = settingsWindow.isOpen;
-    if (vpnAvailable && settingsWasOpen && !open) untrack(loadVpnProfiles);
+    if (settingsWasOpen && !open) untrack(loadVpnProfiles);
     settingsWasOpen = open;
   });
   const vpnOptions = $derived([
@@ -308,52 +308,52 @@
             <Toggle label={t('Favorite')} bind:checked={form.isFavorite} />
           </FormRow>
         </FormSection>
-        {#if vpnAvailable}
-          <FormSection title={t('VPN')}>
-            <FormRow label={t('VPN profile')}>
-              <Select
-                value={form.vpn.connectionId}
-                label={t('VPN profile')}
-                options={vpnOptions}
-                onchange={(v) => (form.vpn.connectionId = v)}
-              />
+        <FormSection title={t('VPN')}>
+          <FormRow label={t('VPN profile')}>
+            <Select
+              value={form.vpn.connectionId}
+              label={t('VPN profile')}
+              options={vpnOptions}
+              onchange={(v) => (form.vpn.connectionId = v)}
+            />
+          </FormRow>
+          {#if vpnProblem}
+            <FormRow>
+              <div class="vpn-problem">
+                <span>{vpnProblem.message}</span>
+                {#if vpnProblem.code === 'vpnNotPaired' || vpnProblem.code === 'vpnNotRunning'}
+                  <Button onclick={() => settingsWindow.open('vpn')}
+                    >{vpnText(t('Pair with MacVPN…'), deps.platform)}</Button
+                  >
+                {/if}
+              </div>
             </FormRow>
-            {#if vpnProblem}
-              <FormRow>
-                <div class="vpn-problem">
-                  <span>{vpnProblem.message}</span>
-                  {#if vpnProblem.code === 'vpnNotPaired' || vpnProblem.code === 'vpnNotRunning'}
-                    <Button onclick={() => settingsWindow.open('vpn')}>{t('Pair with MacVPN…')}</Button>
-                  {/if}
-                </div>
-              </FormRow>
-            {/if}
-            {#if form.vpn.connectionId !== ''}
+          {/if}
+          {#if form.vpn.connectionId !== ''}
+            <FormRow
+              label={t('Test with')}
+              hint={t('Reachable → connects directly. Not reachable → connects the VPN first.')}
+            >
+              <Segmented bind:value={form.vpn.testMode} options={testModes} label={t('Test with')} />
+            </FormRow>
+            {#if form.vpn.testMode === 'address'}
               <FormRow
-                label={t('Test with')}
-                hint={t('Reachable → connects directly. Not reachable → connects the VPN first.')}
+                label={t('Test address')}
+                for={id('vpn-address')}
+                error={errors.vpnTestAddress}
+                hint={t('An address only reachable over this VPN.')}
               >
-                <Segmented bind:value={form.vpn.testMode} options={testModes} label={t('Test with')} />
+                <TextField
+                  id={id('vpn-address')}
+                  bind:value={form.vpn.testAddress}
+                  placeholder="10.0.0.1"
+                  invalid={!!errors.vpnTestAddress}
+                  oninput={() => edited('vpnTestAddress')}
+                />
               </FormRow>
-              {#if form.vpn.testMode === 'address'}
-                <FormRow
-                  label={t('Test address')}
-                  for={id('vpn-address')}
-                  error={errors.vpnTestAddress}
-                  hint={t('An address only reachable over this VPN.')}
-                >
-                  <TextField
-                    id={id('vpn-address')}
-                    bind:value={form.vpn.testAddress}
-                    placeholder="10.0.0.1"
-                    invalid={!!errors.vpnTestAddress}
-                    oninput={() => edited('vpnTestAddress')}
-                  />
-                </FormRow>
-              {/if}
             {/if}
-          </FormSection>
-        {/if}
+          {/if}
+        </FormSection>
         <FormSection title={t('Notes')}>
           <textarea bind:value={form.notes} aria-label={t('Notes')} rows="3"></textarea>
         </FormSection>

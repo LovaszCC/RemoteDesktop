@@ -74,10 +74,19 @@ const selectOptions = (label: string) =>
   ]);
 
 describe('EntryEditor VPN', () => {
-  it('vpn_section_is_macos_only', async () => {
-    renderView(EntryEditor, edit('e1'), { library: multiEntryLibrary(), platform: 'windows' });
+  it('vpn_section_names_winvpn_on_windows', async () => {
+    renderView(EntryEditor, edit('e1'), {
+      library: multiEntryLibrary(),
+      platform: 'windows',
+      replies: {
+        vpn_profiles: () => {
+          throw { code: 'vpnNotPaired', message: 'RemoteDesktop is not paired with MacVPN.' };
+        },
+      },
+    });
     await settle();
-    expect(document.querySelector('select[aria-label="VPN profile"]')).toBeNull();
+    expect(document.querySelector('select[aria-label="VPN profile"]')).not.toBeNull();
+    expect(text()).toContain('Pair with WinVPN…');
   });
 
   it('choosing_a_profile_saves_it', async () => {
