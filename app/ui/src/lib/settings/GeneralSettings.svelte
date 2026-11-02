@@ -12,6 +12,7 @@
   import FormRow from '../editors/FormRow.svelte';
   import FormSection from '../editors/FormSection.svelte';
   import AccentPicker from './AccentPicker.svelte';
+  import TerminalColorsSettings from './TerminalColorsSettings.svelte';
   import { errorMessage } from '../errors';
   import { i18n, t } from '../i18n/index.svelte';
   import { alerts as defaultAlerts, type AlertStore } from '../stores/alert.svelte';
@@ -47,7 +48,16 @@
     alerts?: AlertStore;
     terminals?: TerminalsStore;
     updates?: UpdateStore;
-    appearance?: Pick<AppearanceStore, 'accent' | 'setAccent' | 'theme' | 'setTheme'>;
+    appearance?: Pick<
+      AppearanceStore,
+      | 'accent'
+      | 'setAccent'
+      | 'theme'
+      | 'setTheme'
+      | 'terminalColors'
+      | 'setTerminalColor'
+      | 'resetTerminalColors'
+    >;
   }
 
   let {
@@ -170,6 +180,8 @@
       <AccentPicker {appearance} />
     </FormRow>
   </FormSection>
+
+  <TerminalColorsSettings {appearance} />
 
   <FormSection title={t('Language')}>
     <FormRow label={t('Language')}>
