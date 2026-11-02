@@ -154,6 +154,21 @@ describe('TabBar', () => {
     expect(splits.updateSaved).toHaveBeenCalledWith('T');
   });
 
+  it("numbers a connection's tabs with a badge before the title", () => {
+    const { tabs, tab } = render();
+    const long = 'root@cp: /usr/local/hestia/data/templates/web/nginx/php-fpm';
+    tabs.openSession({ id: 'g1', title: long, type: 'ssh', color: null, group: 'cp' });
+    flushSync();
+    expect(tab(3).querySelector('.badge')).toBeNull();
+    tabs.openSession({ id: 'g2', title: long, type: 'ssh', color: null, group: 'cp' });
+    flushSync();
+    expect([3, 4].map((i) => tab(i).querySelector('.badge')?.textContent)).toEqual(['1', '2']);
+    // The badge comes first, so a cut-off title can't hide it; the title has no "(2)".
+    expect(tab(4).querySelector('.badge')!.nextElementSibling?.classList.contains('title')).toBe(true);
+    expect(tab(4).querySelector('.title')?.textContent).toBe(long);
+    expect(tab(4).querySelector<HTMLElement>('.badge')!.style.background).toContain('--label-');
+  });
+
   it('offers Split terminal when the active tab can split', () => {
     expect(document.querySelector('.split-button')).toBeNull();
     const { splits } = render(true);
