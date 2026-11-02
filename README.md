@@ -145,6 +145,9 @@ And a few things that make everyday work nicer:
 - **🔀 Port forwards.** Save SSH tunnels with an entry and start or stop them with one click. With several
   SSH connections you pick which one each tunnel runs through.
 - **⚠️ Root warning.** A tab shows a warning sign while you're logged in as root.
+- **🖍️ Terminal colours.** Terminals use Catppuccin Mocha in dark mode and Latte in light mode. Change any
+  of the colours (background, text, cursor, selection and the 16 ANSI colours) separately for light and
+  dark in *Settings → General → Terminal colors*; open terminals follow at once.
 - **☁️ Your data, your place.** Everything lives in a single database file. Put it in iCloud Drive,
   OneDrive or Dropbox and use it from several computers (just not from two at the same time).
 - **🌍 English and Hungarian**, switchable without restarting.
