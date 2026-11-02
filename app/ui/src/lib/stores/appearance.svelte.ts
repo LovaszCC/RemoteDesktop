@@ -1,4 +1,5 @@
-// The accent colour and the light/dark theme (Settings → Appearance), remembered per viewer. Every themed
+// The accent colour, the light/dark theme and the terminal colours (Settings → Appearance), remembered per
+// viewer. Every themed
 // colour derives from one OKLCH hue and chroma (app.css), so each accent tints the whole interface evenly.
 
 export interface Accent {
@@ -45,6 +46,17 @@ export function applyAccent(
   root.style.setProperty('--accent-chroma', String(accent.chroma));
   root.dataset.accent = accent.id;
 }
+
+import {
+  applyTerminalColors,
+  isTerminalColor,
+  loadTerminalColors,
+  TERMINAL_COLORS_KEY,
+  TERMINAL_DEFAULTS,
+  type TerminalColorKey,
+  type TerminalColors,
+  type TerminalMode,
+} from '../terminal/colors';
 
 export type Theme = 'system' | 'light' | 'dark';
 
@@ -104,12 +116,38 @@ export function applyTheme(
 export function createAppearance(storage?: Pick<Storage, 'getItem' | 'setItem'>, native?: NativeTheme) {
   let accent = $state(loadAccent(storage));
   let theme = $state(loadTheme(storage));
+  let terminalColors = $state<TerminalColors>(loadTerminalColors(storage));
+  const saveTerminalColors = (next: TerminalColors) => {
+    terminalColors = next;
+    applyTerminalColors(next);
+    try {
+      (storage ?? globalThis.localStorage)?.setItem(TERMINAL_COLORS_KEY, JSON.stringify(next));
+    } catch {
+      // Storage unavailable: the colours just aren't remembered.
+    }
+  };
   return {
     get accent() {
       return accent;
     },
     get theme() {
       return theme;
+    },
+    /** The user's changes to the terminal colours, per mode. */
+    get terminalColors() {
+      return terminalColors;
+    },
+    /** Changes one terminal colour; the default value drops the change, an invalid one is ignored. */
+    setTerminalColor(mode: TerminalMode, key: TerminalColorKey, value: string) {
+      if (!isTerminalColor(value)) return;
+      const set = { ...terminalColors[mode] };
+      delete set[key];
+      if (value.toLowerCase() !== TERMINAL_DEFAULTS[mode][key]) set[key] = value;
+      saveTerminalColors({ ...terminalColors, [mode]: set });
+    },
+    /** Back to Catppuccin Latte (light) or Mocha (dark). */
+    resetTerminalColors(mode: TerminalMode) {
+      saveTerminalColors({ ...terminalColors, [mode]: {} });
     },
     setTheme(value: Theme) {
       theme = value;
