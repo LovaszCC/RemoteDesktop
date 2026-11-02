@@ -10,7 +10,12 @@ import {
   transferImporter as defaultTransferImporter,
   type TransferImportStore,
 } from './transfer/transferImporter.svelte';
-import { createDispatcher, type AppCommand, type Dispatcher } from './shortcuts/dispatcher';
+import {
+  createDispatcher,
+  selectedTabNumber,
+  type AppCommand,
+  type Dispatcher,
+} from './shortcuts/dispatcher';
 import { recorder as defaultRecorder, type RecorderStore } from './shortcuts/recorder.svelte';
 import { sidebarActions as defaultActions, type SidebarActions } from './sidebar/actions.svelte';
 import { alerts as defaultAlerts, type AlertStore } from './stores/alert.svelte';
@@ -113,6 +118,11 @@ export function createCommandRunner(deps: Partial<CommandDeps> = {}) {
   const canWrite = () => app.isUnlocked && !app.readOnly;
 
   return function run(command: AppCommand) {
+    const number = selectedTabNumber(command);
+    if (number !== null) {
+      tabs.selectNumber(number);
+      return;
+    }
     const type = NEW_CONNECTION[command];
     if (type) {
       if (canWrite()) actions.newConnection(type);

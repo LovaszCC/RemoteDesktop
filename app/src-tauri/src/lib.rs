@@ -153,6 +153,7 @@ fn invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + 
         commands::ssh::ssh_input,
         commands::ssh::ssh_broadcast_input,
         commands::ssh::ssh_resize,
+        commands::ssh::ssh_ack,
         commands::ssh::ssh_close,
         commands::ssh::ssh_reconnect,
         commands::ssh::ssh_replace_host_key,

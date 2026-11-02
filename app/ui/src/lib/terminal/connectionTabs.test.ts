@@ -38,7 +38,9 @@ function setup({
   ) as unknown as Record<string, RdpSessionState>;
   const deps: ConnectionTabsDeps = {
     library: {
-      connection: (id) => (id ? ({ id, entryId: entries[id] ?? id } as ConnectionDto) : undefined),
+      // `gone` stands for a connection outside the library (a local terminal).
+      connection: (id) =>
+        id && id !== 'gone' ? ({ id, entryId: entries[id] ?? id } as ConnectionDto) : undefined,
     },
     tabs: {
       ids,
@@ -69,6 +71,25 @@ function setup({
   };
   return createConnectionTabs(deps);
 }
+
+describe('connectionTabs.entryOfTab', () => {
+  it('names the entry of an SSH or RDP tab, or of a split whose panes share one', () => {
+    const tabs = setup({
+      ids: ['S1', 'R1', 'T1', 'T2', 'L1'],
+      ssh: { S1: { connectionId: 'a' }, L1: { connectionId: 'gone' } },
+      rdp: { R1: { connectionId: 'b' } },
+      splits: { T1: ['a', 'a2'], T2: ['a', 'b'] },
+      entries: { a: 'e1', a2: 'e1', b: 'e2' },
+    });
+    expect(tabs.entryOfTab('S1')).toBe('e1');
+    expect(tabs.entryOfTab('R1')).toBe('e2');
+    expect(tabs.entryOfTab('T1')).toBe('e1');
+    expect(tabs.entryOfTab('T2')).toBeNull();
+    expect(tabs.entryOfTab('L1')).toBeNull();
+    expect(tabs.entryOfTab('nope')).toBeNull();
+    expect(tabs.entryOfTab(null)).toBeNull();
+  });
+});
 
 describe('connectionTabs.isLive', () => {
   it('counts running SSH tabs and split panes and RDP sessions that are not disconnected', () => {

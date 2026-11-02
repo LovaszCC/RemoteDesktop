@@ -4,7 +4,9 @@
 //!
 //! Threads per session: the reader (PTY → analyzer → pending buffer), the flusher (pending buffer → sink,
 //! every [`FLUSH_INTERVAL`] or at [`FLUSH_BYTES`], so the webview never gets one message per read), and
-//! the waiter (child exit → final flush → [`SessionEvent::Exit`]).
+//! the waiter (child exit → final flush → [`SessionEvent::Exit`]). With [`FlowControl`] the flusher holds
+//! output while too much of it is unacknowledged ([`SshSession::ack`]), so a flood can't queue up in the
+//! terminal ahead of the keystroke echo; the reader then stops and the PTY applies back-pressure.
 
 use std::ffi::OsString;
 use std::io::{self, Read, Write};
@@ -26,7 +28,7 @@ pub const FLUSH_INTERVAL: Duration = Duration::from_millis(6);
 /// Output is sent at once when this much is pending.
 pub const FLUSH_BYTES: usize = 256 * 1024;
 /// The reader stops reading (and the PTY applies back-pressure to `ssh`) above this much unsent output.
-const MAX_PENDING: usize = 8 * 1024 * 1024;
+const MAX_PENDING: usize = 1024 * 1024;
 /// Quiet time after the prompt reappears before a capture counts as finished (Swift `promptSettleTime`).
 pub const PROMPT_SETTLE_TIME: Duration = Duration::from_millis(150);
 
@@ -112,6 +114,23 @@ pub enum SessionKind {
     Local,
 }
 
+/// Caps the output sent but not yet acknowledged by the receiver ([`SshSession::ack`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FlowControl {
+    /// The flusher waits while this much output is unacknowledged.
+    pub window: usize,
+    /// It sends anyway after waiting this long, so a receiver that stops acking can't freeze the session.
+    pub ack_timeout: Duration,
+}
+
+impl FlowControl {
+    /// For the webview's terminal: xterm.js acknowledges each chunk once it is parsed.
+    pub const WEBVIEW: Self = Self {
+        window: 512 * 1024,
+        ack_timeout: Duration::from_secs(2),
+    };
+}
+
 /// What to run.
 #[derive(Debug, Clone)]
 pub struct SpawnSpec {
@@ -131,6 +150,8 @@ pub struct SpawnSpec {
     pub rows: u16,
     /// The directory to start in; the home directory when `None` or not an existing directory.
     pub cwd: Option<PathBuf>,
+    /// Output waits for acknowledgements ([`SshSession::ack`]); `None` sends it as fast as it comes.
+    pub flow_control: Option<FlowControl>,
 }
 
 fn size(cols: u16, rows: u16) -> PtySize {
@@ -170,6 +191,10 @@ struct Shared {
     pending_changed: Condvar,
     writer: Mutex<Option<Box<dyn Write + Send>>>,
     master: Mutex<Option<Box<dyn MasterPty + Send>>>,
+    flow_control: Option<FlowControl>,
+    /// Output sent to the sink and not yet acknowledged (only counted with flow control).
+    unacked: Mutex<usize>,
+    acked: Condvar,
 }
 
 impl Shared {
@@ -320,6 +345,9 @@ impl SshSession {
             pending_changed: Condvar::new(),
             writer: Mutex::new(Some(writer)),
             master: Mutex::new(Some(pty.master)),
+            flow_control: spec.flow_control,
+            unacked: Mutex::new(0),
+            acked: Condvar::new(),
         });
 
         let mut initial = Vec::new();
@@ -395,6 +423,20 @@ impl SshSession {
         let writer = writer.as_mut().ok_or(io::ErrorKind::BrokenPipe)?;
         writer.write_all(bytes)?;
         writer.flush()
+    }
+
+    /// The flow control it runs with.
+    #[must_use]
+    pub fn flow_control(&self) -> Option<FlowControl> {
+        self.shared.flow_control
+    }
+
+    /// The receiver processed `bytes` of output; with [`FlowControl`] the flusher may send more.
+    /// Acknowledging more than was sent (output of a replaced run) just empties the count.
+    pub fn ack(&self, bytes: usize) {
+        let mut unacked = lock(&self.shared.unacked);
+        *unacked = unacked.saturating_sub(bytes);
+        self.shared.acked.notify_all();
     }
 
     /// Resizes the PTY.
@@ -535,7 +577,7 @@ fn read_loop(shared: &Arc<Shared>, mut reader: Box<dyn Read + Send>) {
 
 fn flush_loop(shared: &Shared) {
     loop {
-        let chunk = {
+        let (chunk, done) = {
             let mut pending = shared
                 .pending_changed
                 .wait_while(lock(&shared.pending), |p| p.buf.is_empty() && !p.done)
@@ -552,8 +594,20 @@ fn flush_loop(shared: &Shared) {
             }
             let chunk = std::mem::take(&mut pending.buf);
             shared.pending_changed.notify_all();
-            chunk
+            (chunk, pending.done)
         };
+        if let Some(flow) = shared.flow_control {
+            let mut unacked = lock(&shared.unacked);
+            // A finished run never waits: the final flush and the exit event aren't delayed.
+            if !done {
+                unacked = shared
+                    .acked
+                    .wait_timeout_while(unacked, flow.ack_timeout, |u| *u >= flow.window)
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .0;
+            }
+            *unacked += chunk.len();
+        }
         shared.sink.output(chunk);
     }
 }
@@ -649,6 +703,7 @@ mod tests {
             cols: 80,
             rows: 24,
             cwd: None,
+            flow_control: None,
         }
     }
 
@@ -727,6 +782,71 @@ mod tests {
                 host_key_changed: None,
             }
         );
+    }
+
+    #[test]
+    fn flow_control_holds_output_until_acked() {
+        let sink = Arc::new(Collect::default());
+        let window = 64 * 1024;
+        let spec = SpawnSpec {
+            flow_control: Some(FlowControl {
+                window,
+                ack_timeout: Duration::from_secs(30),
+            }),
+            ..sh("head -c 2000000 /dev/zero | tr '\\0' x", "u")
+        };
+        let session = SshSession::spawn(spec, sink.clone()).unwrap();
+        std::thread::sleep(Duration::from_millis(300));
+        let held = lock(&sink.output).len();
+        assert!(held > 0, "nothing sent");
+        assert!(held <= window + FLUSH_BYTES, "{held} bytes sent without an ack");
+
+        let mut acked = 0;
+        let deadline = std::time::Instant::now() + Duration::from_secs(10);
+        while String::from_utf8_lossy(&lock(&sink.output)).matches('x').count() < 2_000_000 {
+            assert!(std::time::Instant::now() < deadline, "output stalled");
+            let received = lock(&sink.output).len();
+            session.ack(received - acked);
+            acked = received;
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(matches!(
+            sink.wait_exit(),
+            SessionEvent::Exit { code: Some(0), .. }
+        ));
+    }
+
+    #[test]
+    fn flow_control_resumes_after_the_ack_timeout() {
+        let sink = Arc::new(Collect::default());
+        let spec = SpawnSpec {
+            flow_control: Some(FlowControl {
+                window: 64 * 1024,
+                ack_timeout: Duration::from_millis(100),
+            }),
+            ..sh("head -c 300000 /dev/zero | tr '\\0' x", "u")
+        };
+        let _session = SshSession::spawn(spec, sink.clone()).unwrap();
+        assert!(matches!(
+            sink.wait_exit(),
+            SessionEvent::Exit { code: Some(0), .. }
+        ));
+        let total = String::from_utf8_lossy(&lock(&sink.output)).matches('x').count();
+        assert_eq!(total, 300_000);
+    }
+
+    #[test]
+    fn ack_saturates_and_works_after_exit() {
+        let sink = Arc::new(Collect::default());
+        let spec = SpawnSpec {
+            flow_control: Some(FlowControl::WEBVIEW),
+            ..sh("echo hi", "u")
+        };
+        let session = SshSession::spawn(spec, sink.clone()).unwrap();
+        session.ack(usize::MAX);
+        sink.wait_exit();
+        session.ack(usize::MAX);
+        assert_eq!(*lock(&session.shared.unacked), 0);
     }
 
     #[test]
@@ -907,6 +1027,7 @@ mod tests {
             cols: 80,
             rows: 24,
             cwd: None,
+            flow_control: None,
         };
         let session = SshSession::spawn(spec, sink.clone()).unwrap();
         // The arithmetic keeps the typed echo of the command from matching.

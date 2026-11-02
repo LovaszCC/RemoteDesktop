@@ -9,6 +9,7 @@ import {
   loadTheme,
   resolveTheme,
 } from './appearance.svelte';
+import { TERMINAL_COLORS_KEY, TERMINAL_DEFAULTS } from '../terminal/colors';
 
 function memoryStorage() {
   const store = new Map<string, string>();
@@ -51,6 +52,10 @@ describe('appearance', () => {
     const store = createAppearance(broken);
     expect(() => store.setAccent('teal')).not.toThrow();
     expect(store.accent.id).toBe('teal');
+    expect(store.terminalColors).toEqual({ light: {}, dark: {} });
+    expect(() => store.setTerminalColor('dark', 'red', '#ff0000')).not.toThrow();
+    expect(store.terminalColors.dark.red).toBe('#ff0000');
+    document.getElementById('terminal-colors')?.remove();
   });
 
   it('resolves, applies and remembers the theme', () => {
@@ -78,5 +83,30 @@ describe('appearance', () => {
     const storage = memoryStorage();
     storage.setItem('rd.theme', 'neon');
     expect(loadTheme(storage)).toBe('system');
+  });
+
+  it('changes, resets and remembers terminal colours per mode', () => {
+    const storage = memoryStorage();
+    const store = createAppearance(storage);
+    expect(store.terminalColors).toEqual({ light: {}, dark: {} });
+    store.setTerminalColor('dark', 'red', '#ff0000');
+    store.setTerminalColor('dark', 'blue', 'blue');
+    store.setTerminalColor('light', 'green', TERMINAL_DEFAULTS.light.green);
+    expect(store.terminalColors).toEqual({ light: {}, dark: { red: '#ff0000' } });
+    expect(document.getElementById('terminal-colors')?.textContent).toContain('--terminal-red:#ff0000;');
+    expect(createAppearance(storage).terminalColors).toEqual({ light: {}, dark: { red: '#ff0000' } });
+
+    // Setting the default value back drops the change.
+    store.setTerminalColor('dark', 'red', TERMINAL_DEFAULTS.dark.red);
+    expect(store.terminalColors.dark).toEqual({});
+    store.setTerminalColor('light', 'cyan', '#00ffff');
+    store.setTerminalColor('dark', 'cyan', '#00ffff');
+    store.resetTerminalColors('light');
+    expect(store.terminalColors).toEqual({ light: {}, dark: { cyan: '#00ffff' } });
+    expect(JSON.parse(storage.getItem(TERMINAL_COLORS_KEY)!)).toEqual({
+      light: {},
+      dark: { cyan: '#00ffff' },
+    });
+    document.getElementById('terminal-colors')?.remove();
   });
 });

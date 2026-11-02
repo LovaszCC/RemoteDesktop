@@ -1,7 +1,8 @@
 <script lang="ts">
   // Swift `SessionTabBar`: "Details" then one tab per session. Double-click or "Rename…" edits the name
   // inline (Enter or blur saves, Esc cancels); the context menu sets the tab colour. A root shell shows a
-  // warning icon and tints the tab orange (unless the tab has its own colour).
+  // warning icon and tints the tab orange (unless the tab has a colour: its own, its connection's or its
+  // auto colour). Every session tab carries its number (⌘1…⌘9) before the title, so truncation can't hide it.
   import Columns2 from '@lucide/svelte/icons/columns-2';
   import Grid2x2 from '@lucide/svelte/icons/grid-2x2';
   import Info from '@lucide/svelte/icons/info';
@@ -57,7 +58,7 @@
   }
 
   async function startRenaming(session: TabSession) {
-    draft = tabs.displayTitle(session);
+    draft = tabs.baseTitle(session);
     renaming = session.id;
     await tick();
     field?.focus();
@@ -125,7 +126,8 @@
     <span class="title">{t('Details')}</span>
   </button>
   {#each tabs.sessions as session (session.id)}
-    {@const title = tabs.displayTitle(session)}
+    {@const title = tabs.baseTitle(session)}
+    {@const badge = tabs.badge(session)}
     {@const color = tabs.displayColor(session)}
     {@const active = tabs.active === session.id}
     <div
@@ -169,6 +171,14 @@
           ondblclick={(e) => e.stopPropagation()}
         />
       {:else}
+        {#if badge !== null}
+          <span
+            class="badge"
+            style:background={`color-mix(in srgb, ${color ? `var(--label-${color})` : 'var(--fg-secondary)'} 55%, transparent)`}
+          >
+            {badge}
+          </span>
+        {/if}
         <span class="title">{title}</span>
       {/if}
       <button
@@ -260,6 +270,19 @@
   .tab:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: -2px;
+  }
+  .badge {
+    flex: none;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    color: var(--fg);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 16px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
   }
   .title {
     max-width: 180px;

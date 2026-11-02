@@ -229,6 +229,15 @@ describe('GeneralSettings appearance', () => {
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(storage.get('rd.theme')).toBe('dark');
   });
+
+  it('shows the terminal colours after Appearance', async () => {
+    await render('linux');
+    const sections = [...document.querySelectorAll('h2, h3, legend, .title')].map((e) =>
+      e.textContent?.trim(),
+    );
+    expect(sections.indexOf('Terminal colors')).toBe(sections.indexOf('Appearance') + 1);
+    expect(document.querySelectorAll('input[type="color"]')).toHaveLength(20);
+  });
 });
 
 describe('GeneralSettings system search', () => {

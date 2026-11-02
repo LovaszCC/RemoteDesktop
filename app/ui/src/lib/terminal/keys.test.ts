@@ -47,6 +47,16 @@ describe('optionKeySequence (Swift TerminalOptionKeys)', () => {
 });
 
 describe('terminalKeyAction', () => {
+  it('hands ⌘1…⌘9 to the app to select a tab', () => {
+    expect(terminalKeyAction(key({ key: '2', code: 'Digit2', metaKey: true }), ctx())).toEqual({
+      kind: 'app',
+      command: 'selectTab2',
+    });
+    expect(terminalKeyAction(key({ key: '2', code: 'Digit2', ctrlKey: true }), ctx('linux')).kind).toBe(
+      'app',
+    );
+  });
+
   it('hands the session shortcuts to the app', () => {
     expect(terminalKeyAction(key({ key: 'w', code: 'KeyW', metaKey: true }), ctx())).toEqual({
       kind: 'app',

@@ -67,6 +67,12 @@ export interface OpenOptions {
 /** Events kept for a session whose `open_ssh_session` hasn't answered yet. */
 const MAX_PENDING = 64;
 
+/**
+ * Parsed output is acknowledged to Rust (`ssh_ack`) in batches of this many bytes. Rust holds output past
+ * a 512 KiB window of unacknowledged bytes, so the smaller rest never stalls a session.
+ */
+export const ACK_BYTES = 64 * 1024;
+
 /** Raw channel bytes as a `Uint8Array`. */
 export function toBytes(data: unknown): Uint8Array {
   if (data instanceof Uint8Array) return data;
@@ -269,6 +275,14 @@ export function createSessionsStore(deps: Partial<SessionsDeps> = {}) {
     ): Promise<string> {
       const factory = await resolveFactory();
       let sessionId: string | null = null;
+      // Output xterm parsed but not yet acknowledged (flow control).
+      let parsed = 0;
+      const acknowledge = () => {
+        if (!sessionId || parsed < ACK_BYTES) return;
+        const bytes = parsed;
+        parsed = 0;
+        void api.sshAck(sessionId, bytes).catch(() => {});
+      };
       const handle = factory({
         initialSize: lastSize,
         onInput: (data) => {
@@ -299,7 +313,13 @@ export function createSessionsStore(deps: Partial<SessionsDeps> = {}) {
         openLink: (url) => void api.terminalOpenUrl(url).catch((e: unknown) => alerts.show(errorMessage(e))),
       });
       const channel = createChannel();
-      channel.onmessage = (data) => handle.write(toBytes(data));
+      channel.onmessage = (data) => {
+        const bytes = toBytes(data);
+        handle.write(bytes, () => {
+          parsed += bytes.length;
+          acknowledge();
+        });
+      };
       const size = handle.size();
       const local = isLocalTerminal(connection.id);
       try {
@@ -311,6 +331,7 @@ export function createSessionsStore(deps: Partial<SessionsDeps> = {}) {
         throw error;
       }
       const id = sessionId;
+      acknowledge();
       const name = local
         ? localTerminalName(
             Object.values(states)

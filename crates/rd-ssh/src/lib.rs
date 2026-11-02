@@ -23,4 +23,4 @@ pub mod session;
 pub use command::{ArgsError, SshSecrets, resolve, ssh_arguments};
 pub use key_file::UnlockedKeyFile;
 pub use locate::find_ssh;
-pub use session::{SessionEvent, SessionKind, Sink, SpawnSpec, SshSession};
+pub use session::{FlowControl, SessionEvent, SessionKind, Sink, SpawnSpec, SshSession};

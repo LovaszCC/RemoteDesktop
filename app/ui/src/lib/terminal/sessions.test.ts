@@ -9,7 +9,7 @@ import { fakeBridge } from '../testing/bridge';
 import { entry } from '../testing/fixtures';
 import { buttonByText, click, settle, text } from '../testing/views';
 import type { ClearAction, SshEvent, SshEventDto, EntryDto } from '../types';
-import { createSessionsStore, toBytes, type OutputChannel } from './sessions.svelte';
+import { ACK_BYTES, createSessionsStore, toBytes, type OutputChannel } from './sessions.svelte';
 import type { TerminalHandle, TerminalOptions } from './xterm';
 
 /** A terminal without xterm: records what it was asked to do. */
@@ -43,6 +43,7 @@ function setup(replies: Parameters<typeof fakeBridge>[0] = {}, entries: EntryDto
     open_ssh_session: () => ({ sessionId: `S${++n}` }),
     ssh_input: null,
     ssh_resize: null,
+    ssh_ack: null,
     ssh_close: null,
     ssh_reconnect: null,
     ssh_record_next_output: 'armed',
@@ -98,10 +99,10 @@ describe('sessions store', () => {
     await sessions.open({ ...home, type: 'ssh', color: null });
     expect(tabs.session('S1')).toMatchObject({ title: 'Home Server · SSH · root', group: 'e1' });
     expect(tabs.session('S2')).toMatchObject({ title: 'Solo', group: 'e2' });
-    // Tabs of one entry sit together; only tabs with the same title are numbered.
+    // Tabs of one entry sit together, numbered across the entry.
     expect(tabs.ids).toEqual(['S1', 'S3', 'S4', 'S2']);
-    expect(tabs.session('S3')).toMatchObject({ group: 'e1', ordinal: 1 });
-    expect(tabs.session('S4')).toMatchObject({ group: 'e1', ordinal: 2 });
+    expect(tabs.session('S3')).toMatchObject({ group: 'e1', ordinal: 2 });
+    expect(tabs.session('S4')).toMatchObject({ group: 'e1', ordinal: 3 });
   });
 
   it('opens a session in a new tab with the connection name and colour', async () => {
@@ -122,7 +123,42 @@ describe('sessions store', () => {
     // Output bytes go straight to the terminal.
     const bytes = new Uint8Array([104, 105]);
     channels[0]!.onmessage(bytes.buffer);
-    expect(terminal.made[0]!.handle.write).toHaveBeenCalledWith(bytes);
+    expect(terminal.made[0]!.handle.write).toHaveBeenCalledWith(bytes, expect.any(Function));
+  });
+
+  /** Runs the write callbacks the terminal got so far, as xterm does once it parsed the data. */
+  function parse(handle: TerminalHandle & Record<string, ReturnType<typeof vi.fn>>) {
+    for (const [, done] of vi.mocked(handle.write).mock.calls.splice(0)) done!();
+  }
+
+  it('acknowledges parsed output in batches of ACK_BYTES', async () => {
+    const { sessions, bridge, channels, terminal } = setup();
+    await sessions.open(connection);
+    const handle = terminal.made[0]!.handle;
+    channels[0]!.onmessage(new Uint8Array(ACK_BYTES - 1).buffer);
+    parse(handle);
+    expect(bridge.invoke).not.toHaveBeenCalledWith('ssh_ack', expect.anything());
+    channels[0]!.onmessage(new Uint8Array(10).buffer);
+    expect(bridge.invoke).not.toHaveBeenCalledWith('ssh_ack', expect.anything());
+    parse(handle);
+    expect(bridge.invoke).toHaveBeenCalledWith('ssh_ack', { sessionId: 'S1', bytes: ACK_BYTES + 9 });
+    channels[0]!.onmessage(new Uint8Array(1).buffer);
+    parse(handle);
+    expect(bridge.invoke.mock.calls.filter(([c]) => c === 'ssh_ack')).toHaveLength(1);
+  });
+
+  it('acknowledges output parsed before the session id was known once it is', async () => {
+    const terminalHolder: { parse?: () => void } = {};
+    const { sessions, bridge, terminal } = setup({
+      open_ssh_session: (args?: Record<string, unknown>) => {
+        (args!.onData as OutputChannel).onmessage(new Uint8Array(ACK_BYTES).buffer);
+        terminalHolder.parse!();
+        return { sessionId: 'S1' };
+      },
+    });
+    terminalHolder.parse = () => parse(terminal.made[0]!.handle);
+    await sessions.open(connection);
+    expect(bridge.invoke).toHaveBeenCalledWith('ssh_ack', { sessionId: 'S1', bytes: ACK_BYTES });
   });
 
   it('opens a second session of a connection next to the first, numbered', async () => {

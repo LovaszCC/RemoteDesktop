@@ -385,6 +385,8 @@ export function createApi(invoke: Invoke = tauriBridge.invoke) {
      * dropped for targets not in bracketed-paste mode). */
     sshBroadcastInput: (sourceSessionId: string, targetSessionIds: string[], data: string | number[]) =>
       call<void>('ssh_broadcast_input', { sourceSessionId, targetSessionIds, data }),
+    /** The terminal parsed `bytes` of the session's output (flow control). */
+    sshAck: (sessionId: string, bytes: number) => call<void>('ssh_ack', { sessionId, bytes }),
     sshResize: (sessionId: string, cols: number, rows: number) =>
       call<void>('ssh_resize', { sessionId, cols, rows }),
     sshClose: (sessionId: string) => call<void>('ssh_close', { sessionId }),

@@ -124,10 +124,13 @@ And a few things that make everyday work nicer:
 - **🗂️ Folders, favourites and search.** Drag and drop to organise, colour folders, and find anything by
   name, host, user or notes as you type.
 - **🎨 Coloured tabs.** Give production servers a red colour and you'll always know where you are typing.
+  Tabs of uncoloured connections get a colour of their own automatically, shown on the tab and as a thin
+  strip above the terminal, so two tabs on the same server never look alike.
 - **🟢 See what's open.** A green dot in the sidebar marks every entry with a live session, and several
-  tabs of the same server line up next to each other (`web01`, `web01 (2)`). If you'd rather jump straight
-  back into a session, set *Settings → Sidebar* so a click on an open entry brings its tab forward instead
-  of its details. When a server is open in several tabs, its details page lists them so you can jump to
+  tabs of the same server line up next to each other. Every tab shows its number in front of the title;
+  `⌘1`…`⌘9` (`Ctrl+1`…`9` on Windows and Linux) jump to it, `⌘9` to the last tab. If you'd rather jump
+  straight back into a session, set *Settings → Sidebar* so a click on an open entry brings its tab forward
+  instead of its details. When a server is open in several tabs, its details page lists them so you can jump to
   any of them.
 - **🔎 Open from the system search.** Turn on *Settings → Sidebar → Show entries in system search* and
   type an entry's name into Spotlight, the Start menu or your desktop's search: opening it starts the app
@@ -140,11 +143,16 @@ And a few things that make everyday work nicer:
   once — handy for configuring several switches the same way.
 - **📋 Copy next output.** Press the shortcut, run a command, and its output lands on your clipboard as
   clean text. Works even after `sudo -i` or on RouterOS.
+- **🧭 Always know where you are.** Switching tabs highlights the tab's entry in the sidebar, without
+  scrolling the list or opening folders.
 - **📁 File browser.** Copy files and folders between your computer and a server over SSH, with drag and
   drop.
 - **🔀 Port forwards.** Save SSH tunnels with an entry and start or stop them with one click. With several
   SSH connections you pick which one each tunnel runs through.
 - **⚠️ Root warning.** A tab shows a warning sign while you're logged in as root.
+- **🖍️ Terminal colours.** Terminals use Catppuccin Mocha in dark mode and Latte in light mode. Change any
+  of the colours (background, text, cursor, selection and the 16 ANSI colours) separately for light and
+  dark in *Settings → General → Terminal colors*; open terminals follow at once.
 - **☁️ Your data, your place.** Everything lives in a single database file. Put it in iCloud Drive,
   OneDrive or Dropbox and use it from several computers (just not from two at the same time).
 - **🌍 English and Hungarian**, switchable without restarting.
@@ -173,6 +181,7 @@ Every shortcut can be changed in *Settings → Keyboard Shortcuts*. The defaults
 | Toggle sidebar | <kbd>⌃⌘S</kbd> | <kbd>Ctrl+Shift+E</kbd> |
 | Close tab / reconnect | <kbd>⌘W</kbd> / <kbd>⌘R</kbd> | <kbd>Ctrl+Shift+W</kbd> / <kbd>R</kbd> |
 | Next / previous tab | <kbd>⌃Tab</kbd> / <kbd>⌃⇧Tab</kbd> | <kbd>Ctrl+Tab</kbd> / <kbd>Ctrl+Shift+Tab</kbd> |
+| Tab 1…8 / last tab | <kbd>⌘1</kbd>…<kbd>⌘8</kbd> / <kbd>⌘9</kbd> | <kbd>Ctrl+1</kbd>…<kbd>8</kbd> / <kbd>Ctrl+9</kbd> |
 | Type the clipboard into an RDP session | <kbd>⇧⌘V</kbd> | <kbd>Ctrl+Shift+T</kbd> |
 | Split terminal | <kbd>⌘D</kbd> | <kbd>Ctrl+Shift+D</kbd> |
 | Broadcast to all panes | <kbd>⌥⌘I</kbd> | <kbd>Ctrl+Shift+A</kbd> |

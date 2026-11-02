@@ -11,6 +11,7 @@ import {
   loadTheme,
   setNativeTheme,
 } from './lib/stores/appearance.svelte';
+import { applyTerminalColors, loadTerminalColors, TERMINAL_COLORS_KEY } from './lib/terminal/colors';
 
 const native = (theme: 'light' | 'dark' | null) => {
   getCurrentWindow()
@@ -20,10 +21,12 @@ const native = (theme: 'light' | 'dark' | null) => {
 setNativeTheme(native);
 applyAccent(loadAccent());
 applyTheme(loadTheme(), native);
-// Another window changed the theme or accent (Settings lives in the main window).
+applyTerminalColors(loadTerminalColors());
+// Another window changed the theme, accent or terminal colours (Settings lives in the main window).
 window.addEventListener('storage', (event) => {
   if (event.key === 'rd.theme') applyTheme(loadTheme(), native);
   if (event.key === 'rd.accent') applyAccent(loadAccent());
+  if (event.key === TERMINAL_COLORS_KEY) applyTerminalColors(loadTerminalColors());
 });
 
 const target = document.getElementById('app');

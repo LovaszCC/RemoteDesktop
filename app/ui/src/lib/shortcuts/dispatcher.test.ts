@@ -7,8 +7,15 @@ import {
   isTerminalTarget,
   isTypingTarget,
   rdpCommand,
+  IN_RDP,
+  IN_TERMINAL,
+  isAppCommand,
+  SELECT_TAB_COMMANDS,
+  selectedTabNumber,
+  WHILE_TYPING,
   type AppCommand,
 } from './dispatcher';
+import { MODIFIER } from '../types';
 
 const rows: ShortcutDto[] = [
   {
@@ -86,6 +93,28 @@ describe('commandFor', () => {
     expect(commandFor({ key: ',', modifiers: 8 }, rows, 'macos')).toBeNull();
     expect(commandFor({ key: 't', modifiers: 14 }, rows, 'macos')).toBeNull();
     expect(commandFor({ key: 't', modifiers: 14 }, rows, 'macos', true)).toBe('devOpenTestTab');
+  });
+});
+
+describe('tab number shortcuts', () => {
+  it('maps ⌘1…⌘9 (Ctrl elsewhere) to the tab commands, unless a custom shortcut uses the key', () => {
+    expect(commandFor({ key: '1', modifiers: MODIFIER.command }, rows, 'macos')).toBe('selectTab1');
+    expect(commandFor({ key: '9', modifiers: MODIFIER.control }, rows, 'windows')).toBe('selectTab9');
+    expect(commandFor({ key: '1', modifiers: MODIFIER.control }, rows, 'macos')).toBeNull();
+    expect(commandFor({ key: '0', modifiers: MODIFIER.command }, rows, 'macos')).toBeNull();
+    expect(commandFor({ key: '2', modifiers: MODIFIER.command | MODIFIER.shift }, rows, 'macos')).toBeNull();
+    const custom: ShortcutDto[] = [{ ...rows[0]!, shortcut: { key: '3', modifiers: MODIFIER.command } }];
+    expect(commandFor({ key: '3', modifiers: MODIFIER.command }, custom, 'macos')).toBe('newRDP');
+    expect(selectedTabNumber('selectTab4')).toBe(4);
+    expect(selectedTabNumber('nextTab')).toBeNull();
+    expect(SELECT_TAB_COMMANDS).toHaveLength(9);
+    expect(SELECT_TAB_COMMANDS.every(isAppCommand)).toBe(true);
+  });
+
+  it('fire from a terminal, an RDP canvas and a text field', () => {
+    for (const set of [IN_TERMINAL, IN_RDP, WHILE_TYPING]) {
+      expect(SELECT_TAB_COMMANDS.every((c) => set.has(c))).toBe(true);
+    }
   });
 });
 

@@ -39,7 +39,7 @@
     flex: 1;
     min-height: 0;
     padding: 4px 0 0 6px;
-    background: var(--terminal-bg);
+    background: var(--terminal-background);
   }
   .pane :global(.terminal-host) {
     width: 100%;

@@ -10,6 +10,7 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { Terminal, type ITheme } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
+import { TERMINAL_COLOR_KEYS, TERMINAL_DEFAULTS, terminalColorVar } from './colors';
 import { terminalKeyAction, type TerminalKeyAction, type TerminalKeyContext } from './keys';
 
 /** Wipes the screen and the scrollback (`rd_ssh::analyzer::LOCAL_CLEAR_SEQUENCE`). */
@@ -25,7 +26,8 @@ export interface TerminalSize {
 
 /** What a session needs from its terminal; tests pass fakes. */
 export interface TerminalHandle {
-  write(data: Uint8Array | string): void;
+  /** `done` runs once xterm parsed the data (output flow control). */
+  write(data: Uint8Array | string, done?: () => void): void;
   /** Screen and scrollback, locally. */
   clearLocal(): void;
   attach(container: HTMLElement): void;
@@ -60,15 +62,13 @@ function cssToken(name: string, fallback: string): string {
   return value || fallback;
 }
 
-/** The terminal colours from the theme tokens (`--terminal-*` in app.css). */
+/** The terminal colours from the `--terminal-*` variables (`colors.ts`); Catppuccin Mocha when unset. */
 export function themeFromTokens(): ITheme {
-  return {
-    background: cssToken('--terminal-bg', '#1e1e1e'),
-    foreground: cssToken('--terminal-fg', '#f2f2f7'),
-    cursor: cssToken('--terminal-cursor', '#2f86ff'),
-    cursorAccent: cssToken('--terminal-bg', '#1e1e1e'),
-    selectionBackground: cssToken('--terminal-selection', 'rgba(47, 134, 255, 0.35)'),
-  };
+  const theme: ITheme = {};
+  for (const key of TERMINAL_COLOR_KEYS)
+    theme[key] = cssToken(terminalColorVar(key), TERMINAL_DEFAULTS.dark[key]);
+  theme.cursorAccent = theme.background;
+  return theme;
 }
 
 /** Performs a non-terminal key action; returns whether the event was consumed. */
@@ -140,13 +140,14 @@ export const createXtermTerminal: TerminalFactory = (options) => {
     resizeTimer = setTimeout(() => options.onResize({ cols, rows }), RESIZE_DEBOUNCE);
   });
 
-  // The theme switches by data-theme on the root (applyTheme), from the OS or Settings.
+  // The theme switches by data-theme on the root (applyTheme), from the OS or Settings; the colours by
+  // data-terminal-colors (applyTerminalColors).
   const retheme = new MutationObserver(() => {
     term.options.theme = themeFromTokens();
   });
   retheme.observe(document.documentElement, {
     attributes: true,
-    attributeFilter: ['data-theme', 'data-accent'],
+    attributeFilter: ['data-theme', 'data-accent', 'data-terminal-colors'],
   });
 
   let opened = false;
@@ -168,8 +169,8 @@ export const createXtermTerminal: TerminalFactory = (options) => {
   }
 
   return {
-    write(data) {
-      term.write(data);
+    write(data, done) {
+      term.write(data, done);
     },
     clearLocal() {
       term.clearSelection();

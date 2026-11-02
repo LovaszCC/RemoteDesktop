@@ -77,6 +77,18 @@ export function createConnectionTabs(deps: Partial<ConnectionTabsDeps> = {}) {
       });
     },
     /**
+     * The library entry a tab shows (the sidebar marks it): a plain tab's, or a split's when every pane is
+     * of one entry; `null` for Details, local terminals and mixed splits.
+     */
+    entryOfTab(id: string | null): string | null {
+      if (id === null) return null;
+      const split = splits.get(id);
+      const connections = split ? split.panes.map((p) => p.connectionId) : [connectionOf(id)];
+      const entries = connections.map((c) => (c ? library.connection(c)?.entryId : undefined));
+      const entry = entries[0];
+      return entry && entries.every((e) => e === entry) ? entry : null;
+    },
+    /**
      * The tab a sidebar selection shows: with `tab`, the only plain tab of a single selected entry (`e:`,
      * `fav:`: of any of its connections) or child connection (`c:`: of that one); otherwise `null`
      * (Details). Several tabs, only split panes or a multi-selection show Details.

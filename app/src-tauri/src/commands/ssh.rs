@@ -1,7 +1,8 @@
 //! Embedded SSH, local terminal and external terminal commands.
 //!
-//! Output of a session goes over the `onData` channel as raw bytes (coalesced in Rust). Everything else is
-//! an event:
+//! Output of a session goes over the `onData` channel as raw bytes (coalesced in Rust). The terminal
+//! acknowledges what it parsed with [`ssh_ack`]; past a window of unacknowledged output Rust holds the rest
+//! (flow control). Everything else is an event:
 //! - `ssh-event` ([`SshEventDto`]): `{sessionId, kind, …}` with `kind` one of `title {title}`,
 //!   `altScreen {active}`, `bracketedPaste {enabled}`, `root {root}`, `recording {phase}`,
 //!   `recorded {outcome, text}` (the text is already on the clipboard when `outcome` is `copied`) and
@@ -189,6 +190,12 @@ pub fn ssh_broadcast_input(
     data: InputData,
 ) -> Result<(), CommandError> {
     core.ssh_broadcast_input(&source_session_id, &target_session_ids, data.as_bytes())
+}
+
+/// The terminal parsed `bytes` of the session's output; more may be sent. Errors: `sessionNotFound`.
+#[tauri::command]
+pub fn ssh_ack(core: State<'_, Core>, session_id: String, bytes: usize) -> Result<(), CommandError> {
+    core.ssh_ack(&session_id, bytes)
 }
 
 /// Resizes the PTY. Errors: `sessionNotFound`.

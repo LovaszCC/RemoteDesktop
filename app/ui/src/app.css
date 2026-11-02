@@ -88,11 +88,6 @@
   --label-purple: #af52de;
   --label-pink: #ff2d55;
   --label-gray: #8e8e93;
-
-  --terminal-bg: #ffffff;
-  --terminal-fg: #1d1d1f;
-  --terminal-cursor: #0a64d8;
-  --terminal-selection: rgba(10, 100, 216, 0.25);
 }
 
 /* Dark: data-theme is set by applyTheme (Settings → Appearance; "System" follows the OS). */
@@ -144,11 +139,6 @@
   --label-purple: #bf5af2;
   --label-pink: #ff375f;
   --label-gray: #98989d;
-
-  --terminal-bg: #1f1f22;
-  --terminal-fg: #f2f2f7;
-  --terminal-cursor: #2f86ff;
-  --terminal-selection: rgba(47, 134, 255, 0.35);
 }
 
 /* macOS: the window is transparent and the system's sidebar material shows through the chrome. */

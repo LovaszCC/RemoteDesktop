@@ -9,6 +9,8 @@
 //   terminal); every other key goes to the terminal (Swift key monitor);
 // - while an RDP canvas has the focus only the tab, type clipboard, reconnect and lock commands fire; every
 //   other key goes to the remote session;
+// - ⌘1…⌘9 (Ctrl+1…9 elsewhere) select the session tab with that number (⌘9: the last) everywhere, unless
+//   a customised shortcut uses the key;
 // - on macOS the menu's key equivalent and the webview's keydown can both report one key press, so the same
 //   command from the other source within a moment is dropped.
 
@@ -16,12 +18,26 @@ import type { KeyShortcut, Platform, ShortcutCommand, ShortcutDto } from '../typ
 import { MODIFIER } from '../types';
 import { sameShortcut, shortcutFromEvent } from './keys';
 
+/** ⌘1…⌘9: the session tab with that number in the tab bar (Details has none); ⌘9 is the last tab. */
+export type SelectTabCommand = `selectTab${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}`;
+
+export const SELECT_TAB_COMMANDS: readonly SelectTabCommand[] = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(
+  (n) => `selectTab${n}` as SelectTabCommand,
+);
+
+/** The tab number of a `selectTab…` command, else `null`. */
+export function selectedTabNumber(command: string): number | null {
+  const match = /^selectTab([1-9])$/.exec(command);
+  return match ? Number(match[1]) : null;
+}
+
 /**
  * Shortcut commands plus the app's own: Settings, Check for Updates, Export, the export and CSV imports and, in dev
  * builds, the test tab.
  */
 export type AppCommand =
   | ShortcutCommand
+  | SelectTabCommand
   | 'openSettings'
   | 'checkForUpdates'
   | 'devOpenTestTab'
@@ -56,6 +72,7 @@ export const SHORTCUT_COMMANDS: readonly ShortcutCommand[] = [
 
 const APP_COMMANDS = new Set<string>([
   ...SHORTCUT_COMMANDS,
+  ...SELECT_TAB_COMMANDS,
   'openSettings',
   'checkForUpdates',
   'devOpenTestTab',
@@ -70,6 +87,7 @@ export function isAppCommand(value: unknown): value is AppCommand {
 
 /** Commands that still fire while the focus is in a text field. */
 export const WHILE_TYPING: ReadonlySet<AppCommand> = new Set<AppCommand>([
+  ...SELECT_TAB_COMMANDS,
   'closeTab',
   'nextTab',
   'previousTab',
@@ -80,6 +98,7 @@ export const WHILE_TYPING: ReadonlySet<AppCommand> = new Set<AppCommand>([
 
 /** Commands that fire while an embedded terminal has the focus. */
 export const IN_TERMINAL: ReadonlySet<AppCommand> = new Set<AppCommand>([
+  ...SELECT_TAB_COMMANDS,
   'closeTab',
   'nextTab',
   'previousTab',
@@ -94,6 +113,7 @@ export const IN_TERMINAL: ReadonlySet<AppCommand> = new Set<AppCommand>([
 
 /** Commands that fire while an RDP canvas has the focus (the view lets these keys through). */
 export const IN_RDP: ReadonlySet<AppCommand> = new Set<AppCommand>([
+  ...SELECT_TAB_COMMANDS,
   'closeTab',
   'nextTab',
   'previousTab',
@@ -134,6 +154,10 @@ export function commandFor(
   const row = rows.find((r) => sameShortcut(r.shortcut, pressed));
   if (row) return row.command;
   if (sameShortcut(settingsShortcut(platform), pressed)) return 'openSettings';
+  const tabModifier = platform === 'macos' ? MODIFIER.command : MODIFIER.control;
+  if (/^[1-9]$/.test(pressed.key) && pressed.modifiers === tabModifier) {
+    return `selectTab${pressed.key}` as SelectTabCommand;
+  }
   if (dev && sameShortcut(TEST_TAB_SHORTCUT, pressed)) return 'devOpenTestTab';
   return null;
 }
