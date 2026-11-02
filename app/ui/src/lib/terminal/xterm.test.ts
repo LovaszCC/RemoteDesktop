@@ -196,6 +196,25 @@ describe('xterm terminal', () => {
     expect(options.openLink).toHaveBeenCalledWith('https://example.com');
   });
 
+  it('takes all terminal colours from the variables, Mocha when unset', () => {
+    const { term } = setup();
+    const theme = term.options.theme as Record<string, string>;
+    expect(theme.background).toBe('#1e1e2e');
+    expect(theme.brightWhite).toBe('#a6adc8');
+    expect(theme.cursorAccent).toBe(theme.background);
+  });
+
+  it('re-themes when the terminal colours change', async () => {
+    const root = document.documentElement;
+    const { term } = setup();
+    root.style.setProperty('--terminal-red', '#ff0000');
+    root.dataset.terminalColors = '1';
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect((term.options.theme as Record<string, string>).red).toBe('#ff0000');
+    root.style.removeProperty('--terminal-red');
+    delete root.dataset.terminalColors;
+  });
+
   it('disposes everything', () => {
     const { handle, term } = setup();
     handle.attach(document.createElement('div'));
