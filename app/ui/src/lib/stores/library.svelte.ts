@@ -209,14 +209,31 @@ export class LibraryStore {
     return this.selection.includes(tag);
   }
 
+  /** The row a tab switch selected (`selectForTab`), until the user selects something. */
+  followedTab = $state<string | null>(null);
+
+  /** Marks the active tab's row: like a plain click, but `isFollowingTab` tells it apart. */
+  selectForTab(tag: string) {
+    this.selection = [tag];
+    this.anchor = tag;
+    this.followedTab = tag;
+  }
+
+  /** Whether `selection` is the one a tab switch made (so it shouldn't change the tab back). */
+  isFollowingTab(selection: readonly string[]): boolean {
+    return selection.length === 1 && selection[0] === this.followedTab;
+  }
+
   /** Plain click: only `tag`. */
   select(tag: string) {
+    this.followedTab = null;
     this.selection = [tag];
     this.anchor = tag;
   }
 
   /** ⌘/Ctrl-click: adds or removes `tag`. */
   toggle(tag: string) {
+    this.followedTab = null;
     this.selection = this.isSelected(tag)
       ? this.selection.filter((t) => t !== tag)
       : [...this.selection, tag];
@@ -225,6 +242,7 @@ export class LibraryStore {
 
   /** Shift-click: the range from the anchor to `tag` in the sidebar's visible `order`. */
   extendTo(tag: string, order: readonly string[]) {
+    this.followedTab = null;
     const from = this.anchor ? order.indexOf(this.anchor) : -1;
     const to = order.indexOf(tag);
     if (from < 0 || to < 0) {
@@ -237,6 +255,7 @@ export class LibraryStore {
 
   /** Replaces the selection (keeps the anchor when it stays selected). */
   setSelection(tags: readonly string[]) {
+    this.followedTab = null;
     this.selection = unique(tags);
     if (this.anchor && !this.selection.includes(this.anchor)) this.anchor = this.selection[0] ?? null;
   }
@@ -254,6 +273,7 @@ export class LibraryStore {
   }
 
   clearSelection() {
+    this.followedTab = null;
     this.selection = [];
     this.anchor = null;
   }

@@ -140,6 +140,8 @@ And a few things that make everyday work nicer:
   once — handy for configuring several switches the same way.
 - **📋 Copy next output.** Press the shortcut, run a command, and its output lands on your clipboard as
   clean text. Works even after `sudo -i` or on RouterOS.
+- **🧭 Always know where you are.** Switching tabs highlights the tab's entry in the sidebar, without
+  scrolling the list or opening folders.
 - **📁 File browser.** Copy files and folders between your computer and a server over SSH, with drag and
   drop.
 - **🔀 Port forwards.** Save SSH tunnels with an entry and start or stop them with one click. With several
