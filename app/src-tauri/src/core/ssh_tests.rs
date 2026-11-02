@@ -236,6 +236,13 @@ fn session_runs_ssh_with_the_askpass_environment_and_reports_its_exit() {
     );
     lab.core.ssh_record_cancel(&id).unwrap();
     lab.core.ssh_resize(&id, 100, 30).unwrap();
+    assert_eq!(
+        lab.core
+            .with_session(&id, rd_ssh::SshSession::flow_control)
+            .unwrap(),
+        Some(rd_ssh::FlowControl::WEBVIEW)
+    );
+    lab.core.ssh_ack(&id, 1024).unwrap();
     lab.core.ssh_input(&id, b"hello\r").unwrap();
     sink.wait_output("IN=hello");
     let exits = sink.wait_exits(1);
@@ -262,6 +269,7 @@ fn session_runs_ssh_with_the_askpass_environment_and_reports_its_exit() {
         lab.core.ssh_resize(&id, 1, 1).unwrap_err().code,
         "sessionNotFound"
     );
+    assert_eq!(lab.core.ssh_ack(&id, 1).unwrap_err().code, "sessionNotFound");
 }
 
 #[test]

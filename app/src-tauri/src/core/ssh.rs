@@ -21,7 +21,8 @@ use rd_ssh::known_hosts::{self, ChangedHostKey};
 use rd_ssh::local::LocalShell;
 use rd_ssh::recorder::Phase;
 use rd_ssh::{
-    ArgsError, SessionEvent, SessionKind, Sink, SpawnSpec, SshSecrets, SshSession, UnlockedKeyFile,
+    ArgsError, FlowControl, SessionEvent, SessionKind, Sink, SpawnSpec, SshSecrets, SshSession,
+    UnlockedKeyFile,
 };
 use serde::Serialize;
 use zeroize::Zeroizing;
@@ -440,7 +441,7 @@ impl AppCore {
             cols,
             rows,
             cwd: prepared.cwd,
-            flow_control: None,
+            flow_control: Some(FlowControl::WEBVIEW),
         };
         let message = match spec.kind {
             SessionKind::Ssh => "Couldn't start ssh.",
@@ -681,7 +682,7 @@ impl AppCore {
 
     /// Runs `work` on the session's current process, outside the sessions lock (the session emits events
     /// that take it).
-    fn with_session<T>(
+    pub(super) fn with_session<T>(
         &self,
         session_id: &str,
         work: impl FnOnce(&SshSession) -> T,
@@ -727,6 +728,14 @@ impl AppCore {
             });
         }
         Ok(())
+    }
+
+    /// The terminal parsed `bytes` of the session's output (flow control, [`FlowControl::WEBVIEW`]).
+    ///
+    /// # Errors
+    /// `sessionNotFound`.
+    pub fn ssh_ack(&self, session_id: &str, bytes: usize) -> Result<(), CommandError> {
+        self.with_session(session_id, |s| s.ack(bytes))
     }
 
     /// Resizes the PTY. Errors after exit are ignored.

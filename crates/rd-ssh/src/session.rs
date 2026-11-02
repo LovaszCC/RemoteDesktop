@@ -425,6 +425,12 @@ impl SshSession {
         writer.flush()
     }
 
+    /// The flow control it runs with.
+    #[must_use]
+    pub fn flow_control(&self) -> Option<FlowControl> {
+        self.shared.flow_control
+    }
+
     /// The receiver processed `bytes` of output; with [`FlowControl`] the flusher may send more.
     /// Acknowledging more than was sent (output of a replaced run) just empties the count.
     pub fn ack(&self, bytes: usize) {
