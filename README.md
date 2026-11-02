@@ -25,6 +25,7 @@
 <br>
 **[⬇️ Download](https://github.com/LovaszCC/RemoteDesktop/releases/latest)** ·
 **[✨ Features](#-what-it-does)** ·
+**[🔒 VPN](#-connect-with-vpn-macvpn--winvpn--linvpn)** ·
 **[🔐 Security](#-security)** ·
 **[🛠 Build](#-build-from-source)**
 
@@ -42,6 +43,12 @@ sensitive is locked behind one master password.
 <p align="center">
   <img src="screenshots/split-broadcast.png" width="900" alt="Three SSH sessions side by side in a split view, typing into two of them at once">
 </p>
+
+> [!TIP]
+> **New in 1.6.11: Connect with VPN.** Pair RemoteDesktop with
+> **[MacVPN](https://github.com/SepsiG/MacVPN)** (WinVPN on Windows, LinVPN on Linux) and an entry brings its
+> VPN up by itself when the server isn't reachable, then lets it go when you close the last tab
+> ([how it works](#-connect-with-vpn-macvpn--winvpn--linvpn)).
 
 > [!NOTE]
 > **New in 1.6.5:** RemoteDesktop now runs on Windows and Linux too. If you used the earlier macOS app,
@@ -151,8 +158,8 @@ And a few things that make everyday work nicer:
   SSH connections you pick which one each tunnel runs through.
 - **🛡️ Connect with VPN.** Give an entry a VPN from [MacVPN](https://github.com/SepsiG/MacVPN) (WinVPN on
   Windows, LinVPN on Linux) and a test address: when the address doesn't answer, the app brings the VPN up
-  first, waits through its sign-in, and lets it go when the last tab using it closes. Pair once in
-  *Settings → VPN*.
+  first, waits through its sign-in, and lets it go when the last tab using it closes. See
+  [Connect with VPN](#-connect-with-vpn-macvpn--winvpn--linvpn).
 - **⚠️ Root warning.** A tab shows a warning sign while you're logged in as root.
 - **🖍️ Terminal colours.** Terminals use Catppuccin Mocha in dark mode and Latte in light mode. Change any
   of the colours (background, text, cursor, selection and the 16 ANSI colours) separately for light and
@@ -264,6 +271,44 @@ after it, in a folder the app keeps for itself:
 - They belong to the database that's open. Switching databases swaps them.
 - Turning the setting off deletes the folder. **Turn it off before uninstalling**, the uninstaller doesn't
   know about the folder.
+
+---
+
+## 🔒 Connect with VPN (MacVPN · WinVPN · LinVPN)
+
+RemoteDesktop doesn't build VPNs itself: it works together with
+**[MacVPN](https://github.com/SepsiG/MacVPN)**, a free, open-source VPN manager for OpenVPN, WireGuard,
+IKEv2, SSTP, L2TP/IPsec and Cisco IPsec connections. It is one app for three systems:
+
+| System | VPN app |
+|---|---|
+| macOS | **MacVPN** (menu bar app) |
+| Windows 10 / 11 | **WinVPN** |
+| Linux (Debian / Ubuntu based) | **LinVPN** |
+
+**[⬇️ Download MacVPN, WinVPN or LinVPN](https://github.com/SepsiG/MacVPN/releases/latest)** (all three are
+released together).
+
+Give an entry a VPN and a **test address** (an address that only answers inside that network). When you
+connect, RemoteDesktop pings the address first:
+
+- **It answers** (you are in the office, or the VPN is already up): it connects directly.
+- **It doesn't:** it asks MacVPN to bring the VPN up, shows the progress (and when MacVPN waits for your
+  sign-in code or password, in its own window), then connects.
+- The VPN stays up while any tab of that VPN is open. When the last one closes, RemoteDesktop lets it go and
+  MacVPN disconnects it, unless you or another app still use it. *Settings → VPN* lists what is held.
+
+**Setting it up** (once per computer):
+
+1. Install MacVPN / WinVPN / LinVPN and add your VPN connections there.
+2. In it: **Manage Connections… → Paired apps → Allow other apps to control VPNs**.
+3. In RemoteDesktop: **Settings → VPN → Pair with MacVPN…** (WinVPN… / LinVPN…), and allow the pairing in
+   the window MacVPN opens. Tick the VPNs RemoteDesktop may use.
+4. Edit an entry → **VPN**: pick the VPN profile and the test address.
+
+The pairing token stays in your system's secret store (Keychain, Windows Credential Manager, Secret
+Service), never in the database. MacVPN only lets the paired RemoteDesktop executable use the VPNs you
+allowed, and you can revoke it any time under **Paired apps**.
 
 ---
 
