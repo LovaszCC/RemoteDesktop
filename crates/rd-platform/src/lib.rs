@@ -14,6 +14,7 @@ pub mod ping;
 pub mod rdp;
 pub mod settings;
 pub mod swift_defaults;
+pub mod vpn_endpoint;
 pub mod web;
 pub mod winbox;
 

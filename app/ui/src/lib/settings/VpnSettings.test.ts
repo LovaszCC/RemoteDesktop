@@ -1,7 +1,7 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fakeBridge } from '../testing/bridge';
-import type { VpnStatusDto } from '../types';
+import type { Platform, VpnStatusDto } from '../types';
 import { createVpnStore } from '../vpn/vpn.svelte';
 import { settingsTabs } from './model';
 import VpnSettings from './VpnSettings.svelte';
@@ -33,7 +33,11 @@ const HELD: VpnStatusDto = {
   ],
 };
 
-async function render(status: VpnStatusDto, replies: Parameters<typeof fakeBridge>[0] = {}) {
+async function render(
+  status: VpnStatusDto,
+  replies: Parameters<typeof fakeBridge>[0] = {},
+  platform: Platform = 'macos',
+) {
   let current = status;
   const bridge = fakeBridge({
     vpn_status: () => current,
@@ -50,7 +54,10 @@ async function render(status: VpnStatusDto, replies: Parameters<typeof fakeBridg
   await vpn.start();
   const confirm = vi.fn(async () => true);
   const alerts = { show: vi.fn() };
-  mounted = mount(VpnSettings, { target: document.body, props: { vpn, dialogs: { confirm }, alerts } });
+  mounted = mount(VpnSettings, {
+    target: document.body,
+    props: { vpn, dialogs: { confirm }, alerts, platform },
+  });
   await settle();
   return { bridge, confirm, alerts };
 }
@@ -114,8 +121,14 @@ describe('VpnSettings', () => {
     expect(text()).toContain('Still used by 2 open tabs');
   });
 
-  it('tab_hidden_off_macos', () => {
-    expect(settingsTabs('macos').map((tab) => tab.value)).toEqual(['general', 'shortcuts', 'vpn']);
-    expect(settingsTabs('windows').map((tab) => tab.value)).toEqual(['general', 'shortcuts']);
+  it('names_winvpn_on_windows', async () => {
+    await render({ supported: true, paired: false, held: [] }, {}, 'windows');
+    expect(button('Pair with WinVPN…')).toBeTruthy();
+    expect(text()).toContain('In WinVPN: Manage Connections…');
+    expect(text()).not.toContain('MacVPN');
+  });
+
+  it('tab_shown_on_every_platform', () => {
+    expect(settingsTabs().map((tab) => tab.value)).toEqual(['general', 'shortcuts', 'vpn']);
   });
 });

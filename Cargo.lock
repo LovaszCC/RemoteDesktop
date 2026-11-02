@@ -3097,6 +3097,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 
 [[package]]
+name = "macvpn-winsys"
+version = "2.1.4"
+source = "git+https://github.com/SepsiG/MacVPN?rev=27325122416a95930397e440183d771abf114f96#27325122416a95930397e440183d771abf114f96"
+dependencies = [
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "markup5ever"
 version = "0.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4470,6 +4478,7 @@ version = "1.6.10"
 dependencies = [
  "arboard",
  "dirs",
+ "macvpn-winsys",
  "mslnk",
  "objc2",
  "objc2-app-kit",

@@ -6,16 +6,24 @@
   import Button from '../components/Button.svelte';
   import Modal from '../components/Modal.svelte';
   import { t } from '../i18n/index.svelte';
+  import { app } from '../stores/app.svelte';
+  import type { Platform } from '../types';
+  import { vpnText } from './name';
   import { vpn as defaultVpn, type VpnStore } from './vpn.svelte';
 
-  let { vpn = defaultVpn }: { vpn?: Pick<VpnStore, 'progress' | 'cancel'> } = $props();
+  let {
+    vpn = defaultVpn,
+    platform = app.platform,
+  }: { vpn?: Pick<VpnStore, 'progress' | 'cancel'>; platform?: Platform } = $props();
+  /** A text naming MacVPN, with this system's VPN app (WinVPN, LinVPN). */
+  const vt = (key: string) => vpnText(t(key), platform);
 
   const progress = $derived(vpn.progress);
   const waiting = $derived(
     progress?.phase === 'waitingForMfa'
-      ? t('MacVPN needs your sign-in code — look at its window.')
+      ? vt('MacVPN needs your sign-in code — look at its window.')
       : progress?.phase === 'waitingForCredentials'
-        ? t('MacVPN needs your password — look at its window.')
+        ? vt('MacVPN needs your password — look at its window.')
         : null,
   );
 </script>

@@ -149,6 +149,10 @@ And a few things that make everyday work nicer:
   drop.
 - **🔀 Port forwards.** Save SSH tunnels with an entry and start or stop them with one click. With several
   SSH connections you pick which one each tunnel runs through.
+- **🛡️ Connect with VPN.** Give an entry a VPN from [MacVPN](https://github.com/SepsiG/MacVPN) (WinVPN on
+  Windows, LinVPN on Linux) and a test address: when the address doesn't answer, the app brings the VPN up
+  first, waits through its sign-in, and lets it go when the last tab using it closes. Pair once in
+  *Settings → VPN*.
 - **⚠️ Root warning.** A tab shows a warning sign while you're logged in as root.
 - **🖍️ Terminal colours.** Terminals use Catppuccin Mocha in dark mode and Latte in light mode. Change any
   of the colours (background, text, cursor, selection and the 16 ANSI colours) separately for light and

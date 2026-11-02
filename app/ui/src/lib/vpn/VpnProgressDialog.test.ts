@@ -53,4 +53,16 @@ describe('VpnProgressDialog', () => {
     flushSync();
     expect(dialog()).toBeNull();
   });
+
+  it('names LinVPN on Linux', async () => {
+    const bridge = fakeBridge({ vpn_status: { supported: true, paired: true, held: [] }, vpn_cancel: null });
+    const vpn = createVpnStore({ ...bridge, toast: { show: vi.fn() } });
+    await vpn.start();
+    mounted = mount(VpnProgressDialog, { target: document.body, props: { vpn, platform: 'linux' } });
+    bridge.emit('vpn-progress', progress('waitingForMfa'));
+    flushSync();
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
+      'LinVPN needs your sign-in code — look at its window.',
+    );
+  });
 });

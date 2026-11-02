@@ -5,14 +5,13 @@
   import Segmented from '../components/Segmented.svelte';
   import { t } from '../i18n/index.svelte';
   import { recorder } from '../shortcuts/recorder.svelte';
-  import { app } from '../stores/app.svelte';
   import { settingsWindow } from '../stores/settingsWindow.svelte';
   import GeneralSettings from './GeneralSettings.svelte';
   import { settingsTabs } from './model';
   import ShortcutsSettings from './ShortcutsSettings.svelte';
   import VpnSettings from './VpnSettings.svelte';
 
-  const tabs = $derived(settingsTabs(app.platform));
+  const tabs = $derived(settingsTabs());
 
   function close() {
     // Esc while recording only cancels the recording (the recorder swallows it first).
@@ -33,7 +32,7 @@
     <div class="page">
       {#if settingsWindow.tab === 'general'}
         <GeneralSettings />
-      {:else if settingsWindow.tab === 'vpn' && app.platform === 'macos'}
+      {:else if settingsWindow.tab === 'vpn'}
         <VpnSettings />
       {:else}
         <ShortcutsSettings />

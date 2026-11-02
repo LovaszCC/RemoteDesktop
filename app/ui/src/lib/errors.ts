@@ -4,6 +4,7 @@
 import { toCommandError, type CommandError } from './api';
 import { has, t } from './i18n/index.svelte';
 import type { NoDatabaseCode, Phase, ShortcutCommand } from './types';
+import { vpnText } from './vpn/name';
 
 /** Catalog keys of the shortcut commands' titles (Swift `ShortcutCommand.title`). */
 export const COMMAND_TITLES: Record<ShortcutCommand, string> = {
@@ -152,7 +153,9 @@ export function errorMessage(error: unknown): string {
   const e: CommandError = toCommandError(error);
   const key = has(e.message) ? e.message : (CODE_KEYS[e.code] ?? e.message);
   const detail = e.code === 'inUse' && e.detail ? commandTitle(e.detail) : e.detail;
-  const text = key.includes('%@') ? t(key, detail ?? '') : t(key);
+  const translated = key.includes('%@') ? t(key, detail ?? '') : t(key);
+  // VPN errors name MacVPN; on Windows and Linux the app is WinVPN or LinVPN.
+  const text = e.code.startsWith('vpn') ? vpnText(translated) : translated;
   return DETAIL_SUFFIX.has(e.code) && detail ? `${text} (${detail})` : text;
 }
 

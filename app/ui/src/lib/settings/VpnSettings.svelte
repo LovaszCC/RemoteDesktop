@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Settings → VPN (macOS): pairing with MacVPN, and the VPNs RemoteDesktop holds up. "Release" lets go of
+  // Settings → VPN: pairing with MacVPN (WinVPN, LinVPN), and the VPNs RemoteDesktop holds up. "Release" lets go of
   // what external launches hold; open tabs keep theirs (the row says how many).
   import Button from '../components/Button.svelte';
   import FormRow from '../editors/FormRow.svelte';
@@ -8,15 +8,26 @@
   import { t, tn } from '../i18n/index.svelte';
   import { alerts as defaultAlerts, type AlertStore } from '../stores/alert.svelte';
   import { dialogs as defaultDialogs, type DialogStore } from '../stores/dialogs.svelte';
+  import { app } from '../stores/app.svelte';
+  import type { Platform } from '../types';
+  import { vpnText } from '../vpn/name';
   import { vpn as defaultVpn, type VpnStore } from '../vpn/vpn.svelte';
 
   interface Props {
     vpn?: VpnStore;
     dialogs?: Pick<DialogStore, 'confirm'>;
     alerts?: Pick<AlertStore, 'show'>;
+    platform?: Platform;
   }
 
-  let { vpn = defaultVpn, dialogs = defaultDialogs, alerts = defaultAlerts }: Props = $props();
+  let {
+    vpn = defaultVpn,
+    dialogs = defaultDialogs,
+    alerts = defaultAlerts,
+    platform = app.platform,
+  }: Props = $props();
+  /** A text naming MacVPN, with this system's VPN app (WinVPN, LinVPN). */
+  const vt = (key: string) => vpnText(t(key), platform);
   let pairing = $state(false);
 
   const status = $derived(vpn.status);
@@ -37,8 +48,8 @@
 
   async function unpair() {
     const ok = await dialogs.confirm({
-      title: t('Unpair from MacVPN?'),
-      message: t('RemoteDesktop forgets its MacVPN token. Revoke it in MacVPN → Paired apps too.'),
+      title: vt('Unpair from MacVPN?'),
+      message: vt('RemoteDesktop forgets its MacVPN token. Revoke it in MacVPN → Paired apps too.'),
       confirmLabel: t('Unpair'),
       destructive: true,
     });
@@ -46,12 +57,12 @@
   }
 </script>
 
-<FormSection title={t('MacVPN')}>
+<FormSection title={vt('MacVPN')}>
   {#if status?.paired}
     <FormRow>
       <div class="state">
-        <span class="paired">● {t('Paired with MacVPN')}</span>
-        <span class="hint">{t('Choose the VPNs RemoteDesktop may use in MacVPN → Paired apps.')}</span>
+        <span class="paired">● {vt('Paired with MacVPN')}</span>
+        <span class="hint">{vt('Choose the VPNs RemoteDesktop may use in MacVPN → Paired apps.')}</span>
         <div class="buttons">
           <Button disabled={pairing} onclick={() => void pair()}>{t('Pair again…')}</Button>
           <Button onclick={() => void unpair()}>{t('Unpair')}</Button>
@@ -63,20 +74,20 @@
       <div class="state">
         <span>{t('Not paired.')}</span>
         <span class="hint">
-          {t(
+          {vt(
             'In MacVPN: Manage Connections… → Paired apps → turn on "Allow other apps to control VPNs". Then pair, and tick the VPNs RemoteDesktop may use.',
           )}
         </span>
         <div class="buttons">
           <Button variant="primary" disabled={pairing} onclick={() => void pair()}>
-            {t('Pair with MacVPN…')}
+            {vt('Pair with MacVPN…')}
           </Button>
         </div>
       </div>
     </FormRow>
   {/if}
   {#if pairing}
-    <FormRow><span class="hint">{t('Waiting for MacVPN… Allow the pairing in its window.')}</span></FormRow>
+    <FormRow><span class="hint">{vt('Waiting for MacVPN… Allow the pairing in its window.')}</span></FormRow>
   {/if}
 </FormSection>
 

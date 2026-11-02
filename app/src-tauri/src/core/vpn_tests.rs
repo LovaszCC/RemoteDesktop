@@ -155,6 +155,15 @@ fn shared() -> (Arc<VpnShared>, SharedFake, Arc<Mutex<Vec<VpnNotice>>>) {
     (shared, fake, notices)
 }
 
+#[test]
+fn the_gate_is_on_where_the_vpn_app_exists() {
+    let shared = VpnShared::new(Box::new(SharedFake::default()));
+    assert_eq!(
+        shared.is_enabled(),
+        cfg!(any(target_os = "macos", windows, target_os = "linux"))
+    );
+}
+
 fn hold(shared: &Arc<VpnShared>, entry: &str) -> super::vpn::VpnHold {
     shared
         .acquire(PROFILE, "Office", entry, &mut |_| {}, &CancelFlag::default())
@@ -224,7 +233,6 @@ fn shutdown_closes_every_lease() {
     assert_eq!(fake.0.closes.load(Ordering::SeqCst), 1);
 }
 
-#[cfg(unix)]
 #[test]
 fn macvpn_errors_map_to_codes() {
     use super::vpn::macvpn_error;
@@ -263,6 +271,8 @@ fn macvpn_errors_map_to_codes() {
         (api(ErrorCode::Disabled, "disabled", None), "vpnNotRunning"),
         (api(ErrorCode::AppQuitting, "app_quitting", None), "vpnNotRunning"),
         (Error::Closed, "vpnFailed"),
+        // WinVPN's pipe served by another user (a squatter) is refused before anything is sent.
+        (io(std::io::ErrorKind::PermissionDenied), "vpnFailed"),
     ];
     for (error, code) in cases {
         assert_eq!(macvpn_error(&error).code, code, "{error:?}");
@@ -274,7 +284,6 @@ fn macvpn_errors_map_to_codes() {
     );
 }
 
-#[cfg(unix)]
 #[test]
 fn macvpn_states_map_to_phases() {
     use super::vpn::phase_of;

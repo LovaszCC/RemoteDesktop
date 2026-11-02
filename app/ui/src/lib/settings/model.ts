@@ -117,11 +117,11 @@ export function winboxDetectedText(detected: string | null | undefined): string 
   return detected ?? t('Not found');
 }
 
-/** The Settings sheet's tabs: VPN only on macOS (Connect with VPN needs MacVPN). */
-export function settingsTabs(platform: Platform): { value: SettingsTab; label: string }[] {
+/** The Settings sheet's tabs (VPN on every platform: MacVPN, WinVPN and LinVPN). */
+export function settingsTabs(): { value: SettingsTab; label: string }[] {
   return [
     { value: 'general', label: t('General') },
     { value: 'shortcuts', label: t('Keyboard Shortcuts') },
-    ...(platform === 'macos' ? [{ value: 'vpn' as const, label: t('VPN') }] : []),
+    { value: 'vpn', label: t('VPN') },
   ];
 }
