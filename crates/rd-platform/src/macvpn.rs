@@ -1,7 +1,7 @@
 // Copied from SepsiG/MacVPN `examples/macvpn-control-client/src/lib.rs` at commit
-// bec152b0763a2fbac2fb53eea945dc6040493b40. Changes: the Windows named-pipe transport and `default_endpoint` are
-// left out (WinVPN is not supported yet), so non-Unix builds use the "no transport" stub, and the doc example
-// names `rd_platform::macvpn`. Keep the rest as upstream ships it (not rustfmt'ed), so updates stay a plain copy.
+// 27325122416a95930397e440183d771abf114f96 (2.1.4). Changes: the doc example names `rd_platform::macvpn`.
+// Keep the rest as upstream ships it (not rustfmt'ed), so updates stay a plain copy. The Windows transport
+// needs `macvpn-winsys`, a git dependency pinned to the same commit.
 //
 // MIT License
 //
@@ -90,11 +90,23 @@ pub const PAIRING_WAIT: Duration = Duration::from_secs(150);
 
 /// `~/Library/Application Support/MacVPN/control/macvpn.sock`, where MacVPN listens while
 /// "Allow other apps to control VPNs" is on. The file does not exist while the setting is off.
+#[cfg(not(target_os = "linux"))]
 pub fn default_socket_path() -> io::Result<PathBuf> {
     let home = std::env::var_os("HOME")
         .filter(|home| !home.is_empty())
         .ok_or_else(|| io::Error::new(ErrorKind::NotFound, "HOME is not set"))?;
     Ok(PathBuf::from(home).join("Library/Application Support/MacVPN/control/macvpn.sock"))
+}
+
+/// `$XDG_RUNTIME_DIR/linvpn/control/linvpn.sock`, where LinVPN listens while "Allow other apps to control VPNs" is
+/// on.
+#[cfg(target_os = "linux")]
+pub fn default_socket_path() -> io::Result<PathBuf> {
+    let run = std::env::var_os("XDG_RUNTIME_DIR")
+        .map(PathBuf::from)
+        .filter(|p| p.is_absolute())
+        .ok_or_else(|| io::Error::new(ErrorKind::NotFound, "XDG_RUNTIME_DIR is not set"))?;
+    Ok(run.join("linvpn/control/linvpn.sock"))
 }
 
 // MARK: - Values on the wire
@@ -527,9 +539,71 @@ mod transport {
     }
 }
 
-/// Not Unix (Windows here: WinVPN's pipe is not used yet): no transport; [`Client::connect`] returns
-/// `ErrorKind::Unsupported`.
-#[cfg(not(unix))]
+/// On Windows: WinVPN's named pipe, `\\.\pipe\WinVPN-control-<your SID>` ([`default_endpoint`]). The client asks
+/// for identification-level impersonation only and refuses a pipe served by another user (`PermissionDenied`)
+/// before it sends anything. A squatter (another user's server that took the name first) can still identify the
+/// client while it connects (its SID, groups and privileges, at identification level), but it can never act as the
+/// client and receives no data: no bearer token, no request.
+#[cfg(windows)]
+mod transport {
+    use macvpn_winsys::pipe::{self, PipeStream};
+    use std::io::{self, ErrorKind, Read, Write};
+    use std::net::Shutdown;
+    use std::path::Path;
+    use std::time::Duration;
+
+    pub(crate) struct Stream(PipeStream);
+
+    /// `path` is the pipe name. Waits at most 5 s for a free instance.
+    pub(crate) fn connect(path: &Path) -> io::Result<Stream> {
+        let name = path.to_str().ok_or_else(|| io::Error::from(ErrorKind::InvalidInput))?;
+        pipe::connect(name, Duration::from_secs(5)).map(Stream)
+    }
+
+    impl Stream {
+        pub(crate) fn try_clone(&self) -> io::Result<Stream> {
+            Ok(Stream(self.0.try_clone()))
+        }
+
+        pub(crate) fn set_read_timeout(&self, timeout: Option<Duration>) -> io::Result<()> {
+            self.0.set_read_timeout(timeout)
+        }
+
+        pub(crate) fn set_write_timeout(&self, timeout: Option<Duration>) -> io::Result<()> {
+            self.0.set_write_timeout(timeout)
+        }
+
+        pub(crate) fn shutdown(&self, how: Shutdown) -> io::Result<()> {
+            self.0.shutdown(how)
+        }
+    }
+
+    impl Read for Stream {
+        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+            self.0.read_some(buf)
+        }
+    }
+
+    impl Write for Stream {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            self.0.write_some(buf)
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+}
+
+/// WinVPN's control endpoint for this user: the pipe name `\\.\pipe\WinVPN-control-<your SID>`, used as the
+/// `path` of [`Client::connect`], [`Client::open`], [`Client::pair`] and [`Lease::acquire`].
+#[cfg(windows)]
+pub fn default_endpoint() -> io::Result<PathBuf> {
+    macvpn_winsys::pipe::user_pipe_name("WinVPN-control").map(PathBuf::from)
+}
+
+/// Neither Unix nor Windows: no transport; [`Client::connect`] returns `ErrorKind::Unsupported`.
+#[cfg(not(any(unix, windows)))]
 mod transport {
     use std::io::{self, ErrorKind, Read, Write};
     use std::net::Shutdown;
@@ -722,6 +796,13 @@ mod tests {
         assert_eq!(client.closing_reason(), None);
         assert_eq!(client.next_event().unwrap(), None);
         assert_eq!(client.closing_reason(), Some("disabled"));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_default_socket_is_in_the_runtime_dir() {
+        let path = default_socket_path().unwrap();
+        assert!(path.ends_with("linvpn/control/linvpn.sock"), "{}", path.display());
     }
 
     #[test]
