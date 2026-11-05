@@ -832,6 +832,19 @@ int rdshim_resize(RdShim* shim, uint32_t width, uint32_t height)
 	return disp->SendMonitorLayout(disp, 1, &layout) == CHANNEL_RC_OK;
 }
 
+int rdshim_suppress_output(RdShim* shim, int suppress)
+{
+	rdpContext* context = shim->context;
+	if (!context || !context->update || !context->update->SuppressOutput || !context->settings)
+		return 0;
+	const UINT32 width = freerdp_settings_get_uint32(context->settings, FreeRDP_DesktopWidth);
+	const UINT32 height = freerdp_settings_get_uint32(context->settings, FreeRDP_DesktopHeight);
+	RECTANGLE_16 area = { 0 };
+	area.right = (UINT16)(width > 0 ? width - 1 : 0);
+	area.bottom = (UINT16)(height > 0 ? height - 1 : 0);
+	return context->update->SuppressOutput(context, suppress ? 0 : 1, suppress ? NULL : &area) ? 1 : 0;
+}
+
 /* ---- cliprdr, client to server -------------------------------------------------------------- */
 
 int rdshim_clip_capabilities(RdShim* shim, uint32_t general_flags)

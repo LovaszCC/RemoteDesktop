@@ -209,6 +209,7 @@ fn invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + 
         commands::launch::open_accessibility_settings,
         commands::rdp::open_rdp_session,
         commands::rdp::rdp_ack_frame,
+        commands::rdp::rdp_set_visible,
         commands::rdp::rdp_input,
         commands::rdp::rdp_release_all_keys,
         commands::rdp::rdp_resize,

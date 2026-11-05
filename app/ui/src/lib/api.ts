@@ -516,6 +516,9 @@ export function createApi(invoke: Invoke = tauriBridge.invoke) {
       call<{ sessionId: string }>('open_rdp_session', { connectionId, width, height, onFrame }),
     /** A frame was painted (at most 2 are in flight). */
     rdpAckFrame: (sessionId: string) => call<void>('rdp_ack_frame', { sessionId }),
+    /** The page shows or hides the session (another tab, hidden or minimised window): no frames while hidden. */
+    rdpSetVisible: (sessionId: string, visible: boolean) =>
+      call<void>('rdp_set_visible', { sessionId, visible }),
     rdpInput: (sessionId: string, events: RdpInput[]) => call<void>('rdp_input', { sessionId, events }),
     rdpReleaseAllKeys: (sessionId: string) => call<void>('rdp_release_all_keys', { sessionId }),
     /** The view's new size; Rust debounces the desktop resize (300 ms). */

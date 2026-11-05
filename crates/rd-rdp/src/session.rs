@@ -294,6 +294,8 @@ pub(crate) enum Command {
     ClipboardFiles(Option<Arc<crate::clipfiles::LocalFiles>>),
     Type(Vec<rd_core::rdp::TypedKey>),
     CancelFileTransfer,
+    /// The page shows (or stopped showing) the session.
+    Visible(bool),
     Close,
 }
 
@@ -398,12 +400,24 @@ impl RdpSession {
         self.send(Command::CancelFileTransfer);
     }
 
-    /// The page painted a frame.
+    /// The page painted a frame. When that frees the last slot the engine is woken, so waiting for
+    /// acks needs no timer.
     pub fn ack_frame(&self) {
-        let _ = self
+        let freed = self
             .shared
             .in_flight
             .try_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1));
+        if freed == Ok(crate::frame::MAX_IN_FLIGHT)
+            && let Some(remote) = self.shared.remote()
+        {
+            remote.wake();
+        }
+    }
+
+    /// The page shows the session (`true`) or hides it (another tab, minimised or hidden window). While
+    /// hidden no frames are sent and the server is asked to suppress output; showing sends what changed.
+    pub fn set_visible(&self, visible: bool) {
+        self.send(Command::Visible(visible));
     }
 
     /// Ends the session (gracefully when connected; a running connect is aborted). No `disconnected`

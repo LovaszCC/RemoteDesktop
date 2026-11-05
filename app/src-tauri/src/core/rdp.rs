@@ -47,6 +47,8 @@ pub trait RdpRun: Send + Sync {
     fn type_text(&self, text: &str) -> bool;
     /// A frame was painted.
     fn ack_frame(&self);
+    /// The page shows or hides the session (hidden: no frames, server output suppressed).
+    fn set_visible(&self, _visible: bool) {}
     /// Ends the session.
     fn close(&self);
     /// The engine still runs.
@@ -76,6 +78,9 @@ impl RdpRun for RdpSession {
     }
     fn ack_frame(&self) {
         RdpSession::ack_frame(self);
+    }
+    fn set_visible(&self, visible: bool) {
+        RdpSession::set_visible(self, visible);
     }
     fn close(&self) {
         RdpSession::close(self);
@@ -778,6 +783,16 @@ impl AppCore {
     /// `sessionNotFound`.
     pub fn rdp_ack_frame(&self, session_id: &str) -> Result<(), CommandError> {
         self.rdp_run(session_id)?.ack_frame();
+        Ok(())
+    }
+
+    /// The page shows (`true`) or hides the session: another tab is in front, or the window is hidden
+    /// or minimised.
+    ///
+    /// # Errors
+    /// `sessionNotFound`.
+    pub fn rdp_set_visible(&self, session_id: &str, visible: bool) -> Result<(), CommandError> {
+        self.rdp_run(session_id)?.set_visible(visible);
         Ok(())
     }
 

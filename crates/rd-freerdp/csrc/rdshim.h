@@ -127,6 +127,8 @@ int rdshim_send_mouse_ex(RdShim* shim, uint16_t flags, uint16_t x, uint16_t y);
 
 /* A Display Control monitor layout. 1 when sent (0: the channel isn't open). */
 int rdshim_resize(RdShim* shim, uint32_t width, uint32_t height);
+/* Suppress Output PDU: 1 asks the server to stop sending updates, 0 to resume (full area). */
+int rdshim_suppress_output(RdShim* shim, int suppress);
 
 /* cliprdr, client to server. 1 when sent. */
 int rdshim_clip_capabilities(RdShim* shim, uint32_t general_flags);

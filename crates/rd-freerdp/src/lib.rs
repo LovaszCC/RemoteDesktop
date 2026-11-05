@@ -306,6 +306,7 @@ mod ffi {
         pub fn rdshim_send_mouse(shim: *mut RdShim, flags: u16, x: u16, y: u16) -> c_int;
         pub fn rdshim_send_mouse_ex(shim: *mut RdShim, flags: u16, x: u16, y: u16) -> c_int;
         pub fn rdshim_resize(shim: *mut RdShim, width: u32, height: u32) -> c_int;
+        pub fn rdshim_suppress_output(shim: *mut RdShim, suppress: c_int) -> c_int;
         pub fn rdshim_clip_capabilities(shim: *mut RdShim, flags: u32) -> c_int;
         pub fn rdshim_clip_format_list(
             shim: *mut RdShim,
@@ -611,6 +612,13 @@ impl<H: Handler> Connection<H> {
     pub fn resize(&mut self, width: u32, height: u32) -> bool {
         // SAFETY: on the connection's thread.
         unsafe { ffi::rdshim_resize(self.raw(), width, height) == 1 }
+    }
+
+    /// Asks the server to stop (`true`) or resume sending screen updates (Suppress Output PDU); `false`
+    /// when not sent (servers that don't support it).
+    pub fn suppress_output(&mut self, suppress: bool) -> bool {
+        // SAFETY: on the connection's thread.
+        unsafe { ffi::rdshim_suppress_output(self.raw(), c_int::from(suppress)) == 1 }
     }
 
     /// The client's cliprdr capabilities.

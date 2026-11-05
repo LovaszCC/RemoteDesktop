@@ -242,6 +242,12 @@ pub fn rdp_ack_frame(core: State<'_, Core>, session_id: String) -> Result<(), Co
     core.rdp_ack_frame(&session_id)
 }
 
+/// The page shows or hides the session; while hidden no frames are sent. Errors: `sessionNotFound`.
+#[tauri::command]
+pub fn rdp_set_visible(core: State<'_, Core>, session_id: String, visible: bool) -> Result<(), CommandError> {
+    core.rdp_set_visible(&session_id, visible)
+}
+
 /// Canvas input, batched: `[{type: "key", code, key, down} | {type: "mouseMove", x, y} |
 /// {type: "mouseButton", button, down, x, y} | {type: "wheel", deltaX, deltaY, deltaMode, x, y}]`, with
 /// `x`/`y` in view pixels. Errors: `sessionNotFound`.

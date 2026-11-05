@@ -30,6 +30,28 @@
 
   let { sessions, id, active, settings = defaultSettings, app = defaultApp }: Props = $props();
 
+  // Hidden (another tab in front, or the window minimised or hidden): the engine stops sending frames
+  // and asks the server to suppress output; showing it again sends what changed.
+  let pageHidden = $state(typeof document !== 'undefined' && document.hidden);
+  onMount(() => {
+    const changed = () => (pageHidden = document.hidden);
+    document.addEventListener('visibilitychange', changed);
+    return () => document.removeEventListener('visibilitychange', changed);
+  });
+  const shown = $derived(active && !pageHidden);
+  let sentShown: boolean | null = null;
+  $effect(() => {
+    const visible = shown;
+    const connected = sessions.state(id)?.status.kind === 'connected';
+    if (!connected) {
+      sentShown = null;
+      return;
+    }
+    if (sentShown === visible) return;
+    sentShown = visible;
+    sessions.setVisible(id, visible);
+  });
+
   const session = $derived(sessions.state(id));
   const status = $derived(session?.status);
   const transfer = $derived(session?.transfer ?? null);
