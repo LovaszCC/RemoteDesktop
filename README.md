@@ -118,6 +118,7 @@ hurts.
 | 💻 **SSH** | A terminal tab inside the app, or your favourite terminal app. Your `~/.ssh/config` just works, and saved passwords are filled in for you. |
 | 🌐 **Web** | Opens the admin page in your browser and puts the password on the clipboard, ready to paste. Scheme, port and path are separate fields, and pasting a whole URL fills them in for you. |
 | 📶 **MikroTik** | Over SSH or straight into WinBox, already logged in. |
+| 🔌 **Serial** | A console over a USB-serial adapter (FTDI, CP210x, CH340, PL2303…) in a terminal tab — for OPNsense, switches and routers. Save the speed with the entry and pick the port when you connect. |
 
 And a few things that make everyday work nicer:
 
@@ -148,6 +149,13 @@ And a few things that make everyday work nicer:
   RDP*. Applies to sessions opened afterwards.
 - **📡 Split view with broadcast.** Open up to four terminals side by side, and type into all of them at
   once — handy for configuring several switches the same way.
+- **🔌 Serial consoles.** *Serial Console* under *Local Terminal* opens a console on a USB-serial adapter
+  with the speed and settings you type in; saved *Serial* entries remember them (115200 8N1 by default)
+  and only ask which port when more than one adapter is plugged in. If another tab holds the port, the app
+  offers to take it over. Unplug the cable and the tab stays open with *Reconnect*; *Copy output* and
+  *Save to file…* give you the whole session as plain text, even a boot log longer than the scrollback
+  (kept in a temporary file that is deleted when the tab closes). *Settings…* changes the speed of an open
+  console. On Linux your user needs to be in the `dialout` group.
 - **📋 Copy next output.** Press the shortcut, run a command, and its output lands on your clipboard as
   clean text. Works even after `sudo -i` or on RouterOS.
 - **🧭 Always know where you are.** Switching tabs highlights the tab's entry in the sidebar, without
