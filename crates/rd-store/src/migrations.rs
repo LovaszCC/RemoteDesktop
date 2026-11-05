@@ -128,6 +128,18 @@ ALTER TABLE "entry" ADD COLUMN "vpnTestAddress" TEXT NOT NULL DEFAULT '';
 "#,
         post: None,
     },
+    Migration {
+        // Serial console settings; the port is picked at connect time.
+        id: "v16-serial",
+        sql: r#"
+ALTER TABLE "connection" ADD COLUMN "serialBaud" INTEGER NOT NULL DEFAULT 115200;
+ALTER TABLE "connection" ADD COLUMN "serialDataBits" INTEGER NOT NULL DEFAULT 8;
+ALTER TABLE "connection" ADD COLUMN "serialParity" TEXT NOT NULL DEFAULT 'none';
+ALTER TABLE "connection" ADD COLUMN "serialStopBits" TEXT NOT NULL DEFAULT '1';
+ALTER TABLE "connection" ADD COLUMN "serialFlowControl" TEXT NOT NULL DEFAULT 'none';
+"#,
+        post: None,
+    },
 ];
 
 /// Rewrites each web connection's URL into the entry host and the connection's port, scheme and path.
@@ -212,7 +224,7 @@ pub(crate) fn legacy_web_url(value: &str) -> Option<String> {
 }
 
 /// Migration ids in the order they apply: the Swift app's, then this app's own.
-pub const MIGRATION_IDS: [&str; 15] = [
+pub const MIGRATION_IDS: [&str; 16] = [
     "v1",
     "v2-credentials",
     "v3-rdp-admin",
@@ -228,6 +240,7 @@ pub const MIGRATION_IDS: [&str; 15] = [
     "v13-saved-split",
     "v14-entries",
     "v15-entry-vpn",
+    "v16-serial",
 ];
 
 /// The known migration ids that `conn` hasn't recorded, in order; all of them for a database without
@@ -374,7 +387,7 @@ mod tests {
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM grdb_migrations", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(count, 16);
+        assert_eq!(count, 17);
     }
 
     /// id, folderId, name, host, notes, color, isFavorite, defaultConnectionId, createdAt, updatedAt.

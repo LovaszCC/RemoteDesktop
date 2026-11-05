@@ -12,7 +12,7 @@ use rusqlite::{Row, ToSql};
 pub(crate) const CONNECTION_COLUMNS: &str = "id, folderId, credentialId, type, name, host, port, username, \
     domain, passwordEnc, sshKeyPath, sshKeyPassphraseEnc, isFavorite, rdpAdminSession, browserBundleId, \
     mikrotikMode, sshTerminal, rdpClient, color, notes, createdAt, updatedAt, entryId, label, showAsButton, \
-    sortOrder, webScheme, webPath";
+    sortOrder, webScheme, webPath, serialBaud, serialDataBits, serialParity, serialStopBits, serialFlowControl";
 /// Column list for `SELECT`/`INSERT` on `entry`, in [`entry_from_row`] order.
 pub(crate) const ENTRY_COLUMNS: &str = "id, folderId, name, host, notes, color, isFavorite, defaultConnectionId, \
     createdAt, updatedAt, vpnConnectionId, vpnTestMode, vpnTestAddress";
@@ -105,6 +105,11 @@ pub(crate) fn connection_from_row(row: &Row<'_>) -> rusqlite::Result<Connection>
         sort_order: row.get(25)?,
         web_scheme: row.get(26)?,
         web_path: row.get(27)?,
+        serial_baud: row.get(28)?,
+        serial_data_bits: row.get(29)?,
+        serial_parity: text(row, 30)?,
+        serial_stop_bits: text(row, 31)?,
+        serial_flow_control: text(row, 32)?,
     })
 }
 

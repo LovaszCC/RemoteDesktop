@@ -1,7 +1,8 @@
 //! The stored records. Field names follow the Swift models; secrets stay [`Sealed`].
 
 use super::{
-    ConnectionType, LabelColor, MikrotikMode, RdpClient, Sealed, SshTerminal, Timestamp, VpnTestMode, new_id,
+    ConnectionType, LabelColor, MikrotikMode, RdpClient, Sealed, SerialFlowControl, SerialParity,
+    SerialStopBits, SshTerminal, Timestamp, VpnTestMode, new_id,
 };
 
 /// A sidebar folder; folders nest through `parent_id`.
@@ -180,6 +181,16 @@ pub struct Connection {
     pub web_scheme: String,
     /// Web only: path after the host and port, empty for none.
     pub web_path: String,
+    /// Serial only: baud rate.
+    pub serial_baud: u32,
+    /// Serial only: data bits (5–8).
+    pub serial_data_bits: u8,
+    /// Serial only: parity.
+    pub serial_parity: SerialParity,
+    /// Serial only: stop bits.
+    pub serial_stop_bits: SerialStopBits,
+    /// Serial only: flow control.
+    pub serial_flow_control: SerialFlowControl,
     /// Creation time.
     pub created_at: Timestamp,
     /// Last change; the repository sets it on save.
@@ -187,6 +198,11 @@ pub struct Connection {
 }
 
 impl Connection {
+    /// Default serial baud rate.
+    pub const DEFAULT_SERIAL_BAUD: u32 = 115_200;
+    /// Default serial data bits.
+    pub const DEFAULT_SERIAL_DATA_BITS: u8 = 8;
+
     /// A new connection with a fresh id and the Swift defaults. It is its own entry (`entry_id == id`)
     /// until the caller points it at another one.
     #[must_use]
@@ -220,6 +236,11 @@ impl Connection {
             sort_order: 0,
             web_scheme: "https".to_owned(),
             web_path: String::new(),
+            serial_baud: Self::DEFAULT_SERIAL_BAUD,
+            serial_data_bits: Self::DEFAULT_SERIAL_DATA_BITS,
+            serial_parity: SerialParity::None,
+            serial_stop_bits: SerialStopBits::One,
+            serial_flow_control: SerialFlowControl::None,
             created_at: now,
             updated_at: now,
         }

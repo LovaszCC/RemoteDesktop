@@ -371,6 +371,11 @@ fn plan_entry(
         connection.sort_order = i64::try_from(position).unwrap_or(i64::MAX);
         connection.web_scheme.clone_from(&source.web_scheme);
         connection.web_path.clone_from(&source.web_path);
+        connection.serial_baud = source.serial_baud;
+        connection.serial_data_bits = source.serial_data_bits;
+        connection.serial_parity = source.serial_parity;
+        connection.serial_stop_bits = source.serial_stop_bits;
+        connection.serial_flow_control = source.serial_flow_control;
         connection.updated_at = now;
         forwards.extend(source.port_forwards.iter().map(|forward| PortForward {
             id: new_id(),
@@ -878,6 +883,56 @@ mod tests {
         assert!(library.port_forwards.is_empty());
         assert_eq!(connections[2].kind, ConnectionType::Web);
         assert_eq!(connections[2].notes, "updated");
+    }
+
+    #[test]
+    fn serial_settings_survive_export_and_import() {
+        use rd_core::{SerialParity, SerialStopBits};
+        let (db, vault) = setup();
+        let entry = Entry::new("OPNsense", "");
+        let mut serial = rd_core::Connection::new(ConnectionType::Serial, "OPNsense", "");
+        serial.entry_id.clone_from(&entry.id);
+        serial.serial_baud = 9600;
+        serial.serial_parity = SerialParity::Even;
+        serial.serial_stop_bits = SerialStopBits::Two;
+        db.write_entry(&entry, &[serial], &[]).unwrap();
+        let payload = export(&db, &vault, &entry, None);
+        let exported = &payload.entries[0].connections[0];
+        assert_eq!(exported.serial_baud, 9600);
+
+        let target = Database::open_in_memory().unwrap();
+        let target_vault = Vault::create(&target, "master", ITERATIONS).unwrap();
+        target
+            .import_transfer(
+                &payload,
+                &TransferDecisions {
+                    entries: all(1, TransferAction::New),
+                    credentials: Vec::new(),
+                },
+                &target_vault,
+            )
+            .unwrap();
+        let library = target.library().unwrap();
+        let imported = &library.connections[0];
+        assert_eq!(imported.kind, ConnectionType::Serial);
+        assert_eq!(imported.serial_baud, 9600);
+        assert_eq!(imported.serial_parity, SerialParity::Even);
+        assert_eq!(imported.serial_stop_bits, SerialStopBits::Two);
+
+        // A file from before serial support: the fields default.
+        let mut old = serde_json::to_value(exported).unwrap();
+        for key in [
+            "serialBaud",
+            "serialDataBits",
+            "serialParity",
+            "serialStopBits",
+            "serialFlowControl",
+        ] {
+            old.as_object_mut().unwrap().remove(key);
+        }
+        let old: rd_core::transfer::ExportedConnection = serde_json::from_value(old).unwrap();
+        assert_eq!((old.serial_baud, old.serial_data_bits), (115_200, 8));
+        assert_eq!(old.serial_parity, SerialParity::None);
     }
 
     #[test]

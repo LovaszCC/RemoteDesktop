@@ -7,7 +7,7 @@ use serde::Serialize;
 use super::{ExportPayload, ExportedConnection, ExportedEntry};
 use crate::draft::split_web_url;
 use crate::import::split_host_port;
-use crate::model::{Connection, ConnectionType, Timestamp};
+use crate::model::{Connection, ConnectionType, SerialFlowControl, SerialParity, SerialStopBits, Timestamp};
 
 /// Why a CSV file can't be read at all.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -162,6 +162,11 @@ fn connection(kind: ConnectionType) -> ExportedConnection {
         show_as_button: false,
         web_scheme: defaults.web_scheme,
         web_path: String::new(),
+        serial_baud: Connection::DEFAULT_SERIAL_BAUD,
+        serial_data_bits: Connection::DEFAULT_SERIAL_DATA_BITS,
+        serial_parity: SerialParity::None,
+        serial_stop_bits: SerialStopBits::One,
+        serial_flow_control: SerialFlowControl::None,
         port_forwards: Vec::new(),
     }
 }

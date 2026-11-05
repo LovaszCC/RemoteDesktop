@@ -181,14 +181,14 @@ mod tests {
         let before = std::fs::read(&path).unwrap();
         assert_eq!(
             pending_migrations(&path).unwrap(),
-            vec!["v14-entries", "v15-entry-vpn"]
+            vec!["v14-entries", "v15-entry-vpn", "v16-serial"]
         );
         assert_eq!(std::fs::read(&path).unwrap(), before, "the peek must not write");
 
         let db = Database::open_unmigrated(&path).unwrap();
         assert_eq!(
             db.pending_migrations().unwrap(),
-            vec!["v14-entries", "v15-entry-vpn"]
+            vec!["v14-entries", "v15-entry-vpn", "v16-serial"]
         );
         db.migrate().unwrap();
         assert!(db.pending_migrations().unwrap().is_empty());

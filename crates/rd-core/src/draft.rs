@@ -6,8 +6,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::model::{
-    Connection, ConnectionType, Entry, EntryVpn, LabelColor, MikrotikMode, RdpClient, SshTerminal,
-    VpnTestMode,
+    Connection, ConnectionType, Entry, EntryVpn, LabelColor, MikrotikMode, RdpClient, SerialFlowControl,
+    SerialParity, SerialStopBits, SshTerminal, VpnTestMode,
 };
 
 /// The entry editor's shared fields: what every connection of the entry has in common. The default
@@ -126,6 +126,21 @@ pub struct ConnectionDraft {
     /// Web only: the path, with any `?query#fragment`; empty means none.
     #[serde(default)]
     pub web_path: String,
+    /// Serial only: baud rate.
+    #[serde(default = "default_serial_baud")]
+    pub serial_baud: u32,
+    /// Serial only: data bits (5–8).
+    #[serde(default = "default_serial_data_bits")]
+    pub serial_data_bits: u8,
+    /// Serial only: parity.
+    #[serde(default = "default_serial_parity")]
+    pub serial_parity: SerialParity,
+    /// Serial only: stop bits.
+    #[serde(default = "default_serial_stop_bits")]
+    pub serial_stop_bits: SerialStopBits,
+    /// Serial only: flow control.
+    #[serde(default = "default_serial_flow_control")]
+    pub serial_flow_control: SerialFlowControl,
     /// Optional label among the entry's connections.
     #[serde(default)]
     pub label: String,
@@ -154,6 +169,26 @@ fn default_ssh_terminal() -> SshTerminal {
     SshTerminal::Embedded
 }
 
+fn default_serial_baud() -> u32 {
+    Connection::DEFAULT_SERIAL_BAUD
+}
+
+fn default_serial_data_bits() -> u8 {
+    Connection::DEFAULT_SERIAL_DATA_BITS
+}
+
+fn default_serial_parity() -> SerialParity {
+    SerialParity::None
+}
+
+fn default_serial_stop_bits() -> SerialStopBits {
+    SerialStopBits::One
+}
+
+fn default_serial_flow_control() -> SerialFlowControl {
+    SerialFlowControl::None
+}
+
 /// Why a draft can't be saved. [`code`](Self::code) is a stable id the UI translates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -173,11 +208,17 @@ pub enum DraftError {
     /// The VPN test pings a test address, but none is given.
     #[error("Enter the test address.")]
     EmptyVpnTestAddress,
+    /// Serial: the baud rate is 0.
+    #[error("The baud rate must be a positive number.")]
+    InvalidBaud,
+    /// Serial: data bits outside 5–8.
+    #[error("Data bits must be 5, 6, 7 or 8.")]
+    InvalidDataBits,
 }
 
 impl DraftError {
-    /// The stable error code: `emptyName`, `invalidUrl`, `emptyHost`, `invalidPort` or
-    /// `emptyVpnTestAddress`.
+    /// The stable error code: `emptyName`, `invalidUrl`, `emptyHost`, `invalidPort`,
+    /// `emptyVpnTestAddress`, `invalidBaud` or `invalidDataBits`.
     #[must_use]
     pub fn code(self) -> &'static str {
         match self {
@@ -186,6 +227,8 @@ impl DraftError {
             Self::EmptyHost => "emptyHost",
             Self::InvalidPort => "invalidPort",
             Self::EmptyVpnTestAddress => "emptyVpnTestAddress",
+            Self::InvalidBaud => "invalidBaud",
+            Self::InvalidDataBits => "invalidDataBits",
         }
     }
 }
@@ -219,6 +262,11 @@ impl ConnectionDraft {
             ssh_terminal: default_ssh_terminal(),
             web_scheme: default_web_scheme(),
             web_path: String::new(),
+            serial_baud: default_serial_baud(),
+            serial_data_bits: default_serial_data_bits(),
+            serial_parity: default_serial_parity(),
+            serial_stop_bits: default_serial_stop_bits(),
+            serial_flow_control: default_serial_flow_control(),
             label: String::new(),
             show_as_button: default_show_as_button(),
         }
@@ -241,6 +289,11 @@ impl ConnectionDraft {
             ssh_terminal: connection.ssh_terminal,
             web_scheme: connection.web_scheme.clone(),
             web_path: connection.web_path.clone(),
+            serial_baud: connection.serial_baud,
+            serial_data_bits: connection.serial_data_bits,
+            serial_parity: connection.serial_parity,
+            serial_stop_bits: connection.serial_stop_bits,
+            serial_flow_control: connection.serial_flow_control,
             label: connection.label.clone(),
             show_as_button: connection.show_as_button,
         }
@@ -253,6 +306,15 @@ impl ConnectionDraft {
     pub fn validate(&self, host: &str) -> Result<(), DraftError> {
         if self.kind == ConnectionType::Web {
             return self.web_parts(host).map(|_| ());
+        }
+        if self.kind == ConnectionType::Serial {
+            if self.serial_baud == 0 {
+                return Err(DraftError::InvalidBaud);
+            }
+            if !(5..=8).contains(&self.serial_data_bits) {
+                return Err(DraftError::InvalidDataBits);
+            }
+            return Ok(());
         }
         if trim(host).is_empty() {
             return Err(DraftError::EmptyHost);
@@ -309,9 +371,10 @@ impl ConnectionDraft {
         self.validate(host)?;
         let ssh = self.kind.uses_ssh();
         let key_path = trim(&self.ssh_key_path);
+        let serial = self.kind == ConnectionType::Serial;
         connection.kind = self.kind;
-        connection.credential_id.clone_from(&self.credential_id);
-        connection.port = self.parsed_port()?;
+        connection.credential_id = if serial { None } else { self.credential_id.clone() };
+        connection.port = if serial { None } else { self.parsed_port()? };
         trim(&self.username).clone_into(&mut connection.username);
         connection.domain = if self.kind == ConnectionType::Rdp {
             trim(&self.domain).to_owned()
@@ -336,6 +399,15 @@ impl ConnectionDraft {
         } else {
             None
         };
+        if serial {
+            connection.username.clear();
+            connection.password_enc = None;
+            connection.serial_baud = self.serial_baud;
+            connection.serial_data_bits = self.serial_data_bits;
+            connection.serial_parity = self.serial_parity;
+            connection.serial_stop_bits = self.serial_stop_bits;
+            connection.serial_flow_control = self.serial_flow_control;
+        }
         connection.mikrotik_mode = self.mikrotik_mode;
         connection.ssh_terminal = self.ssh_terminal;
         connection.rdp_client = self.rdp_client;
@@ -653,6 +725,45 @@ mod tests {
             serde_json::to_string(&DraftError::InvalidPort).unwrap(),
             "\"invalidPort\""
         );
+    }
+
+    #[test]
+    fn serial_needs_no_host_but_valid_settings() {
+        let mut d = draft(ConnectionType::Serial);
+        assert_eq!(d.validate(""), Ok(()));
+        assert_eq!(d.validate("  "), Ok(()));
+        d.serial_baud = 0;
+        assert_eq!(d.validate(""), Err(DraftError::InvalidBaud));
+        d.serial_baud = 9600;
+        for bad in [4, 9] {
+            d.serial_data_bits = bad;
+            assert_eq!(d.validate(""), Err(DraftError::InvalidDataBits), "{bad}");
+        }
+        d.serial_data_bits = 7;
+        d.serial_parity = SerialParity::Even;
+        d.serial_stop_bits = SerialStopBits::Two;
+        d.serial_flow_control = SerialFlowControl::Hardware;
+        d.port = "22".into();
+        d.username = "root".into();
+        let mut c = Connection::new(ConnectionType::Ssh, "OPNsense", "");
+        d.apply_to("", &mut c).unwrap();
+        assert_eq!(c.kind, ConnectionType::Serial);
+        assert_eq!((c.serial_baud, c.serial_data_bits), (9600, 7));
+        assert_eq!(c.serial_parity, SerialParity::Even);
+        assert_eq!(c.serial_stop_bits, SerialStopBits::Two);
+        assert_eq!(c.serial_flow_control, SerialFlowControl::Hardware);
+        assert_eq!((c.port, c.username.as_str()), (None, ""));
+        assert_eq!(ConnectionDraft::from_connection(&c).serial_baud, 9600);
+        assert_eq!(DraftError::InvalidBaud.code(), "invalidBaud");
+    }
+
+    #[test]
+    fn serial_draft_defaults_when_missing() {
+        let d: ConnectionDraft = serde_json::from_str(r#"{"type":"serial"}"#).unwrap();
+        assert_eq!((d.serial_baud, d.serial_data_bits), (115_200, 8));
+        assert_eq!(d.serial_parity, SerialParity::None);
+        assert_eq!(d.serial_stop_bits, SerialStopBits::One);
+        assert_eq!(d.serial_flow_control, SerialFlowControl::None);
     }
 
     #[test]
