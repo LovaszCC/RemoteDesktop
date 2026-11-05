@@ -155,6 +155,16 @@ fn invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + 
         commands::ssh::ssh_resize,
         commands::ssh::ssh_ack,
         commands::ssh::ssh_close,
+        commands::serial::serial_ports,
+        commands::serial::open_serial_session,
+        commands::serial::serial_input,
+        commands::serial::serial_ack,
+        commands::serial::serial_close,
+        commands::serial::serial_reconnect,
+        commands::serial::serial_session_settings,
+        commands::serial::serial_apply_settings,
+        commands::serial::serial_copy_output,
+        commands::serial::serial_save_output,
         commands::ssh::ssh_reconnect,
         commands::ssh::ssh_replace_host_key,
         commands::ssh::ssh_record_next_output,
@@ -241,6 +251,8 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let settings_dir = settings_dir();
+            // Output files of serial tabs a crash or a killed app left behind.
+            let _ = rd_serial::log::sweep(&rd_serial::log::default_dir());
             // First launch after the Swift app: carry its settings over (database path first) before the
             // core reads settings.json.
             let handover = rd_platform::swift_defaults::swift_defaults_path()

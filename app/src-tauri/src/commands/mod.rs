@@ -9,7 +9,8 @@
 //! - `settings-changed` ([`SettingsDto`](crate::dto::SettingsDto)) and `shortcuts-changed`
 //!   (`ShortcutDto[]`) after settings writes;
 //! - `menu-command` ([`MenuCommand`](crate::menu::MenuCommand)) when a native menu item is chosen;
-//! - `ssh-event`, `askpass-prompt` and `askpass-closed` for SSH sessions (see [`ssh`]);
+//! - `ssh-event`, `askpass-prompt` and `askpass-closed` for SSH sessions (see [`ssh`]); `ssh-event` also
+//!   for serial consoles (see [`serial`]);
 //! - `port-forward-status`, `host-key-prompt` and `host-key-closed` for port forwards (see [`forwards`]);
 //!   `host-key-prompt` also for "Set up SSH key login" (see [`keys`]);
 //! - `files-status`, `files-host-key-prompt`, `files-progress`, `files-conflict` and `files-done` for the
@@ -35,6 +36,7 @@ pub mod keys;
 pub mod launch;
 pub mod library;
 pub mod rdp;
+pub mod serial;
 pub mod session;
 pub mod settings;
 pub mod ssh;

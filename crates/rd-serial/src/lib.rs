@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 pub use log::OutputLog;
 pub use ports::UsbPort;
+pub use serialport;
 pub use session::{OpenError, SerialSession};
 
 /// How the port is configured.
