@@ -1,6 +1,26 @@
 // TypeScript mirrors of `app/src-tauri/src/dto.rs` (the authoritative shapes) and the command inputs.
 
-export type ConnectionType = 'rdp' | 'ssh' | 'web' | 'mikrotik';
+export type ConnectionType = 'rdp' | 'ssh' | 'web' | 'mikrotik' | 'serial';
+export type SerialParity = 'none' | 'odd' | 'even';
+export type SerialStopBits = '1' | '2';
+export type SerialFlowControl = 'none' | 'software' | 'hardware';
+
+/** How a serial port is configured (`rd_serial::SerialSettings`). */
+export interface SerialSettings {
+  baud: number;
+  /** 5–8. */
+  dataBits: number;
+  parity: SerialParity;
+  stopBits: SerialStopBits;
+  flowControl: SerialFlowControl;
+}
+
+/** A plugged-in USB-serial adapter, with the tab that holds it. */
+export interface SerialPortDto {
+  path: string;
+  label: string;
+  inUseBy: string | null;
+}
 export type SshTerminal = 'embedded' | 'external';
 export type RdpClient = 'embedded' | 'windowsApp';
 export type MikrotikMode = 'winbox' | 'ssh';
@@ -66,6 +86,11 @@ export interface ConnectionDto {
   mikrotikMode: MikrotikMode;
   sshTerminal: SshTerminal;
   rdpClient: RdpClient;
+  serialBaud: number;
+  serialDataBits: number;
+  serialParity: SerialParity;
+  serialStopBits: SerialStopBits;
+  serialFlowControl: SerialFlowControl;
   color: LabelColor | null;
   notes: string;
   folderPath: string;
@@ -361,6 +386,11 @@ export interface ConnectionDraft {
   sshTerminal?: SshTerminal;
   webScheme?: string;
   webPath?: string;
+  serialBaud?: number;
+  serialDataBits?: number;
+  serialParity?: SerialParity;
+  serialStopBits?: SerialStopBits;
+  serialFlowControl?: SerialFlowControl;
   label?: string;
   showAsButton?: boolean;
 }

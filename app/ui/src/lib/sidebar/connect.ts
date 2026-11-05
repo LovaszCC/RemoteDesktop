@@ -1,7 +1,7 @@
 // Where Connect goes (Swift `AppState.connect` / `launchSSH`): SSH, and MikroTik in SSH mode, open an
 // embedded session or the external terminal per the connection's (or the menu item's) choice; web opens
 // the browser, MikroTik in WinBox mode starts WinBox, and RDP set to the system client hands a `.rdp` file
-// to it; RDP set to the embedded client opens an RDP tab.
+// to it; RDP set to the embedded client opens an RDP tab; serial picks a port and opens a console tab.
 
 import type { ConnectionDto, MikrotikMode, RdpClient, SshTerminal } from '../types';
 
@@ -12,7 +12,8 @@ export interface ConnectOptions {
   rdpClient?: RdpClient;
 }
 
-export type ConnectRoute = 'embedded' | 'external' | 'web' | 'winbox' | 'rdpEmbedded' | 'rdpExternal';
+export type ConnectRoute =
+  'embedded' | 'external' | 'web' | 'winbox' | 'rdpEmbedded' | 'rdpExternal' | 'serial';
 
 export function connectRoute(
   connection: Pick<ConnectionDto, 'type' | 'mikrotikMode' | 'sshTerminal' | 'rdpClient'>,
@@ -26,6 +27,8 @@ export function connectRoute(
     case 'mikrotik':
       if ((options.mode ?? connection.mikrotikMode) === 'winbox') return 'winbox';
       break;
+    case 'serial':
+      return 'serial';
     case 'ssh':
       break;
   }

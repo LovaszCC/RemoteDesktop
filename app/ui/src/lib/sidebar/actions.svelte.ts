@@ -12,6 +12,7 @@ import { settings as defaultSettings, type SettingsStore } from '../stores/setti
 import { toast as defaultToast, type ToastStore } from '../stores/toast.svelte';
 import { rdpSessions as defaultRdpSessions, type RdpSessionsStore } from '../rdp/sessions.svelte';
 import { sessions as defaultSessions, type SessionsStore } from '../terminal/sessions.svelte';
+import { serialConsoles as defaultSerial, type SerialConsolesStore } from '../terminal/serialConsoles.svelte';
 import { MAX_PANES } from '../terminal/split';
 import { splits as defaultSplits, type SplitsStore } from '../terminal/splits.svelte';
 import type { ConnectionDto, ConnectionType, LabelColor, LaunchOutcomeDto } from '../types';
@@ -40,6 +41,7 @@ export interface SidebarDeps {
   dialogs: DialogStore;
   sessions: Pick<SessionsStore, 'open' | 'openLocal'>;
   rdpSessions: Pick<RdpSessionsStore, 'open'>;
+  serialConsoles: Pick<SerialConsolesStore, 'connect' | 'openAdHoc'>;
   splits: Pick<SplitsStore, 'open' | 'openSaved'>;
   vpn: Pick<VpnStore, 'releaseEntry'>;
 }
@@ -54,6 +56,7 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
   const dialogs = deps.dialogs ?? defaultDialogs;
   const sessions = deps.sessions ?? defaultSessions;
   const rdpSessions = deps.rdpSessions ?? defaultRdpSessions;
+  const serialConsoles = deps.serialConsoles ?? defaultSerial;
   const splits = deps.splits ?? defaultSplits;
   const vpn = deps.vpn ?? defaultVpn;
 
@@ -146,6 +149,9 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
         case 'rdpEmbedded':
           await perform(() => rdpSessions.open(connection));
           return;
+        case 'serial':
+          await serialConsoles.connect(connection);
+          return;
       }
     },
 
@@ -160,6 +166,11 @@ export function createSidebarActions(deps: Partial<SidebarDeps> = {}) {
      */
     async openLocalTerminal(inheritFrom?: string) {
       await perform(() => sessions.openLocal(inheritFrom === undefined ? {} : { inheritFrom }));
+    },
+
+    /** The "Serial Console" entry: an ad-hoc console, port and settings typed in its dialog. */
+    async openSerialConsole() {
+      await serialConsoles.openAdHoc();
     },
 
     // Editors

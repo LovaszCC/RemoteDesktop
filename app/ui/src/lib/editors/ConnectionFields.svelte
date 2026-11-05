@@ -19,11 +19,14 @@
     fromPicker,
     splitPastedUrl,
     toPicker,
+    validBaud,
     webUrlPreview,
     type ConnectionForm,
   } from './model';
   import SecretInput from './SecretInput.svelte';
   import SshKeyField from './SshKeyField.svelte';
+  import type { SerialForm } from '../terminal/serial';
+  import SerialSettingsFields from '../terminal/SerialSettingsFields.svelte';
 
   /**
    * One connection tab of the entry editor (Swift `ConnectionEditorView`'s per-connection sections): the
@@ -73,6 +76,43 @@
   const credential = $derived(deps.library.credential(connection.credentialId));
   const ssh = $derived(usesSSH(connection.type));
   const web = $derived(connection.type === 'web');
+  const serial = $derived(connection.type === 'serial');
+  // The serial fields edit the connection form's own serial fields.
+  const serialFields: SerialForm = {
+    get baud() {
+      return connection.serialBaud;
+    },
+    set baud(value) {
+      connection.serialBaud = value;
+    },
+    get dataBits() {
+      return connection.serialDataBits;
+    },
+    set dataBits(value) {
+      connection.serialDataBits = value;
+    },
+    get parity() {
+      return connection.serialParity;
+    },
+    set parity(value) {
+      connection.serialParity = value;
+    },
+    get stopBits() {
+      return connection.serialStopBits;
+    },
+    set stopBits(value) {
+      connection.serialStopBits = value;
+    },
+    get flowControl() {
+      return connection.serialFlowControl;
+    },
+    set flowControl(value) {
+      connection.serialFlowControl = value;
+    },
+  };
+  const baudError = $derived(
+    serial && !validBaud(connection.serialBaud) ? t('Enter a positive whole number.') : null,
+  );
 
   const MIKROTIK_MODES: MikrotikMode[] = ['winbox', 'ssh'];
   const typeOptions = $derived(CONNECTION_TYPES.map((type) => ({ value: type, label: typeName(type) })));
@@ -131,18 +171,25 @@
         />
       </FormRow>
     {/if}
-    <FormRow label={t('Port')} for={id('port')} error={portError}>
-      <TextField
-        id={id('port')}
-        bind:value={connection.port}
-        placeholder={portPlaceholder}
-        inputmode="numeric"
-        invalid={!!portError}
-        oninput={() => onportinput?.()}
-        onpaste={web ? pasted : undefined}
-        class="short"
-      />
-    </FormRow>
+    {#if serial}
+      <SerialSettingsFields form={serialFields} idPrefix={id('serial')} {baudError} />
+      <FormRow label={t('Port')}>
+        <span class="readonly">{t('Chosen when connecting')}</span>
+      </FormRow>
+    {:else}
+      <FormRow label={t('Port')} for={id('port')} error={portError}>
+        <TextField
+          id={id('port')}
+          bind:value={connection.port}
+          placeholder={portPlaceholder}
+          inputmode="numeric"
+          invalid={!!portError}
+          oninput={() => onportinput?.()}
+          onpaste={web ? pasted : undefined}
+          class="short"
+        />
+      </FormRow>
+    {/if}
     {#if web}
       <FormRow label={t('Path')} for={id('path')}>
         <TextField id={id('path')} bind:value={connection.webPath} placeholder="/admin" onpaste={pasted} />
@@ -196,22 +243,43 @@
     </FormRow>
   </FormSection>
 
-  <FormSection title={t('Authentication')}>
-    <FormRow label={t('Credential')}>
-      <Select
-        value={toPicker(connection.credentialId)}
-        label={t('Credential')}
-        options={credentialOptions(library)}
-        onchange={(v) => (connection.credentialId = fromPicker(v))}
-      />
-    </FormRow>
-    {#if credential}
-      {#if credential.username === ''}
-        <FormRow
-          label={t('Username')}
-          for={id('user')}
-          hint={t('The credential has no username – this connection uses its own.')}
-        >
+  {#if !serial}
+    <FormSection title={t('Authentication')}>
+      <FormRow label={t('Credential')}>
+        <Select
+          value={toPicker(connection.credentialId)}
+          label={t('Credential')}
+          options={credentialOptions(library)}
+          onchange={(v) => (connection.credentialId = fromPicker(v))}
+        />
+      </FormRow>
+      {#if credential}
+        {#if credential.username === ''}
+          <FormRow
+            label={t('Username')}
+            for={id('user')}
+            hint={t('The credential has no username – this connection uses its own.')}
+          >
+            <TextField id={id('user')} bind:value={connection.username} />
+          </FormRow>
+          {#if connection.type === 'rdp'}
+            <FormRow label={t('Domain')} for={id('domain')}>
+              <TextField id={id('domain')} bind:value={connection.domain} placeholder={t('optional')} />
+            </FormRow>
+          {/if}
+        {:else}
+          <FormRow label={t('User')}><span class="readonly">{credential.displayUser}</span></FormRow>
+        {/if}
+        <FormRow label={t('Password')}>
+          <span class="readonly">{credential.hasPassword ? MASKED : EMPTY}</span>
+        </FormRow>
+        {#if ssh}
+          <FormRow label={t('SSH key')}
+            ><span class="readonly">{credential.sshKeyPath ?? EMPTY}</span></FormRow
+          >
+        {/if}
+      {:else}
+        <FormRow label={t('Username')} for={id('user')}>
           <TextField id={id('user')} bind:value={connection.username} />
         </FormRow>
         {#if connection.type === 'rdp'}
@@ -219,43 +287,26 @@
             <TextField id={id('domain')} bind:value={connection.domain} placeholder={t('optional')} />
           </FormRow>
         {/if}
-      {:else}
-        <FormRow label={t('User')}><span class="readonly">{credential.displayUser}</span></FormRow>
-      {/if}
-      <FormRow label={t('Password')}>
-        <span class="readonly">{credential.hasPassword ? MASKED : EMPTY}</span>
-      </FormRow>
-      {#if ssh}
-        <FormRow label={t('SSH key')}><span class="readonly">{credential.sshKeyPath ?? EMPTY}</span></FormRow>
-      {/if}
-    {:else}
-      <FormRow label={t('Username')} for={id('user')}>
-        <TextField id={id('user')} bind:value={connection.username} />
-      </FormRow>
-      {#if connection.type === 'rdp'}
-        <FormRow label={t('Domain')} for={id('domain')}>
-          <TextField id={id('domain')} bind:value={connection.domain} placeholder={t('optional')} />
+        <FormRow label={t('Password')} for={id('password')}>
+          <SecretInput id={id('password')} label={t('Password')} bind:value={connection.password} />
         </FormRow>
-      {/if}
-      <FormRow label={t('Password')} for={id('password')}>
-        <SecretInput id={id('password')} label={t('Password')} bind:value={connection.password} />
-      </FormRow>
-      {#if ssh}
-        <FormRow label={t('SSH key')} for={id('key')}>
-          <SshKeyField id={id('key')} bind:value={connection.sshKeyPath} name={entryName} />
-        </FormRow>
-        {#if connection.sshKeyPath.trim() !== ''}
-          <FormRow label={t('Key passphrase')} for={id('passphrase')}>
-            <SecretInput
-              id={id('passphrase')}
-              label={t('Key passphrase')}
-              bind:value={connection.passphrase}
-            />
+        {#if ssh}
+          <FormRow label={t('SSH key')} for={id('key')}>
+            <SshKeyField id={id('key')} bind:value={connection.sshKeyPath} name={entryName} />
           </FormRow>
+          {#if connection.sshKeyPath.trim() !== ''}
+            <FormRow label={t('Key passphrase')} for={id('passphrase')}>
+              <SecretInput
+                id={id('passphrase')}
+                label={t('Key passphrase')}
+                bind:value={connection.passphrase}
+              />
+            </FormRow>
+          {/if}
         {/if}
       {/if}
-    {/if}
-  </FormSection>
+    </FormSection>
+  {/if}
 
   <div class="connection-actions">
     <Button disabled={isDefault} onclick={onsetdefault}>{t('Set as default')}</Button>

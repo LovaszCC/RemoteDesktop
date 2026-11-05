@@ -34,6 +34,7 @@ import { rdpSessions as defaultRdpSessions, type RdpSessionsStore } from './rdp/
 import { openTestTab, tabs as defaultTabs, type TabsStore } from './tabs.svelte';
 import { sessions as defaultSessions, type SessionsStore } from './terminal/sessions.svelte';
 import { isLocalTerminal } from './terminal/local';
+import { serialConsoles as defaultSerial, type SerialConsolesStore } from './terminal/serialConsoles.svelte';
 import { splits as defaultSplits, type SplitsStore } from './terminal/splits.svelte';
 import { updates as defaultUpdates, type UpdateStore } from './updates/updates.svelte';
 import { sshConnections } from './sidebar/model';
@@ -61,6 +62,7 @@ export interface CommandDeps {
   transferImporter: Pick<TransferImportStore, 'start'>;
   csvImporter: Pick<CsvImportStore, 'start'>;
   sessions: Pick<SessionsStore, 'active' | 'clear' | 'toggleRecording' | 'reconnect'>;
+  serialConsoles: Pick<SerialConsolesStore, 'reconnect'>;
   splits: Pick<SplitsStore, 'splitActive' | 'toggleBroadcastActive'>;
   rdpSessions: Pick<RdpSessionsStore, 'active' | 'reconnect' | 'typeClipboard'>;
   updates: Pick<UpdateStore, 'checkManually'>;
@@ -110,6 +112,7 @@ export function createCommandRunner(deps: Partial<CommandDeps> = {}) {
   const transferImporter = deps.transferImporter ?? defaultTransferImporter;
   const csvImporter = deps.csvImporter ?? defaultCsvImporter;
   const sessions = deps.sessions ?? defaultSessions;
+  const serialConsoles = deps.serialConsoles ?? defaultSerial;
   const splits = deps.splits ?? defaultSplits;
   const rdpSessions = deps.rdpSessions ?? defaultRdpSessions;
   const updates = deps.updates ?? defaultUpdates;
@@ -199,7 +202,9 @@ export function createCommandRunner(deps: Partial<CommandDeps> = {}) {
       case 'reconnect': {
         // As in Swift, the exit bar's Reconnect button: only while the session has exited.
         const session = sessions.active;
-        if (session?.status.kind === 'exited') void sessions.reconnect(session.id);
+        if (session?.status.kind === 'exited') {
+          void (session.serial ? serialConsoles.reconnect(session.id) : sessions.reconnect(session.id));
+        }
         const rdp = rdpSessions.active;
         if (rdp?.status.kind === 'disconnected') void rdpSessions.reconnect(rdp.id);
         return;

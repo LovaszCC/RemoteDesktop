@@ -7,6 +7,7 @@ import { createToastStore } from '../stores/toast.svelte';
 import { TabsStore } from '../tabs.svelte';
 import { fakeBridge } from '../testing/bridge';
 import type { SshEvent, SshEventDto } from '../types';
+import { SERIAL_CONSOLE } from './serial';
 import { createSessionsStore } from './sessions.svelte';
 import TerminalSessionView from './TerminalSessionView.svelte';
 import type { TerminalHandle } from './xterm';
@@ -123,5 +124,54 @@ describe('TerminalSessionView', () => {
     button('Close')!.click();
     expect(tabs.hasSessions).toBe(false);
     expect(bridge.invoke).toHaveBeenCalledWith('ssh_close', { sessionId: 'S1' });
+  });
+
+  it('a serial console has Copy output, Save to file and Settings, and says "Connection lost"', async () => {
+    const bridge = fakeBridge({ open_serial_session: { sessionId: 'P1' }, serial_close: null });
+    const handle: TerminalHandle = {
+      write: vi.fn(),
+      clearLocal: vi.fn(),
+      attach: vi.fn(),
+      detach: vi.fn(),
+      fit: vi.fn(),
+      size: () => ({ cols: 80, rows: 24 }),
+      focus: vi.fn(),
+      dispose: vi.fn(),
+    };
+    const sessions = createSessionsStore({
+      api: createApi(bridge.invoke),
+      listen: bridge.listen,
+      tabs: new TabsStore(),
+      toast: createToastStore(),
+      alerts: createAlertStore(),
+      createTerminal: () => handle,
+      createChannel: () => ({ onmessage: () => {} }),
+    });
+    await sessions.open(SERIAL_CONSOLE, { serial: { port: '/dev/cu.A', settings: null, takeOver: false } });
+    const serial = {
+      copyOutput: vi.fn(async () => {}),
+      saveOutput: vi.fn(async () => {}),
+      settings: vi.fn(async () => {}),
+      reconnect: vi.fn(async () => {}),
+    };
+    const settings = createSettingsStore({ ...bridge, onLanguage: () => {} });
+    mounted = mount(TerminalSessionView, {
+      target: document.body,
+      props: { sessions, id: 'P1', active: true, settings, serial },
+    });
+    flushSync();
+    expect(button('Copy next output')).toBeUndefined();
+    button('Copy output')!.click();
+    button('Save to file…')!.click();
+    button('Settings…')!.click();
+    expect(serial.copyOutput).toHaveBeenCalledWith('P1');
+    expect(serial.saveOutput).toHaveBeenCalledWith('P1');
+    expect(serial.settings).toHaveBeenCalledWith('P1');
+
+    sessions.handleEvent({ sessionId: 'P1', kind: 'exit', code: null, authFailed: false } as SshEventDto);
+    flushSync();
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain('Connection lost');
+    button('Reconnect')!.click();
+    expect(serial.reconnect).toHaveBeenCalledWith('P1');
   });
 });

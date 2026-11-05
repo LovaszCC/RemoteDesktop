@@ -20,8 +20,16 @@ import { settings } from '../stores/settings.svelte';
 import { toast as defaultToast, type ToastStore } from '../stores/toast.svelte';
 import { tabs as defaultTabs, type TabsStore } from '../tabs.svelte';
 import type { HostKeyPrompts } from '../forwards/hostKeys.svelte';
-import type { ConnectionDto, HostKeyQuestion, Platform, ShortcutDto, SshEventDto } from '../types';
+import type {
+  ConnectionDto,
+  HostKeyQuestion,
+  Platform,
+  SerialSettings,
+  ShortcutDto,
+  SshEventDto,
+} from '../types';
 import { LOCAL_TERMINAL, isLocalTerminal, localTerminalName } from './local';
+import { isSerialConsole, serialConsoleName } from './serial';
 import { applySshEvent, exited, newSessionState, restarted, type TerminalSessionState } from './model';
 import type { TerminalFactory, TerminalHandle, TerminalSize } from './xterm';
 
@@ -62,6 +70,15 @@ export interface OpenOptions {
   pane?: boolean;
   /** A local terminal only: start in the current directory of this local terminal session (Cmd+T). */
   inheritFrom?: string;
+  /** A serial console on `port`: a saved serial connection's, or ad hoc (`SERIAL_CONSOLE`) with
+   * `settings`; `takeOver` disconnects a tab holding the port. */
+  serial?: { port: string; settings: SerialSettings | null; takeOver: boolean };
+}
+
+/** A serial reconnect's port (`null`: the previous one) and whether to take it over from another tab. */
+export interface SerialReconnect {
+  port: string | null;
+  takeOver: boolean;
 }
 
 /** Events kept for a session whose `open_ssh_session` hasn't answered yet. */
@@ -134,6 +151,7 @@ export function createSessionsStore(deps: Partial<SessionsDeps> = {}) {
   /** Ends a session whose tab closed. */
   function forget(id: string) {
     if (!(id in states)) return;
+    const serial = states[id]?.serial ?? false;
     const rest = { ...states };
     delete rest[id];
     states = rest;
@@ -141,7 +159,7 @@ export function createSessionsStore(deps: Partial<SessionsDeps> = {}) {
     pending.delete(id);
     handles.get(id)?.dispose();
     handles.delete(id);
-    void api.sshClose(id).catch(() => {});
+    void (serial ? api.serialClose(id) : api.sshClose(id)).catch(() => {});
   }
 
   function forgetHostKeyAnswer(id: string) {
@@ -274,6 +292,7 @@ export function createSessionsStore(deps: Partial<SessionsDeps> = {}) {
       options: OpenOptions = {},
     ): Promise<string> {
       const factory = await resolveFactory();
+      const serial = options.serial;
       let sessionId: string | null = null;
       // Output xterm parsed but not yet acknowledged (flow control).
       let parsed = 0;
@@ -281,12 +300,16 @@ export function createSessionsStore(deps: Partial<SessionsDeps> = {}) {
         if (!sessionId || parsed < ACK_BYTES) return;
         const bytes = parsed;
         parsed = 0;
-        void api.sshAck(sessionId, bytes).catch(() => {});
+        void (serial ? api.serialAck(sessionId, bytes) : api.sshAck(sessionId, bytes)).catch(() => {});
       };
       const handle = factory({
         initialSize: lastSize,
         onInput: (data) => {
           if (!sessionId || !isRunning(sessionId)) return;
+          if (serial) {
+            void api.serialInput(sessionId, data).catch(() => {});
+            return;
+          }
           const targets = host && panes.has(sessionId) ? host.targets(sessionId) : [];
           const sent =
             targets.length > 0
@@ -296,7 +319,7 @@ export function createSessionsStore(deps: Partial<SessionsDeps> = {}) {
         },
         onResize: (size) => {
           lastSize = size;
-          if (sessionId && isRunning(sessionId)) {
+          if (sessionId && isRunning(sessionId) && !serial) {
             void api.sshResize(sessionId, size.cols, size.rows).catch(() => {});
           }
         },
@@ -322,25 +345,37 @@ export function createSessionsStore(deps: Partial<SessionsDeps> = {}) {
       };
       const size = handle.size();
       const local = isLocalTerminal(connection.id);
+      const adHoc = isSerialConsole(connection.id);
+      const numbered = (pseudo: (id: string) => boolean) =>
+        Object.values(states)
+          .filter((s) => pseudo(s.connectionId))
+          .map((s) => s.connectionName);
+      const name = local
+        ? localTerminalName(numbered(isLocalTerminal))
+        : adHoc
+          ? serialConsoleName(numbered(isSerialConsole))
+          : tabTitle(connection, library.entry(connection.entryId));
       try {
-        ({ sessionId } = local
-          ? await api.openLocalTerminal(size.cols, size.rows, channel, options.inheritFrom ?? null)
-          : await api.openSshSession(connection.id, size.cols, size.rows, channel));
+        ({ sessionId } = serial
+          ? await api.openSerialSession(
+              adHoc ? null : connection.id,
+              serial.port,
+              adHoc ? serial.settings : null,
+              name,
+              serial.takeOver,
+              channel,
+            )
+          : local
+            ? await api.openLocalTerminal(size.cols, size.rows, channel, options.inheritFrom ?? null)
+            : await api.openSshSession(connection.id, size.cols, size.rows, channel));
       } catch (error) {
         handle.dispose();
         throw error;
       }
       const id = sessionId;
       acknowledge();
-      const name = local
-        ? localTerminalName(
-            Object.values(states)
-              .filter((s) => isLocalTerminal(s.connectionId))
-              .map((s) => s.connectionName),
-          )
-        : tabTitle(connection, library.entry(connection.entryId));
       handles.set(id, handle);
-      states = { ...states, [id]: newSessionState(id, connection.id, name) };
+      states = { ...states, [id]: newSessionState(id, connection.id, name, serial !== undefined) };
       if (options.pane) panes.add(id);
       else
         tabs.openSession({
@@ -348,8 +383,9 @@ export function createSessionsStore(deps: Partial<SessionsDeps> = {}) {
           title: name,
           type: connection.type,
           color: connection.color,
-          // An entry's tabs sit together; local terminals number themselves ("Local Terminal 2").
-          ...(local ? {} : { group: connection.entryId ?? connection.id }),
+          // An entry's tabs sit together; local terminals and ad-hoc serial consoles number themselves
+          // ("Local Terminal 2").
+          ...(local || adHoc ? {} : { group: connection.entryId ?? connection.id }),
         });
       const queued = pending.get(id) ?? [];
       pending.delete(id);
@@ -367,25 +403,36 @@ export function createSessionsStore(deps: Partial<SessionsDeps> = {}) {
       closeSession(id);
     },
 
-    /** Starts an exited session again in its tab; a failure stays in the exit bar. */
-    async reconnect(id: string) {
+    /**
+     * Starts an exited session again in its tab; a failure stays in the exit bar and is returned (a serial
+     * console's `portMissing` / `portInUse` let the caller pick a port or take it over). `serial` is a
+     * serial console's port choice (default: the previous port, no take-over).
+     */
+    async reconnect(id: string, serial: SerialReconnect = { port: null, takeOver: false }): Promise<unknown> {
       const state = states[id];
-      if (!state || state.status.kind !== 'exited') return;
+      if (!state || state.status.kind !== 'exited') return null;
       forgetHostKeyAnswer(id);
       set(restarted(state));
       const size = handles.get(id)?.size() ?? lastSize;
       handles.get(id)?.focus();
       try {
-        await api.sshReconnect(id, size.cols, size.rows);
+        if (state.serial) await api.serialReconnect(id, serial.port, serial.takeOver);
+        else await api.sshReconnect(id, size.cols, size.rows);
+        return null;
       } catch (error) {
         const current = states[id];
         if (current) set(exited(current, null, false, errorMessage(error)));
+        return error;
       }
     },
 
     /** "Clear terminal": screen and scrollback locally, then Ctrl+L so the shell redraws its prompt. */
     async clear(id: string) {
       if (!(id in states)) return;
+      if (states[id]?.serial) {
+        handles.get(id)?.clearLocal();
+        return;
+      }
       let action;
       try {
         action = await api.sshClearDecision(id);
@@ -399,7 +446,7 @@ export function createSessionsStore(deps: Partial<SessionsDeps> = {}) {
 
     /** The record button: arms, cancels or finishes "copy next output". */
     async toggleRecording(id: string) {
-      if (!isRunning(id)) return;
+      if (!isRunning(id) || states[id]?.serial) return;
       try {
         const phase = await api.sshRecordNextOutput(id);
         const state = states[id];

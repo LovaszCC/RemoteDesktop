@@ -9,6 +9,7 @@
   import Banner from '../components/Banner.svelte';
   import HandoverBanner from './HandoverBanner.svelte';
   import DialogHost from '../components/DialogHost.svelte';
+  import SerialDialogs from '../terminal/SerialDialogs.svelte';
   import IconButton from '../components/IconButton.svelte';
   import { showContextMenu } from '../components/menu.svelte';
   import { errorMessage } from '../errors';
@@ -211,6 +212,7 @@
 </AppShell>
 
 <EditorHost />
+<SerialDialogs />
 <DialogHost />
 {#if sidebarActions.mergeTarget}
   {#key sidebarActions.mergeTarget}

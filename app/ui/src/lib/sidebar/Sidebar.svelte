@@ -27,6 +27,8 @@
     type DropMark,
     type SidebarRow,
   } from './model';
+  import SerialConsoleRow from './SerialConsoleRow.svelte';
+  import { SERIAL_CONSOLE_ID } from '../terminal/serial';
   import LocalTerminalRow from './LocalTerminalRow.svelte';
   import SidebarRowView from './SidebarRowView.svelte';
   import { forwards as defaultForwards, type ForwardStore } from '../forwards/forwards.svelte';
@@ -259,6 +261,7 @@
 
 <div class="sidebar-fixed">
   <LocalTerminalRow {actions} sessionOpen={connectionTabs.isLive(LOCAL_TERMINAL_ID)} />
+  <SerialConsoleRow {actions} sessionOpen={connectionTabs.isLive(SERIAL_CONSOLE_ID)} />
 </div>
 
 <div

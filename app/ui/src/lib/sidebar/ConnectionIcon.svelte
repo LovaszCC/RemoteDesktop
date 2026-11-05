@@ -3,12 +3,14 @@
   import Monitor from '@lucide/svelte/icons/monitor';
   import Network from '@lucide/svelte/icons/network';
   import SquareTerminal from '@lucide/svelte/icons/square-terminal';
+  import Usb from '@lucide/svelte/icons/usb';
   import type { ConnectionType } from '../types';
 
-  /** Swift `ConnectionIcon`: the type's symbol in its tint (RDP blue, SSH green, web purple, MikroTik orange). */
+  /** Swift `ConnectionIcon`: the type's symbol in its tint (RDP blue, SSH green, web purple, MikroTik orange,
+   * serial yellow). */
   let { type, size = 15 }: { type: ConnectionType; size?: number } = $props();
 
-  const ICONS = { rdp: Monitor, ssh: SquareTerminal, web: Globe, mikrotik: Network };
+  const ICONS = { rdp: Monitor, ssh: SquareTerminal, web: Globe, mikrotik: Network, serial: Usb };
   const Icon = $derived(ICONS[type]);
 </script>
 
@@ -33,5 +35,8 @@
   }
   .mikrotik {
     color: var(--label-orange);
+  }
+  .serial {
+    color: var(--label-yellow);
   }
 </style>

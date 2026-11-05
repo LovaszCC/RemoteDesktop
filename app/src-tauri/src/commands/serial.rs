@@ -7,6 +7,7 @@ use std::sync::Arc;
 use rd_serial::SerialSettings;
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, State};
+use tauri_plugin_dialog::DialogExt;
 
 use super::ssh::{InputData, OpenSessionDto, WebviewSink};
 use super::{Core, blocking, emit_library};
@@ -127,19 +128,33 @@ pub async fn serial_copy_output(core: State<'_, Core>, session_id: String) -> Re
     crate::clipboard::copy_text(&text)
 }
 
-/// Writes the tab's whole output (plain text) to `path` (chosen in the save dialog). Errors:
-/// `sessionNotFound`, `serialFailed`.
+/// "Save to file…": asks where (suggesting `file_name`) and writes the tab's whole output as plain text;
+/// `false` when cancelled. Errors: `sessionNotFound`, `serialFailed`.
 #[tauri::command]
 pub async fn serial_save_output(
+    app: AppHandle,
     core: State<'_, Core>,
     session_id: String,
-    path: String,
-) -> Result<(), CommandError> {
+    file_name: String,
+) -> Result<bool, CommandError> {
+    let dialog = app
+        .dialog()
+        .file()
+        .add_filter("Log", &["log", "txt"])
+        .set_file_name(&file_name);
+    let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_save_file())
+        .await
+        .map_err(|e| CommandError::new("internal", "The command failed.").with_detail(e.to_string()))?;
+    let Some(path) = picked.and_then(|file| file.into_path().ok()) else {
+        return Ok(false);
+    };
     blocking(&core, move |c| {
         let text = c.serial_output_text(&session_id)?;
         std::fs::write(&path, text).map_err(|e| {
-            CommandError::new("serialFailed", "Couldn't save the output.").with_detail(format!("{path}: {e}"))
+            CommandError::new("serialFailed", "Couldn't save the output.")
+                .with_detail(format!("{}: {e}", path.display()))
         })
     })
-    .await
+    .await?;
+    Ok(true)
 }

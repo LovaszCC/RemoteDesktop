@@ -88,7 +88,7 @@ export function tidy(items: MenuItem[]): MenuItem[] {
 }
 
 /**
- * The toolbar "New" menu and the empty-area menu: the four connection types, then New folder and New
+ * The toolbar "New" menu and the empty-area menu: the connection types, then New folder and New
  * credential. New items go into `folderId` (the selected folder, as in Swift `selectedFolderId`).
  */
 export function newMenu(
@@ -444,4 +444,9 @@ export function sidebarMenu(ctx: MenuContext, tags: string[]): MenuItem[] {
 /** The fixed "Local Terminal" entry's context menu. */
 export function localTerminalMenu(actions: Pick<SidebarActions, 'openLocalTerminal'>): MenuItem[] {
   return [{ label: t('Open'), action: () => void actions.openLocalTerminal() }];
+}
+
+/** The fixed "Serial Console" row's menu. */
+export function serialConsoleMenu(actions: Pick<SidebarActions, 'openSerialConsole'>): MenuItem[] {
+  return [{ label: t('Open'), action: () => void actions.openSerialConsole() }];
 }

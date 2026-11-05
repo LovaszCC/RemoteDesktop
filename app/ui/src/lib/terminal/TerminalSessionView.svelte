@@ -3,12 +3,16 @@
   // terminal, and the "connection closed" bar with Reconnect / Close while the session has exited.
   import CircleDot from '@lucide/svelte/icons/circle-dot';
   import CircleStop from '@lucide/svelte/icons/circle-stop';
+  import Copy from '@lucide/svelte/icons/copy';
+  import Download from '@lucide/svelte/icons/download';
+  import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
   import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
   import Button from '../components/Button.svelte';
   import { t } from '../i18n/index.svelte';
   import { settings as defaultSettings, type SettingsStore } from '../stores/settings.svelte';
   import { exitText } from './model';
   import SessionExitBar from './SessionExitBar.svelte';
+  import { serialConsoles as defaultSerial, type SerialConsolesStore } from './serialConsoles.svelte';
   import type { SessionsStore } from './sessions.svelte';
   import TerminalPane from './TerminalPane.svelte';
 
@@ -17,9 +21,10 @@
     id: string;
     active: boolean;
     settings?: SettingsStore;
+    serial?: Pick<SerialConsolesStore, 'copyOutput' | 'saveOutput' | 'settings' | 'reconnect'>;
   }
 
-  let { sessions, id, active, settings = defaultSettings }: Props = $props();
+  let { sessions, id, active, settings = defaultSettings, serial = defaultSerial }: Props = $props();
 
   const session = $derived(sessions.state(id));
   const handle = $derived(sessions.handle(id));
@@ -32,23 +37,38 @@
 {#if session}
   <div class="session" data-session={id}>
     <div class="toolbar">
-      <Button
-        disabled={!running}
-        title={t('Copies the output of the next command you enter to the clipboard (%@)', recordHint)}
-        onclick={() => void sessions.toggleRecording(id)}
-      >
-        {#if idle}
-          <CircleDot size={13} />{t('Copy next output')}
-        {:else}
-          <span class="red"><CircleStop size={13} /></span>{t('Stop & copy')}
+      {#if session.serial}
+        <Button
+          title={t('Copies the whole output of this console to the clipboard')}
+          onclick={() => void serial.copyOutput(id)}
+        >
+          <Copy size={13} />{t('Copy output')}
+        </Button>
+        <Button onclick={() => void serial.saveOutput(id)}>
+          <Download size={13} />{t('Save to file…')}
+        </Button>
+        <Button onclick={() => void serial.settings(id)}>
+          <SlidersHorizontal size={13} />{t('Settings…')}
+        </Button>
+      {:else}
+        <Button
+          disabled={!running}
+          title={t('Copies the output of the next command you enter to the clipboard (%@)', recordHint)}
+          onclick={() => void sessions.toggleRecording(id)}
+        >
+          {#if idle}
+            <CircleDot size={13} />{t('Copy next output')}
+          {:else}
+            <span class="red"><CircleStop size={13} /></span>{t('Stop & copy')}
+          {/if}
+        </Button>
+        {#if session.recording === 'armed'}
+          <span class="red" role="status">{t('● Waiting for a command… (Esc: cancel)')}</span>
+          <Button onclick={() => void sessions.cancelRecording(id)}>{t('Cancel')}</Button>
+        {:else if session.recording === 'capturing'}
+          <span class="red" role="status">{t('● Recording…')}</span>
+          <Button onclick={() => void sessions.cancelRecording(id)}>{t('Cancel')}</Button>
         {/if}
-      </Button>
-      {#if session.recording === 'armed'}
-        <span class="red" role="status">{t('● Waiting for a command… (Esc: cancel)')}</span>
-        <Button onclick={() => void sessions.cancelRecording(id)}>{t('Cancel')}</Button>
-      {:else if session.recording === 'capturing'}
-        <span class="red" role="status">{t('● Recording…')}</span>
-        <Button onclick={() => void sessions.cancelRecording(id)}>{t('Cancel')}</Button>
       {/if}
       <span class="spacer"></span>
       {#if session.root}
@@ -60,9 +80,9 @@
     {#if handle}<TerminalPane {handle} {active} />{/if}
     {#if session.status.kind === 'exited'}
       <SessionExitBar
-        text={exitText(session.status)}
+        text={exitText(session.status, session.serial)}
         {reconnectHint}
-        onreconnect={() => void sessions.reconnect(id)}
+        onreconnect={() => void (session.serial ? serial.reconnect(id) : sessions.reconnect(id))}
         onclose={() => sessions.close(id)}
       />
     {/if}
