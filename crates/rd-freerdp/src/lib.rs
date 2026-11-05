@@ -14,6 +14,15 @@ use std::time::Duration;
 /// The FreeRDP release this build links.
 pub const VERSION: &str = env!("RD_FREERDP_VERSION");
 
+/// Hands freed heap pages back to the OS. Call after a session ended: its framebuffer and codec buffers
+/// are freed, but the allocator keeps the pages (on macOS ~100 MB after a full-HD session) until asked.
+/// Does nothing on Windows.
+#[allow(unsafe_code)]
+pub fn release_free_memory() {
+    // SAFETY: takes no arguments and only asks the allocator to trim its free lists.
+    unsafe { ffi::rdshim_release_free_memory() };
+}
+
 /// `KBD_FLAGS_EXTENDED`.
 pub const KBD_FLAGS_EXTENDED: u16 = 0x0100;
 /// `KBD_FLAGS_DOWN`.
@@ -266,6 +275,7 @@ mod ffi {
         pub fn rdshim_version() -> *const c_char;
         pub fn rdshim_new(callbacks: *const Callbacks) -> *mut RdShim;
         pub fn rdshim_free(shim: *mut RdShim);
+        pub fn rdshim_release_free_memory();
         pub fn rdshim_connect(shim: *mut RdShim, config: *const Config) -> c_int;
         pub fn rdshim_set_credentials(
             shim: *mut RdShim,

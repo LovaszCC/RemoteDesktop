@@ -5,6 +5,11 @@
 #include "rdshim.h"
 
 #include <stdlib.h>
+#if defined(__APPLE__)
+#include <malloc/malloc.h>
+#elif defined(__GLIBC__)
+#include <malloc.h>
+#endif
 #include <string.h>
 
 #include <winpr/crt.h>
@@ -593,6 +598,15 @@ void rdshim_free(RdShim* shim)
 	DeleteCriticalSection(&shim->cb_lock);
 	DeleteCriticalSection(&shim->lock);
 	free(shim);
+}
+
+void rdshim_release_free_memory(void)
+{
+#if defined(__APPLE__)
+	malloc_zone_pressure_relief(NULL, 0);
+#elif defined(__GLIBC__)
+	malloc_trim(0);
+#endif
 }
 
 int rdshim_set_credentials(RdShim* shim, const char* username, const char* domain,

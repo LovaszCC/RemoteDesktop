@@ -226,11 +226,34 @@ fn invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + 
     ]
 }
 
+/// Worker threads of the async runtime. Commands that block run on its blocking pool; the workers only
+/// drive IPC and a few timers, so Tauri's default of one per core just parks threads.
+const ASYNC_WORKERS: usize = 2;
+
+/// Gives Tauri a small multi-thread runtime instead of its default (one worker per core). It lives for
+/// the whole process.
+fn install_async_runtime() {
+    match tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(ASYNC_WORKERS)
+        .thread_name("tokio-rt-worker")
+        .enable_all()
+        .build()
+    {
+        Ok(runtime) => {
+            let runtime: &'static tokio::runtime::Runtime = Box::leak(Box::new(runtime));
+            tauri::async_runtime::set(runtime.handle().clone());
+        }
+        // Tauri falls back to its own runtime.
+        Err(error) => eprintln!("async runtime: {error}"),
+    }
+}
+
 /// Builds and runs the app until the last window closes.
 ///
 /// # Panics
 /// If the Tauri runtime fails to start, which leaves nothing to recover.
 pub fn run() {
+    install_async_runtime();
     let builder = tauri::Builder::default().manage(EarlyEntryRequests::default());
     // Single instance must be the first plugin.
     #[cfg(not(any(target_os = "android", target_os = "ios")))]

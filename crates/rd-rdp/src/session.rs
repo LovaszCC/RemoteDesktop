@@ -340,6 +340,8 @@ impl RdpSession {
                 engine::run(config, handler, &receiver, &engine_shared);
                 engine_shared.running.store(false, Ordering::SeqCst);
                 engine_shared.connected.store(false, Ordering::SeqCst);
+                // The connection and its buffers are freed by now; give the pages back.
+                rd_freerdp::release_free_memory();
             })?;
         Ok(Self {
             commands,
