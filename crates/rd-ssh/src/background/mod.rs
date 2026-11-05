@@ -212,6 +212,8 @@ struct Checker {
     refusal: Arc<Mutex<Option<BackgroundError>>>,
     /// Probe mode ([`fetch_host_key`]): the key is stored here and the connection refused.
     capture: Option<Arc<Mutex<Option<HostKey>>>>,
+    /// Cancelled when the connection ends ([`Client::closed`]).
+    closed: tokio_util::sync::CancellationToken,
 }
 
 impl Checker {
@@ -294,6 +296,17 @@ impl Checker {
 
 impl client::Handler for Checker {
     type Error = russh::Error;
+
+    fn disconnected(
+        &mut self,
+        reason: client::DisconnectReason<Self::Error>,
+    ) -> impl Future<Output = Result<(), Self::Error>> + Send {
+        self.closed.cancel();
+        std::future::ready(match reason {
+            client::DisconnectReason::ReceivedDisconnect(_) => Ok(()),
+            client::DisconnectReason::Error(e) => Err(e),
+        })
+    }
 
     async fn check_server_key(
         &mut self,
@@ -379,6 +392,7 @@ pub async fn fetch_host_key(spec: &ConnectSpec) -> Result<ProbedKey, BackgroundE
         prompt: None,
         refusal: Arc::clone(&refusal),
         capture: Some(Arc::clone(&capture)),
+        closed: tokio_util::sync::CancellationToken::new(),
     };
     let address = (target.host_name.as_str(), target.port);
     let connect = client::connect(Arc::new(client::Config::default()), address, checker);
@@ -412,6 +426,7 @@ pub async fn fetch_host_key(spec: &ConnectSpec) -> Result<ProbedKey, BackgroundE
 /// An authenticated background connection.
 pub struct Client {
     handle: Handle<Checker>,
+    closed: tokio_util::sync::CancellationToken,
 }
 
 impl std::fmt::Debug for Client {
@@ -473,6 +488,7 @@ impl Client {
             return Err(BackgroundError::ProxyUnsupported(proxy.clone()));
         }
         let refusal = Arc::new(Mutex::new(None));
+        let closed = tokio_util::sync::CancellationToken::new();
         let checker = Checker {
             host: target.host_key_name.clone(),
             port: target.port,
@@ -480,6 +496,7 @@ impl Client {
             prompt,
             refusal: Arc::clone(&refusal),
             capture: None,
+            closed: closed.clone(),
         };
         let config = Arc::new(client::Config {
             keepalive_interval: Some(KEEPALIVE_INTERVAL),
@@ -499,7 +516,7 @@ impl Client {
                     reason: e.to_string(),
                 })
         })?;
-        let mut client = Self { handle };
+        let mut client = Self { handle, closed };
         client.authenticate(&spec, &target).await?;
         Ok(client)
     }
@@ -670,6 +687,11 @@ impl Client {
     #[must_use]
     pub fn is_closed(&self) -> bool {
         self.handle.is_closed()
+    }
+
+    /// Resolves when the connection ends (server closed it, keepalive failed, disconnect).
+    pub async fn closed(&self) {
+        self.closed.cancelled().await;
     }
 
     /// Says goodbye to the server.

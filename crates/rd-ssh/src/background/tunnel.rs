@@ -75,6 +75,9 @@ impl<T: AsyncRead + AsyncWrite + Unpin + Send> Stream for T {}
 /// Boxed future, as returned by [`Opener::open`].
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
+/// How often an active tunnel checks its connection in case the end went unreported.
+const CLOSED_CHECK: Duration = Duration::from_secs(30);
+
 /// Opens forwarded streams over an established connection ([`Client`], or a fake in tests).
 pub trait Opener: Send + Sync + 'static {
     /// A stream to `host:port` as seen from the server.
@@ -87,6 +90,8 @@ pub trait Opener: Send + Sync + 'static {
 
     /// Whether the connection is gone.
     fn is_closed(&self) -> bool;
+    /// Resolves when the connection ends.
+    fn closed(&self) -> BoxFuture<'_, ()>;
 }
 
 impl Opener for Client {
@@ -107,6 +112,10 @@ impl Opener for Client {
 
     fn is_closed(&self) -> bool {
         Client::is_closed(self)
+    }
+
+    fn closed(&self) -> BoxFuture<'_, ()> {
+        Box::pin(Client::closed(self))
     }
 }
 
@@ -251,13 +260,20 @@ where
     emit(ForwardState::Active);
     let spec = Arc::new(spec);
     let mut connections = JoinSet::new();
-    let mut check = tokio::time::interval(Duration::from_secs(1));
+    // The end of the connection is reported; the slow check is only a safety net.
+    let mut check = tokio::time::interval(CLOSED_CHECK);
+    let closed = opener.closed();
+    tokio::pin!(closed);
     loop {
         tokio::select! {
             accepted = listener.accept() => {
                 if let Ok((socket, peer)) = accepted {
                     connections.spawn(forward(Arc::clone(&opener), socket, peer, Arc::clone(&spec)));
                 }
+            }
+            () = &mut closed => {
+                emit(BackgroundError::Disconnected.into());
+                return;
             }
             _ = check.tick() => {
                 if opener.is_closed() {
@@ -342,7 +358,7 @@ mod tests {
 
     /// Connects straight to the destination instead of going through a server.
     struct Direct {
-        closed: AtomicBool,
+        closed: tokio_util::sync::CancellationToken,
     }
 
     impl Opener for Direct {
@@ -359,7 +375,11 @@ mod tests {
         }
 
         fn is_closed(&self) -> bool {
-            self.closed.load(Ordering::SeqCst)
+            self.closed.is_cancelled()
+        }
+
+        fn closed(&self) -> BoxFuture<'_, ()> {
+            Box::pin(self.closed.cancelled())
         }
     }
 
@@ -417,7 +437,7 @@ mod tests {
         let local = free_port();
         let (sink, states) = collector();
         let direct = Arc::new(Direct {
-            closed: AtomicBool::new(false),
+            closed: tokio_util::sync::CancellationToken::new(),
         });
         let opener: Arc<dyn Opener> = direct.clone();
         let tunnel = Tunnel::start(
@@ -523,7 +543,7 @@ mod tests {
         let port = free_port();
         let (sink, states) = collector();
         let direct = Arc::new(Direct {
-            closed: AtomicBool::new(false),
+            closed: tokio_util::sync::CancellationToken::new(),
         });
         let opener: Arc<dyn Opener> = direct.clone();
         let _tunnel = Tunnel::start(
@@ -534,7 +554,8 @@ mod tests {
         );
         assert_eq!(next(&states), ForwardState::Starting);
         assert_eq!(next(&states), ForwardState::Active);
-        direct.closed.store(true, Ordering::SeqCst);
+        // Reported by the connection, not found by the (30 s) safety check.
+        direct.closed.cancel();
         assert_eq!(
             next(&states),
             ForwardState::failed("disconnected", "The SSH connection was closed.")
