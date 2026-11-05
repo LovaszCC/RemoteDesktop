@@ -89,6 +89,8 @@ module_name_repetitions = "allow"
 assert_is_empty = "allow"
 
 [profile.release]
-lto = "thin"
+# Whole-program LTO: a smaller, slightly faster binary for a longer release build. Panics stay
+# unwinding: a panic on a session thread ends that session, not the app.
+lto = "fat"
 codegen-units = 1
 strip = "symbols"
