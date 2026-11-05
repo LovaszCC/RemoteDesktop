@@ -84,6 +84,11 @@ const char* rdshim_version(void);
 
 RdShim* rdshim_new(const RdShimCallbacks* callbacks);
 void rdshim_free(RdShim* shim);
+/* Hands freed heap pages back to the OS (macOS: malloc_zone_pressure_relief, glibc: malloc_trim).
+ * A session's framebuffer and codec buffers are large; once freed, the allocator would keep them.
+ * macOS 26+ (xzone malloc) ignores the relief: there the app runs with MallocLargeCache=0
+ * (Info.plist LSEnvironment). */
+void rdshim_release_free_memory(void);
 
 /* Connects (blocking; the callbacks may run meanwhile). 1 when connected. */
 int rdshim_connect(RdShim* shim, const RdShimConfig* config);
@@ -124,6 +129,8 @@ int rdshim_send_mouse_ex(RdShim* shim, uint16_t flags, uint16_t x, uint16_t y);
 
 /* A Display Control monitor layout. 1 when sent (0: the channel isn't open). */
 int rdshim_resize(RdShim* shim, uint32_t width, uint32_t height);
+/* Suppress Output PDU: 1 asks the server to stop sending updates, 0 to resume (full area). */
+int rdshim_suppress_output(RdShim* shim, int suppress);
 
 /* cliprdr, client to server. 1 when sent. */
 int rdshim_clip_capabilities(RdShim* shim, uint32_t general_flags);

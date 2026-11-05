@@ -22,6 +22,7 @@ hostname.workspace = true
 rd-core.workspace = true
 rd-platform.workspace = true
 rd-rdp.workspace = true
+rd-serial.workspace = true
 rd-ssh.workspace = true
 rd-store.workspace = true
 rd-update.workspace = true

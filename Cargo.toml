@@ -5,7 +5,7 @@ members = ["crates/*", "app/src-tauri"]
 exclude = ["crates/rd-core/fuzz"]
 
 [workspace.package]
-version = "1.6.12"
+version = "1.6.13"
 edition = "2024"
 rust-version = "1.99"
 license = "MIT"
@@ -19,6 +19,7 @@ rd-rdp = { path = "crates/rd-rdp" }
 rd-freerdp = { path = "crates/rd-freerdp" }
 rd-platform = { path = "crates/rd-platform" }
 rd-update = { path = "crates/rd-update" }
+rd-serial = { path = "crates/rd-serial" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = "2.12"
@@ -55,6 +56,7 @@ plist = "1.10"
 semver = "1.0"
 portable-pty = "0.9"
 vte = "0.15"
+serialport = "4.10"
 interprocess = "2.4"
 widestring = "1"
 # ring instead of the default aws-lc-rs: no cmake/NASM on Windows, no OpenSSL anywhere.
@@ -87,6 +89,8 @@ module_name_repetitions = "allow"
 assert_is_empty = "allow"
 
 [profile.release]
-lto = "thin"
+# Whole-program LTO: a smaller, slightly faster binary for a longer release build. Panics stay
+# unwinding: a panic on a session thread ends that session, not the app.
+lto = "fat"
 codegen-units = 1
 strip = "symbols"

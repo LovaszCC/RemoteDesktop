@@ -62,11 +62,13 @@ raw_enum! {
         Web = "web",
         /// MikroTik router (WinBox or SSH).
         Mikrotik = "mikrotik",
+        /// Console over a USB-serial adapter; the port is picked at connect time.
+        Serial = "serial",
     }
 }
 
 impl ConnectionType {
-    /// The type as the UI names it: `RDP`, `SSH`, `Web` or `MikroTik`.
+    /// The type as the UI names it: `RDP`, `SSH`, `Web`, `MikroTik` or `Serial`.
     #[must_use]
     pub fn label(self) -> &'static str {
         match self {
@@ -74,6 +76,7 @@ impl ConnectionType {
             Self::Ssh => "SSH",
             Self::Web => "Web",
             Self::Mikrotik => "MikroTik",
+            Self::Serial => "Serial",
         }
     }
 
@@ -83,14 +86,21 @@ impl ConnectionType {
         matches!(self, Self::Ssh | Self::Mikrotik)
     }
 
-    /// Port used when the connection has none.
+    /// Port used when the connection has none; 0 for serial (no network port).
     #[must_use]
     pub fn default_port(self) -> u16 {
         match self {
             Self::Rdp => 3389,
             Self::Ssh | Self::Mikrotik => 22,
             Self::Web => 443,
+            Self::Serial => 0,
         }
+    }
+
+    /// Needs the entry's host (everything but serial).
+    #[must_use]
+    pub fn needs_host(self) -> bool {
+        self != Self::Serial
     }
 }
 
@@ -142,6 +152,40 @@ raw_enum! {
 }
 
 raw_enum! {
+    /// Serial parity.
+    SerialParity {
+        /// No parity bit.
+        None = "none",
+        /// Odd parity.
+        Odd = "odd",
+        /// Even parity.
+        Even = "even",
+    }
+}
+
+raw_enum! {
+    /// Serial stop bits.
+    SerialStopBits {
+        /// One stop bit.
+        One = "1",
+        /// Two stop bits.
+        Two = "2",
+    }
+}
+
+raw_enum! {
+    /// Serial flow control.
+    SerialFlowControl {
+        /// None.
+        None = "none",
+        /// XON/XOFF.
+        Software = "software",
+        /// RTS/CTS.
+        Hardware = "hardware",
+    }
+}
+
+raw_enum! {
     /// Tag color for folders, connections and tabs.
     LabelColor {
         /// Red.
@@ -183,7 +227,22 @@ mod tests {
     fn raw_values_match_swift() {
         assert_eq!(
             ConnectionType::ALL.iter().map(|v| v.as_str()).collect::<Vec<_>>(),
-            ["rdp", "ssh", "web", "mikrotik"]
+            ["rdp", "ssh", "web", "mikrotik", "serial"]
+        );
+        assert_eq!(
+            SerialParity::ALL.iter().map(|v| v.as_str()).collect::<Vec<_>>(),
+            ["none", "odd", "even"]
+        );
+        assert_eq!(
+            SerialStopBits::ALL.iter().map(|v| v.as_str()).collect::<Vec<_>>(),
+            ["1", "2"]
+        );
+        assert_eq!(
+            SerialFlowControl::ALL
+                .iter()
+                .map(|v| v.as_str())
+                .collect::<Vec<_>>(),
+            ["none", "software", "hardware"]
         );
         assert_eq!(RdpClient::WindowsApp.as_str(), "windowsApp");
         assert_eq!(SshTerminal::External.to_string(), "external");
@@ -224,5 +283,14 @@ mod tests {
         assert_eq!(ConnectionType::Ssh.default_port(), 22);
         assert_eq!(ConnectionType::Web.default_port(), 443);
         assert_eq!(ConnectionType::Mikrotik.default_port(), 22);
+        assert_eq!(ConnectionType::Serial.default_port(), 0);
+    }
+
+    #[test]
+    fn serial_needs_no_host_and_no_ssh() {
+        assert!(!ConnectionType::Serial.needs_host());
+        assert!(!ConnectionType::Serial.uses_ssh());
+        assert!(ConnectionType::Web.needs_host());
+        assert_eq!(ConnectionType::Serial.label(), "Serial");
     }
 }

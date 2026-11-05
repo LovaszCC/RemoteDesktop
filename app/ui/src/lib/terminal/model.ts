@@ -30,12 +30,15 @@ export interface TerminalSessionState {
   root: boolean;
   recording: RecordPhase;
   status: SessionStatus;
+  /** A serial console (no PTY): "Connection lost" when it exits, its own toolbar. */
+  serial: boolean;
 }
 
 export function newSessionState(
   id: string,
   connectionId: string,
   connectionName: string,
+  serial = false,
 ): TerminalSessionState {
   return {
     id,
@@ -47,6 +50,7 @@ export function newSessionState(
     root: false,
     recording: 'idle',
     status: { kind: 'running' },
+    serial,
   };
 }
 
@@ -117,10 +121,11 @@ export function restarted(state: TerminalSessionState): TerminalSessionState {
   };
 }
 
-/** The exit bar's text. */
-export function exitText(status: SessionStatus): string {
+/** The exit bar's text; a serial console whose port went away says "Connection lost". */
+export function exitText(status: SessionStatus, serial = false): string {
   if (status.kind !== 'exited') return '';
   if (status.error) return status.error;
+  if (serial) return t('Connection lost');
   if (status.authFailed) return t('Authentication failed');
   if (status.hostKeyChanged) return t('Host key verification failed');
   return status.code === null ? t('Connection closed') : t('Connection closed (code: %d)', status.code);

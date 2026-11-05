@@ -3,6 +3,7 @@
 // type doesn't use left out, pasted URL splitting, the picker options and where a validation error from
 // Rust shows.
 
+import { DEFAULT_SERIAL_SETTINGS } from '../terminal/serial';
 import { t } from '../i18n/index.svelte';
 import { typeName, usesSSH } from '../sidebar/model';
 import { browserPickerOptions } from '../stores/browsers.svelte';
@@ -20,6 +21,9 @@ import type {
   LibraryDto,
   MikrotikMode,
   RdpClient,
+  SerialFlowControl,
+  SerialParity,
+  SerialStopBits,
   SshTerminal,
 } from '../types';
 
@@ -88,6 +92,12 @@ export interface ConnectionForm {
   sshTerminal: SshTerminal;
   webScheme: string;
   webPath: string;
+  /** Serial: the baud rate as typed (a number when valid). */
+  serialBaud: string;
+  serialDataBits: number;
+  serialParity: SerialParity;
+  serialStopBits: SerialStopBits;
+  serialFlowControl: SerialFlowControl;
   label: string;
   showAsButton: boolean;
   password: SecretState;
@@ -133,6 +143,11 @@ export function newConnectionForm(type: ConnectionType): ConnectionForm {
     sshTerminal: 'embedded',
     webScheme: 'https',
     webPath: '',
+    serialBaud: String(DEFAULT_SERIAL_SETTINGS.baud),
+    serialDataBits: DEFAULT_SERIAL_SETTINGS.dataBits,
+    serialParity: DEFAULT_SERIAL_SETTINGS.parity,
+    serialStopBits: DEFAULT_SERIAL_SETTINGS.stopBits,
+    serialFlowControl: DEFAULT_SERIAL_SETTINGS.flowControl,
     label: '',
     // Off for new connections: an entry's only connection gets its Connect button anyway.
     showAsButton: false,
@@ -160,6 +175,11 @@ export function connectionFormFrom(connection: ConnectionDto): ConnectionForm {
     sshTerminal: connection.sshTerminal,
     webScheme: connection.webScheme,
     webPath: connection.webPath,
+    serialBaud: String(connection.serialBaud),
+    serialDataBits: connection.serialDataBits,
+    serialParity: connection.serialParity,
+    serialStopBits: connection.serialStopBits,
+    serialFlowControl: connection.serialFlowControl,
     label: connection.label,
     showAsButton: connection.showAsButton,
     password: secretState(connection.hasPassword),
@@ -208,24 +228,32 @@ export function connectionTabLabel(form: ConnectionForm, credential?: Credential
 }
 
 /** Swift `ConnectionType.defaultPort`, the port field's placeholder. */
-export const DEFAULT_PORTS: Record<ConnectionType, number> = { rdp: 3389, ssh: 22, web: 443, mikrotik: 22 };
+export const DEFAULT_PORTS: Record<ConnectionType, number> = {
+  rdp: 3389,
+  ssh: 22,
+  web: 443,
+  mikrotik: 22,
+  serial: 0,
+};
 
 /**
  * One connection for `save_entry` (Rust validates, trims and drops the same fields again): the domain
  * and admin flag only for RDP, the key path and passphrase only for SSH types, the browser, scheme and
- * path only for web. Untouched secrets are `null` (kept).
+ * path only for web, the serial settings only for serial (which has no port, login or credential).
+ * Untouched secrets are `null` (kept).
  */
 export function buildConnectionSave(form: ConnectionForm, isDefault: boolean): ConnectionSave {
   const ssh = usesSSH(form.type);
   const rdp = form.type === 'rdp';
   const web = form.type === 'web';
+  const serial = form.type === 'serial';
   return {
     id: form.id,
     draft: {
       type: form.type,
-      credentialId: form.credentialId,
-      port: form.port.trim(),
-      username: form.username,
+      credentialId: serial ? null : form.credentialId,
+      port: serial ? '' : form.port.trim(),
+      username: serial ? '' : form.username,
       domain: rdp ? form.domain : '',
       sshKeyPath: ssh ? form.sshKeyPath : '',
       rdpAdminSession: rdp && form.rdpAdminSession,
@@ -235,10 +263,19 @@ export function buildConnectionSave(form: ConnectionForm, isDefault: boolean): C
       sshTerminal: form.sshTerminal,
       webScheme: web ? form.webScheme.trim() : 'https',
       webPath: web ? form.webPath.trim() : '',
+      ...(serial
+        ? {
+            serialBaud: Number(form.serialBaud.trim()),
+            serialDataBits: form.serialDataBits,
+            serialParity: form.serialParity,
+            serialStopBits: form.serialStopBits,
+            serialFlowControl: form.serialFlowControl,
+          }
+        : {}),
       label: form.label,
       showAsButton: form.showAsButton,
     },
-    password: secretUpdate(form.password),
+    password: serial ? null : secretUpdate(form.password),
     passphrase: ssh ? secretUpdate(form.passphrase) : null,
     isDefault,
   };
@@ -269,7 +306,23 @@ function validPort(text: string): boolean {
 
 /** The key of the first connection whose port Rust rejects (`invalidPort` names no connection). */
 export function invalidPortKey(form: EntryForm): string | null {
-  return form.connections.find((c) => !validPort(c.port))?.key ?? null;
+  return form.connections.find((c) => c.type !== 'serial' && !validPort(c.port))?.key ?? null;
+}
+
+/** Whether a typed baud rate is a positive whole number. */
+export function validBaud(text: string): boolean {
+  const baud = text.trim();
+  return /^\d+$/.test(baud) && Number(baud) > 0;
+}
+
+/** The key of the first serial connection whose baud rate is not valid. */
+export function invalidBaudKey(form: EntryForm): string | null {
+  return form.connections.find((c) => c.type === 'serial' && !validBaud(c.serialBaud))?.key ?? null;
+}
+
+/** The entry needs a host: some connection is not serial (serial-only entries have none). */
+export function needsHost(form: Pick<EntryForm, 'connections'>): boolean {
+  return form.connections.some((c) => c.type !== 'serial');
 }
 
 /** The parts of a pasted web URL. */

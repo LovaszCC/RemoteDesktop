@@ -54,6 +54,8 @@ import type {
   RdpPromptClosedDto,
   RecordPhase,
   SearchResultDto,
+  SerialPortDto,
+  SerialSettings,
   SettingsDto,
   SettingsPatch,
   ShortcutCommand,
@@ -394,6 +396,40 @@ export function createApi(invoke: Invoke = tauriBridge.invoke) {
     sshReplaceHostKey: (sessionId: string) => call<void>('ssh_replace_host_key', { sessionId }),
     sshReconnect: (sessionId: string, cols: number, rows: number) =>
       call<void>('ssh_reconnect', { sessionId, cols, rows }),
+    // Serial consoles (output, ack and the `exit` event work like an SSH session's).
+    serialPorts: () => call<SerialPortDto[]>('serial_ports'),
+    /** A saved serial connection's console (`connectionId`), or ad hoc with `settings`. */
+    openSerialSession: (
+      connectionId: string | null,
+      port: string,
+      settings: SerialSettings | null,
+      title: string,
+      takeOver: boolean,
+      onData: unknown,
+    ) =>
+      call<{ sessionId: string }>('open_serial_session', {
+        connectionId,
+        port,
+        settings,
+        title,
+        takeOver,
+        onData,
+      }),
+    serialInput: (sessionId: string, data: string | number[]) =>
+      call<void>('serial_input', { sessionId, data }),
+    serialAck: (sessionId: string, bytes: number) => call<void>('serial_ack', { sessionId, bytes }),
+    serialClose: (sessionId: string) => call<void>('serial_close', { sessionId }),
+    /** `port` null: the previous one (`portMissing` when it is gone). */
+    serialReconnect: (sessionId: string, port: string | null, takeOver: boolean) =>
+      call<void>('serial_reconnect', { sessionId, port, takeOver }),
+    serialSessionSettings: (sessionId: string) =>
+      call<SerialSettings>('serial_session_settings', { sessionId }),
+    serialApplySettings: (sessionId: string, settings: SerialSettings, save: boolean) =>
+      call<void>('serial_apply_settings', { sessionId, settings, save }),
+    serialCopyOutput: (sessionId: string) => call<void>('serial_copy_output', { sessionId }),
+    /** Save panel + write; `false` when cancelled. */
+    serialSaveOutput: (sessionId: string, fileName: string) =>
+      call<boolean>('serial_save_output', { sessionId, fileName }),
     /** Arms, cancels or finishes "copy next output"; the new phase. */
     sshRecordNextOutput: (sessionId: string) => call<RecordPhase>('ssh_record_next_output', { sessionId }),
     sshRecordCancel: (sessionId: string) => call<void>('ssh_record_cancel', { sessionId }),
@@ -480,6 +516,9 @@ export function createApi(invoke: Invoke = tauriBridge.invoke) {
       call<{ sessionId: string }>('open_rdp_session', { connectionId, width, height, onFrame }),
     /** A frame was painted (at most 2 are in flight). */
     rdpAckFrame: (sessionId: string) => call<void>('rdp_ack_frame', { sessionId }),
+    /** The page shows or hides the session (another tab, hidden or minimised window): no frames while hidden. */
+    rdpSetVisible: (sessionId: string, visible: boolean) =>
+      call<void>('rdp_set_visible', { sessionId, visible }),
     rdpInput: (sessionId: string, events: RdpInput[]) => call<void>('rdp_input', { sessionId, events }),
     rdpReleaseAllKeys: (sessionId: string) => call<void>('rdp_release_all_keys', { sessionId }),
     /** The view's new size; Rust debounces the desktop resize (300 ms). */

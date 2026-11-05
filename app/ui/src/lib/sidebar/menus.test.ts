@@ -80,13 +80,14 @@ describe('sidebar menus', () => {
       'New SSH connection',
       'New web connection',
       'New MikroTik connection',
+      'New serial connection',
       'New folder',
       'New credential',
     ]);
     find(emptyAreaMenu(ctx), 'New web connection').action!();
     expect(ctx.actions.newConnection).toHaveBeenCalledWith('web', 'f1');
     const toolbar = newMenu(ctx, null);
-    expect(labels(toolbar)[4]).toBe('-');
+    expect(labels(toolbar)[5]).toBe('-');
     find(toolbar, 'New folder').action!();
     expect(ctx.actions.newFolder).toHaveBeenCalledWith(null);
     expect(newMenu({ ...ctx, readOnly: true }, null)).toEqual([]);
@@ -179,6 +180,7 @@ describe('sidebar menus', () => {
       'New SSH connection here',
       'New web connection here',
       'New MikroTik connection here',
+      'New serial connection here',
       'New subfolder',
       '-',
       'Rename…',

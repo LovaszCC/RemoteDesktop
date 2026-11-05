@@ -5,7 +5,17 @@
   import { onMount, tick } from 'svelte';
   import type { TerminalHandle } from './xterm';
 
-  let { handle, active }: { handle: TerminalHandle; active: boolean } = $props();
+  let {
+    handle,
+    active,
+    shown = active,
+  }: {
+    handle: TerminalHandle;
+    /** Focused (its tab in front; in a split, the focused pane). */
+    active: boolean;
+    /** On screen (a split's unfocused panes are shown too); defaults to `active`. */
+    shown?: boolean;
+  } = $props();
   let container: HTMLDivElement | undefined = $state();
 
   onMount(() => {
@@ -20,6 +30,11 @@
       // A split may already have moved the terminal into its pane.
       terminal.detach(host);
     };
+  });
+
+  // Hidden terminals give their WebGL context back after a while.
+  $effect(() => {
+    handle.setVisible?.(shown);
   });
 
   $effect(() => {

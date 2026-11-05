@@ -155,6 +155,16 @@ fn invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + 
         commands::ssh::ssh_resize,
         commands::ssh::ssh_ack,
         commands::ssh::ssh_close,
+        commands::serial::serial_ports,
+        commands::serial::open_serial_session,
+        commands::serial::serial_input,
+        commands::serial::serial_ack,
+        commands::serial::serial_close,
+        commands::serial::serial_reconnect,
+        commands::serial::serial_session_settings,
+        commands::serial::serial_apply_settings,
+        commands::serial::serial_copy_output,
+        commands::serial::serial_save_output,
         commands::ssh::ssh_reconnect,
         commands::ssh::ssh_replace_host_key,
         commands::ssh::ssh_record_next_output,
@@ -199,6 +209,7 @@ fn invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + 
         commands::launch::open_accessibility_settings,
         commands::rdp::open_rdp_session,
         commands::rdp::rdp_ack_frame,
+        commands::rdp::rdp_set_visible,
         commands::rdp::rdp_input,
         commands::rdp::rdp_release_all_keys,
         commands::rdp::rdp_resize,
@@ -216,11 +227,34 @@ fn invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + 
     ]
 }
 
+/// Worker threads of the async runtime. Commands that block run on its blocking pool; the workers only
+/// drive IPC and a few timers, so Tauri's default of one per core just parks threads.
+const ASYNC_WORKERS: usize = 2;
+
+/// Gives Tauri a small multi-thread runtime instead of its default (one worker per core). It lives for
+/// the whole process.
+fn install_async_runtime() {
+    match tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(ASYNC_WORKERS)
+        .thread_name("tokio-rt-worker")
+        .enable_all()
+        .build()
+    {
+        Ok(runtime) => {
+            let runtime: &'static tokio::runtime::Runtime = Box::leak(Box::new(runtime));
+            tauri::async_runtime::set(runtime.handle().clone());
+        }
+        // Tauri falls back to its own runtime.
+        Err(error) => eprintln!("async runtime: {error}"),
+    }
+}
+
 /// Builds and runs the app until the last window closes.
 ///
 /// # Panics
 /// If the Tauri runtime fails to start, which leaves nothing to recover.
 pub fn run() {
+    install_async_runtime();
     let builder = tauri::Builder::default().manage(EarlyEntryRequests::default());
     // Single instance must be the first plugin.
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -241,6 +275,8 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let settings_dir = settings_dir();
+            // Output files of serial tabs a crash or a killed app left behind.
+            let _ = rd_serial::log::sweep(&rd_serial::log::default_dir());
             // First launch after the Swift app: carry its settings over (database path first) before the
             // core reads settings.json.
             let handover = rd_platform::swift_defaults::swift_defaults_path()

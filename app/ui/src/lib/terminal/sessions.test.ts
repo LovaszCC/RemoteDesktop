@@ -9,6 +9,7 @@ import { fakeBridge } from '../testing/bridge';
 import { entry } from '../testing/fixtures';
 import { buttonByText, click, settle, text } from '../testing/views';
 import type { ClearAction, SshEvent, SshEventDto, EntryDto } from '../types';
+import { SERIAL_CONSOLE } from './serial';
 import { ACK_BYTES, createSessionsStore, toBytes, type OutputChannel } from './sessions.svelte';
 import type { TerminalHandle, TerminalOptions } from './xterm';
 
@@ -220,6 +221,101 @@ describe('sessions store', () => {
     await sessions.reconnect('L2');
     expect(bridge.invoke).toHaveBeenCalledWith('ssh_reconnect', { sessionId: 'L2', cols: 100, rows: 30 });
     expect(sessions.state('L2')?.status.kind).toBe('running');
+  });
+
+  it('opens serial consoles: routes input, ack, close and reconnect to the serial commands', async () => {
+    let n = 0;
+    const { sessions, tabs, bridge, channels, terminal } = setup(
+      {
+        open_serial_session: () => ({ sessionId: `P${++n}` }),
+        serial_input: null,
+        serial_ack: null,
+        serial_close: null,
+        serial_reconnect: null,
+      },
+      [entry('e9', [], { connectionIds: ['s9'] })],
+    );
+    const settings = {
+      baud: 9600,
+      dataBits: 8,
+      parity: 'none' as const,
+      stopBits: '1' as const,
+      flowControl: 'none' as const,
+    };
+    expect(
+      await sessions.open(SERIAL_CONSOLE, { serial: { port: '/dev/cu.A', settings, takeOver: false } }),
+    ).toBe('P1');
+    expect(bridge.invoke).toHaveBeenCalledWith('open_serial_session', {
+      connectionId: null,
+      port: '/dev/cu.A',
+      settings,
+      title: 'Serial Console',
+      takeOver: false,
+      onData: channels[0],
+    });
+    expect(tabs.session('P1')).toMatchObject({ title: 'Serial Console', type: 'serial' });
+    expect(tabs.session('P1')?.group).toBeUndefined();
+    expect(sessions.state('P1')).toMatchObject({ serial: true, connectionId: 'serial-console' });
+
+    // A saved connection: its id, no settings; titled and grouped like its entry.
+    const saved = {
+      id: 's9',
+      entryId: 'e9',
+      name: 'OPNsense',
+      displayLabel: 'Serial',
+      type: 'serial' as const,
+      color: null,
+    };
+    await sessions.open(saved, { serial: { port: '/dev/cu.B', settings: null, takeOver: true } });
+    expect(bridge.invoke).toHaveBeenCalledWith(
+      'open_serial_session',
+      expect.objectContaining({
+        connectionId: 's9',
+        settings: null,
+        takeOver: true,
+      }),
+    );
+    expect(tabs.session('P2')).toMatchObject({ group: 'e9' });
+    await sessions.open(SERIAL_CONSOLE, { serial: { port: '/dev/cu.C', settings, takeOver: false } });
+    expect(tabs.session('P3')?.title).toBe('Serial Console 2');
+
+    const { options } = terminal.made[0]!;
+    options.onInput('root\r');
+    options.onResize({ cols: 120, rows: 40 });
+    expect(bridge.invoke).toHaveBeenCalledWith('serial_input', { sessionId: 'P1', data: 'root\r' });
+    expect(bridge.invoke).not.toHaveBeenCalledWith('ssh_resize', expect.anything());
+    channels[0]!.onmessage(new Uint8Array(ACK_BYTES));
+    parse(terminal.made[0]!.handle);
+    expect(bridge.invoke).toHaveBeenCalledWith('serial_ack', { sessionId: 'P1', bytes: ACK_BYTES });
+
+    sessions.handleEvent(event({ kind: 'exit', code: null, authFailed: false }, 'P1'));
+    expect(sessions.state('P1')?.status.kind).toBe('exited');
+    expect(await sessions.reconnect('P1', { port: '/dev/cu.D', takeOver: false })).toBeNull();
+    expect(bridge.invoke).toHaveBeenCalledWith('serial_reconnect', {
+      sessionId: 'P1',
+      port: '/dev/cu.D',
+      takeOver: false,
+    });
+    await sessions.clear('P1');
+    expect(terminal.made[0]!.handle.clearLocal).toHaveBeenCalled();
+
+    tabs.closeSession('P1');
+    expect(bridge.invoke).toHaveBeenCalledWith('serial_close', { sessionId: 'P1' });
+    expect(bridge.invoke).not.toHaveBeenCalledWith('ssh_close', expect.anything());
+  });
+
+  it('a failed serial reconnect stays in the exit bar and is returned', async () => {
+    const missing = { code: 'portMissing', message: 'The serial device is not connected.', detail: null };
+    const { sessions } = setup({
+      open_serial_session: { sessionId: 'P1' },
+      serial_reconnect: () => {
+        throw missing;
+      },
+    });
+    await sessions.open(SERIAL_CONSOLE, { serial: { port: '/dev/cu.A', settings: null, takeOver: false } });
+    sessions.handleEvent(event({ kind: 'exit', code: null, authFailed: false }, 'P1'));
+    expect(await sessions.reconnect('P1')).toEqual(missing);
+    expect(sessions.state('P1')?.status).toMatchObject({ kind: 'exited' });
   });
 
   it('disposes the terminal when opening fails', async () => {

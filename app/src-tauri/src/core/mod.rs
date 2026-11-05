@@ -26,6 +26,9 @@ mod library;
 mod rdp;
 #[cfg(test)]
 mod rdp_tests;
+mod serial;
+#[cfg(all(test, unix))]
+mod serial_tests;
 mod settings;
 mod ssh;
 mod ssh_keys;
@@ -63,6 +66,7 @@ pub use rdp::{
     RdpCertPromptDto, RdpCredentialsAnswer, RdpCredentialsPromptDto, RdpEngineInfoDto, RdpInput, RdpNotice,
     RdpNotifier, RdpRun, RdpSink, RdpStarter, TypeClipboardDto,
 };
+pub use serial::{PortLister, PortOpener, SerialPortDto};
 pub use settings::SettingsPatch;
 pub use ssh::{AskpassNotice, AskpassNotifier, AskpassPromptDto, EXTERNAL_LIFETIME, SessionsChanged};
 pub use ssh_keys::{KeySetupDto, KeySetupNotifier};
@@ -105,6 +109,7 @@ pub struct AppCore {
     iterations: u32,
     platform: Platform,
     ssh: std::sync::Arc<ssh::SshShared>,
+    serial: std::sync::Arc<serial::SerialShared>,
     forwards: std::sync::Arc<forwards::ForwardShared>,
     files: std::sync::Arc<files::FilesShared>,
     rdp: std::sync::Arc<rdp::RdpShared>,
@@ -180,6 +185,7 @@ impl AppCore {
             iterations,
             platform,
             ssh: ssh::SshShared::new(),
+            serial: serial::SerialShared::new(),
             forwards: forwards::ForwardShared::new(),
             files: files::FilesShared::new(),
             rdp: rdp::RdpShared::new(),
@@ -424,6 +430,7 @@ impl AppCore {
     /// MacVPN lease go, and releases the lock file.
     pub fn close(&self) {
         self.shutdown_ssh();
+        self.close_all_serial();
         self.shutdown_rdp();
         self.vpn.shutdown();
         let mut inner = self.inner();
@@ -550,11 +557,12 @@ impl AppCore {
     }
 
     /// How many sessions, forwards and transfers are running (for the quit confirmation): the embedded
-    /// SSH sessions whose process still runs, the RDP sessions whose engine runs, the starting or active
+    /// SSH sessions whose process still runs, the serial consoles with an open port, the RDP sessions whose engine runs, the starting or active
     /// tunnels and the running file transfers.
     #[must_use]
     pub fn running_count(&self) -> usize {
         self.running_ssh_sessions()
+            + self.running_serial_sessions()
             + self.running_rdp_sessions()
             + self.running_forwards()
             + self.running_transfers()

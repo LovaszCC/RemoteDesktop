@@ -14,6 +14,15 @@ use std::time::Duration;
 /// The FreeRDP release this build links.
 pub const VERSION: &str = env!("RD_FREERDP_VERSION");
 
+/// Hands freed heap pages back to the OS. Call after a session ended: its framebuffer and codec buffers
+/// are freed, but the allocator keeps the pages (on macOS ~100 MB after a full-HD session) until asked.
+/// Does nothing on Windows.
+#[allow(unsafe_code)]
+pub fn release_free_memory() {
+    // SAFETY: takes no arguments and only asks the allocator to trim its free lists.
+    unsafe { ffi::rdshim_release_free_memory() };
+}
+
 /// `KBD_FLAGS_EXTENDED`.
 pub const KBD_FLAGS_EXTENDED: u16 = 0x0100;
 /// `KBD_FLAGS_DOWN`.
@@ -266,6 +275,7 @@ mod ffi {
         pub fn rdshim_version() -> *const c_char;
         pub fn rdshim_new(callbacks: *const Callbacks) -> *mut RdShim;
         pub fn rdshim_free(shim: *mut RdShim);
+        pub fn rdshim_release_free_memory();
         pub fn rdshim_connect(shim: *mut RdShim, config: *const Config) -> c_int;
         pub fn rdshim_set_credentials(
             shim: *mut RdShim,
@@ -296,6 +306,7 @@ mod ffi {
         pub fn rdshim_send_mouse(shim: *mut RdShim, flags: u16, x: u16, y: u16) -> c_int;
         pub fn rdshim_send_mouse_ex(shim: *mut RdShim, flags: u16, x: u16, y: u16) -> c_int;
         pub fn rdshim_resize(shim: *mut RdShim, width: u32, height: u32) -> c_int;
+        pub fn rdshim_suppress_output(shim: *mut RdShim, suppress: c_int) -> c_int;
         pub fn rdshim_clip_capabilities(shim: *mut RdShim, flags: u32) -> c_int;
         pub fn rdshim_clip_format_list(
             shim: *mut RdShim,
@@ -601,6 +612,13 @@ impl<H: Handler> Connection<H> {
     pub fn resize(&mut self, width: u32, height: u32) -> bool {
         // SAFETY: on the connection's thread.
         unsafe { ffi::rdshim_resize(self.raw(), width, height) == 1 }
+    }
+
+    /// Asks the server to stop (`true`) or resume sending screen updates (Suppress Output PDU); `false`
+    /// when not sent (servers that don't support it).
+    pub fn suppress_output(&mut self, suppress: bool) -> bool {
+        // SAFETY: on the connection's thread.
+        unsafe { ffi::rdshim_suppress_output(self.raw(), c_int::from(suppress)) == 1 }
     }
 
     /// The client's cliprdr capabilities.

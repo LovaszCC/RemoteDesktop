@@ -64,6 +64,7 @@ async function render() {
     rdp_capture_keyboard: { mode: 'none', active: false },
     rdp_type_clipboard: { status: 'typing', chars: 2 },
     rdp_cancel_file_transfer: null,
+    rdp_set_visible: null,
   });
   const tabs = new TabsStore();
   const sessions = createRdpSessionsStore({
@@ -237,5 +238,25 @@ describe('RdpSessionView', () => {
     });
     flushSync();
     expect(document.body.textContent).toBe('');
+  });
+
+  it('tells the engine when the session is hidden and shown again', async () => {
+    const { bridge, emit } = await render();
+    const calls = () => bridge.invoke.mock.calls.filter(([c]) => c === 'rdp_set_visible').map(([, a]) => a);
+    expect(calls()).toEqual([]);
+    emit({ kind: 'connected', width: 1024, height: 768 });
+    expect(calls()).toEqual([{ sessionId: 'S1', visible: true }]);
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    flushSync();
+    expect(calls()).toEqual([
+      { sessionId: 'S1', visible: true },
+      { sessionId: 'S1', visible: false },
+    ]);
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+    document.dispatchEvent(new Event('visibilitychange'));
+    flushSync();
+    expect(calls().at(-1)).toEqual({ sessionId: 'S1', visible: true });
+    expect(calls()).toHaveLength(3);
   });
 });

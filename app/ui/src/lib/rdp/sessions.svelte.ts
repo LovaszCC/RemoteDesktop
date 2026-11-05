@@ -204,6 +204,12 @@ export function createRdpSessionsStore(deps: Partial<RdpSessionsDeps> = {}) {
       void api.rdpInput(id, events).catch(() => {});
     },
 
+    /** The view is shown (its tab in front, the window visible) or not; hidden sessions get no frames. */
+    setVisible(id: string, visible: boolean) {
+      if (!(id in states)) return;
+      void api.rdpSetVisible(id, visible).catch(() => {});
+    },
+
     /** The canvas lost focus (or an app shortcut took the key): release every held key. */
     releaseAllKeys(id: string) {
       if (!(id in states)) return;

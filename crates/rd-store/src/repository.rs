@@ -690,7 +690,7 @@ pub(crate) fn upsert_connection(
         &format!(
             "INSERT INTO connection ({CONNECTION_COLUMNS}) VALUES \
              (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, \
-             ?23, ?24, ?25, ?26, ?27, ?28) \
+             ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33) \
              ON CONFLICT(id) DO UPDATE SET folderId = excluded.folderId, credentialId = excluded.credentialId, \
              type = excluded.type, name = excluded.name, host = excluded.host, port = excluded.port, \
              username = excluded.username, domain = excluded.domain, passwordEnc = excluded.passwordEnc, \
@@ -700,7 +700,10 @@ pub(crate) fn upsert_connection(
              sshTerminal = excluded.sshTerminal, rdpClient = excluded.rdpClient, color = excluded.color, \
              notes = excluded.notes, createdAt = excluded.createdAt, updatedAt = excluded.updatedAt, \
              entryId = excluded.entryId, label = excluded.label, showAsButton = excluded.showAsButton, \
-             sortOrder = excluded.sortOrder, webScheme = excluded.webScheme, webPath = excluded.webPath"
+             sortOrder = excluded.sortOrder, webScheme = excluded.webScheme, webPath = excluded.webPath, \
+             serialBaud = excluded.serialBaud, serialDataBits = excluded.serialDataBits, \
+             serialParity = excluded.serialParity, serialStopBits = excluded.serialStopBits, \
+             serialFlowControl = excluded.serialFlowControl"
         ),
         params![
             c.id,
@@ -730,7 +733,12 @@ pub(crate) fn upsert_connection(
             c.show_as_button,
             c.sort_order,
             c.web_scheme,
-            c.web_path
+            c.web_path,
+            c.serial_baud,
+            c.serial_data_bits,
+            Text(c.serial_parity),
+            Text(c.serial_stop_bits),
+            Text(c.serial_flow_control)
         ],
     )?;
     Ok(())

@@ -109,7 +109,7 @@ fn v14_adds_entry_tables() {
     );
     let connection = columns(&conn, "connection");
     assert_eq!(
-        connection[connection.len() - 6..],
+        connection[connection.len() - 11..connection.len() - 5],
         [
             "entryId",
             "label",
@@ -168,6 +168,7 @@ fn opening_a_swift_database_only_adds_this_apps_migrations() {
         let old = columns(&swift, &table);
         let mut ours = rows(&conn, &table, &old);
         if table == "grdb_migrations" {
+            assert_eq!(ours.pop(), Some(vec!["v16-serial".to_owned().into()]));
             assert_eq!(ours.pop(), Some(vec!["v15-entry-vpn".to_owned().into()]));
             assert_eq!(ours.pop(), Some(vec!["v14-entries".to_owned().into()]));
         }
@@ -208,5 +209,42 @@ fn v15_adds_entry_vpn_columns_with_defaults() {
         )
         .unwrap();
     assert_eq!(row, (None, "host".to_owned(), String::new()));
-    assert_eq!(MIGRATION_IDS.last(), Some(&"v15-entry-vpn"));
+}
+
+#[test]
+fn v16_adds_serial_columns_with_defaults() {
+    let mut conn = Connection::open_in_memory().unwrap();
+    migrate_up_to(&mut conn, "v15-entry-vpn").unwrap();
+    conn.execute(
+        "INSERT INTO connection (id, type, name, host, createdAt, updatedAt) \
+         VALUES ('C', 'ssh', 'Old', 'old.example.com', '2025-01-01 00:00:00', '2025-01-01 00:00:00')",
+        [],
+    )
+    .unwrap();
+    migrate_up_to(&mut conn, "v16-serial").unwrap();
+
+    let connection = columns(&conn, "connection");
+    assert_eq!(
+        connection[connection.len() - 5..],
+        [
+            "serialBaud",
+            "serialDataBits",
+            "serialParity",
+            "serialStopBits",
+            "serialFlowControl"
+        ]
+    );
+    let row: (i64, i64, String, String, String) = conn
+        .query_row(
+            "SELECT serialBaud, serialDataBits, serialParity, serialStopBits, serialFlowControl \
+             FROM connection WHERE id = 'C'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+        )
+        .unwrap();
+    assert_eq!(
+        row,
+        (115_200, 8, "none".to_owned(), "1".to_owned(), "none".to_owned())
+    );
+    assert_eq!(MIGRATION_IDS.last(), Some(&"v16-serial"));
 }

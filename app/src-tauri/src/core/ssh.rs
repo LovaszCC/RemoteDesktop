@@ -837,6 +837,11 @@ impl AppCore {
         rd_ssh::external::installed_terminals()
     }
 
+    /// Tells the menu that sessions started, ended or closed.
+    pub(super) fn ssh_sessions_changed(&self) {
+        self.ssh.sessions_changed();
+    }
+
     /// Embedded sessions whose process still runs.
     #[must_use]
     pub fn running_ssh_sessions(&self) -> usize {

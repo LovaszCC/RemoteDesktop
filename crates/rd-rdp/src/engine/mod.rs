@@ -39,8 +39,8 @@ const RESIZE_RETRY: Duration = Duration::from_millis(250);
 const WATCHDOG_INTERVAL: Duration = Duration::from_secs(1);
 /// Least time between two download progress events.
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(200);
-/// The longest a poll waits when nothing is due.
-const IDLE_POLL: Duration = Duration::from_millis(500);
+/// The longest a poll waits when nothing is due (commands and frame acks wake it earlier).
+const IDLE_POLL: Duration = Duration::from_secs(2);
 /// `FreeRDP` last errors that mean the credentials were wrong (`ERRCONNECT_*`).
 const AUTH_FAILURES: [u32; 5] = [
     0x0002_0009, // authentication failed
@@ -240,6 +240,9 @@ struct Ctx {
     /// File Contents Responses served off the session thread.
     served_tx: Sender<(u32, Option<Vec<u8>>)>,
     served_rx: Receiver<(u32, Option<Vec<u8>>)>,
+    /// The page shows the session; while not, no frames are packed and the server is asked to
+    /// suppress output.
+    visible: bool,
 }
 
 impl Ctx {
@@ -277,6 +280,7 @@ impl Ctx {
                 self.clipboard.local_text = None;
             }
             Command::Type(_) => self.typing_interrupted(),
+            Command::Visible(visible) => self.visible = visible,
             Command::Input(_) | Command::CancelFileTransfer => {}
         }
         true
@@ -398,6 +402,7 @@ fn run_session(
         progress_sent: None,
         served_tx,
         served_rx,
+        visible: true,
     };
     session_loop(&mut ctx, &mut conn, commands);
     *shared
@@ -783,6 +788,9 @@ fn handle_inbound(
             state.dirty.add(Rect::full(w, h));
             if !*announced {
                 *announced = true;
+                if !ctx.visible {
+                    conn.suppress_output(true);
+                }
                 ctx.event(RdpEvent::Connected { width: w, height: h });
             } else if changed {
                 ctx.event(RdpEvent::Resized { width: w, height: h });
@@ -817,6 +825,14 @@ fn handle_command(ctx: &mut Ctx, conn: &mut Connection<Events>, state: &mut Acti
         Command::Resize(w, h) => {
             ctx.view = (w, h);
             state.resize.request(w, h, Instant::now());
+        }
+        Command::Visible(visible) => {
+            if ctx.visible != visible {
+                ctx.visible = visible;
+                conn.suppress_output(!visible);
+                // What changed meanwhile goes out at once.
+                state.next_frame = Instant::now();
+            }
         }
         Command::Clipboard(text) => {
             if ctx.remote_text.as_ref() != Some(&text) && ctx.clipboard.local_text.as_ref() != Some(&text) {
@@ -870,7 +886,8 @@ fn run_timers(ctx: &mut Ctx, conn: &mut Connection<Events>, state: &mut Active, 
         state.resize.retry((w, h), now + RESIZE_RETRY);
     }
     // Frames.
-    if now >= state.next_frame
+    if ctx.visible
+        && now >= state.next_frame
         && !state.dirty.is_empty()
         && ctx.shared.in_flight.load(Ordering::SeqCst) < MAX_IN_FLIGHT
     {
@@ -908,11 +925,9 @@ fn next_wait(ctx: &Ctx, state: &Active, now: Instant) -> Duration {
     if !state.typing.is_empty() {
         until = until.min(state.next_key);
     }
-    if !state.dirty.is_empty() && ctx.shared.in_flight.load(Ordering::SeqCst) < MAX_IN_FLIGHT {
+    // Waiting for the page's acknowledgement needs no timer: the ack wakes the poll.
+    if ctx.visible && !state.dirty.is_empty() && ctx.shared.in_flight.load(Ordering::SeqCst) < MAX_IN_FLIGHT {
         until = until.min(state.next_frame);
-    } else if !state.dirty.is_empty() {
-        // Waiting for the page's acknowledgement.
-        until = until.min(now + FRAME_INTERVAL);
     }
     if let Some(deadline) = state.resize.deadline() {
         until = until.min(deadline);

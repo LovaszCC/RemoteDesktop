@@ -65,7 +65,8 @@ vi.mock('@xterm/addon-web-links', () => ({
   },
 }));
 
-const { createXtermTerminal, LOCAL_CLEAR_SEQUENCE, RESIZE_DEBOUNCE, SCROLLBACK } = await import('./xterm');
+const { createXtermTerminal, LOCAL_CLEAR_SEQUENCE, RESIZE_DEBOUNCE, SCROLLBACK, WEBGL_IDLE_MS } =
+  await import('./xterm');
 
 const shortcuts: ShortcutDto[] = [
   {
@@ -127,6 +128,25 @@ describe('xterm terminal', () => {
     expect(webgls[0]!.dispose).toHaveBeenCalled();
     handle.detach();
     expect(container.children).toHaveLength(0);
+  });
+
+  it('drops WebGL after being hidden for a while and makes it again when shown', () => {
+    vi.useFakeTimers();
+    const { handle } = setup();
+    handle.attach(document.createElement('div'));
+    expect(webgls).toHaveLength(1);
+    handle.setVisible!(false);
+    vi.advanceTimersByTime(WEBGL_IDLE_MS - 1);
+    handle.setVisible!(true);
+    vi.advanceTimersByTime(WEBGL_IDLE_MS);
+    expect(webgls[0]!.dispose).not.toHaveBeenCalled();
+    handle.setVisible!(false);
+    vi.advanceTimersByTime(WEBGL_IDLE_MS);
+    expect(webgls[0]!.dispose).toHaveBeenCalled();
+    handle.setVisible!(true);
+    expect(webgls).toHaveLength(2);
+    handle.setVisible!(true);
+    expect(webgls).toHaveLength(2);
   });
 
   it('passes typed text and binary input on', () => {

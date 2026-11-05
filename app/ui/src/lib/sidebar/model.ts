@@ -2,6 +2,7 @@
 // sections and rows show, the visible row order for Shift-click ranges and the arrow keys, drag payloads
 // and the texts of the delete confirmations. Components only render what these return.
 
+import { connectionSerialSettings, serialSummary } from '../terminal/serial';
 import { t, tn } from '../i18n/index.svelte';
 import { unique } from '../collections';
 import { connectionOfTag, isEntryKind, parseTag } from '../stores/library.svelte';
@@ -56,7 +57,7 @@ export interface SectionInput {
 }
 
 /** The connection types in menu order (Swift `ConnectionType.allCases`). */
-export const CONNECTION_TYPES: readonly ConnectionType[] = ['rdp', 'ssh', 'web', 'mikrotik'];
+export const CONNECTION_TYPES: readonly ConnectionType[] = ['rdp', 'ssh', 'web', 'mikrotik', 'serial'];
 
 /** Catalog keys of the "New … connection" titles. */
 export const NEW_TITLES: Record<ConnectionType, string> = {
@@ -64,6 +65,7 @@ export const NEW_TITLES: Record<ConnectionType, string> = {
   ssh: 'New SSH connection',
   web: 'New web connection',
   mikrotik: 'New MikroTik connection',
+  serial: 'New serial connection',
 };
 
 /** Swift `ConnectionType.displayName`. */
@@ -77,6 +79,8 @@ export function typeName(type: ConnectionType): string {
       return t('Web');
     case 'mikrotik':
       return 'MikroTik';
+    case 'serial':
+      return t('Serial');
   }
 }
 
@@ -92,6 +96,9 @@ export function colorTitle(color: LabelColor): string {
 
 /** The row tooltip: "SSH · root@host", without `user@` when there is no user. */
 export function connectionTooltip(connection: ConnectionDto): string {
+  if (connection.type === 'serial') {
+    return `${typeName('serial')} · ${serialSummary(connectionSerialSettings(connection))}`;
+  }
   const user = connection.username ? `${connection.username}@` : '';
   return `${typeName(connection.type)} · ${user}${connection.host}`;
 }

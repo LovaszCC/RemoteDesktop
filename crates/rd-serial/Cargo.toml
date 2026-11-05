@@ -1,0 +1,23 @@
+[package]
+name = "rd-serial"
+description = "USB-serial consoles: port listing, the session and its temporary output log"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+rd-core.workspace = true
+rd-ssh.workspace = true
+serde.workspace = true
+serialport.workspace = true
+vte.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true

@@ -7,7 +7,7 @@ use rd_core::shortcuts::{KeyShortcut, Platform, ShortcutCommand, ShortcutSetting
 use rd_core::tree::{self, TreeNode};
 use rd_core::{
     Connection, ConnectionType, Credential, Entry, Folder, LabelColor, Library, MikrotikMode, PortForward,
-    RdpClient, SavedSplit, SshTerminal, Timestamp,
+    RdpClient, SavedSplit, SerialFlowControl, SerialParity, SerialStopBits, SshTerminal, Timestamp,
 };
 use rd_store::LockHolder;
 use serde::Serialize;
@@ -56,7 +56,7 @@ pub struct ConnectionDto {
     pub folder_id: Option<String>,
     /// Linked credential.
     pub credential_id: Option<String>,
-    /// `rdp`, `ssh`, `web` or `mikrotik`.
+    /// `rdp`, `ssh`, `web`, `mikrotik` or `serial`.
     #[serde(rename = "type")]
     pub kind: ConnectionType,
     /// Display name.
@@ -93,6 +93,16 @@ pub struct ConnectionDto {
     pub ssh_terminal: SshTerminal,
     /// RDP: embedded or the system client.
     pub rdp_client: RdpClient,
+    /// Serial: baud rate.
+    pub serial_baud: u32,
+    /// Serial: data bits.
+    pub serial_data_bits: u8,
+    /// Serial: parity.
+    pub serial_parity: SerialParity,
+    /// Serial: stop bits.
+    pub serial_stop_bits: SerialStopBits,
+    /// Serial: flow control.
+    pub serial_flow_control: SerialFlowControl,
     /// Tag color.
     pub color: Option<LabelColor>,
     /// Notes.
@@ -162,6 +172,11 @@ impl ConnectionDto {
             mikrotik_mode: connection.mikrotik_mode,
             ssh_terminal: connection.ssh_terminal,
             rdp_client: connection.rdp_client,
+            serial_baud: connection.serial_baud,
+            serial_data_bits: connection.serial_data_bits,
+            serial_parity: connection.serial_parity,
+            serial_stop_bits: connection.serial_stop_bits,
+            serial_flow_control: connection.serial_flow_control,
             color: connection.color,
             notes: connection.notes.clone(),
             folder_path: tree::folder_path(library, connection.folder_id.as_deref()),

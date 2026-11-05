@@ -439,7 +439,7 @@ fn a_read_only_open_refuses_a_database_that_needs_migrating() {
     assert_eq!(std::fs::read(&path).unwrap(), before, "the file is untouched");
     assert_eq!(
         rd_store::pending_migrations(&path).unwrap(),
-        vec!["v14-entries", "v15-entry-vpn"]
+        vec!["v14-entries", "v15-entry-vpn", "v16-serial"]
     );
     assert_eq!(stamp(&path).as_deref(), Some("1.6.6"));
     assert_eq!(
@@ -493,7 +493,7 @@ fn a_writable_open_stamps_before_migrating() {
     assert_eq!(code, "openFailed");
     assert_eq!(
         rd_store::pending_migrations(&broken).unwrap(),
-        vec!["v14-entries", "v15-entry-vpn"]
+        vec!["v14-entries", "v15-entry-vpn", "v16-serial"]
     );
     assert_eq!(stamp(&broken).as_deref(), Some("1.6.7"));
     assert!(!DbLock::path_for(&broken).exists());

@@ -12,7 +12,10 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::model::{ConnectionType, LabelColor, MikrotikMode, RdpClient, SshTerminal, VpnTestMode};
+use crate::model::{
+    Connection, ConnectionType, LabelColor, MikrotikMode, RdpClient, SerialFlowControl, SerialParity,
+    SerialStopBits, SshTerminal, VpnTestMode,
+};
 
 pub use build::{ExportSelection, OpenSecret, build_payload};
 pub use conflicts::{TransferConflicts, conflicts};
@@ -163,9 +166,44 @@ pub struct ExportedConnection {
     /// Web only: path after host and port.
     #[serde(default)]
     pub web_path: String,
+    /// Serial only: baud rate (files from before serial: the default).
+    #[serde(default = "default_serial_baud")]
+    pub serial_baud: u32,
+    /// Serial only: data bits.
+    #[serde(default = "default_serial_data_bits")]
+    pub serial_data_bits: u8,
+    /// Serial only: parity.
+    #[serde(default = "default_serial_parity")]
+    pub serial_parity: SerialParity,
+    /// Serial only: stop bits.
+    #[serde(default = "default_serial_stop_bits")]
+    pub serial_stop_bits: SerialStopBits,
+    /// Serial only: flow control.
+    #[serde(default = "default_serial_flow_control")]
+    pub serial_flow_control: SerialFlowControl,
     /// SSH port forwards.
     #[serde(default)]
     pub port_forwards: Vec<ExportedForward>,
+}
+
+fn default_serial_baud() -> u32 {
+    Connection::DEFAULT_SERIAL_BAUD
+}
+
+fn default_serial_data_bits() -> u8 {
+    Connection::DEFAULT_SERIAL_DATA_BITS
+}
+
+fn default_serial_parity() -> SerialParity {
+    SerialParity::None
+}
+
+fn default_serial_stop_bits() -> SerialStopBits {
+    SerialStopBits::One
+}
+
+fn default_serial_flow_control() -> SerialFlowControl {
+    SerialFlowControl::None
 }
 
 /// An SSH local port forward.

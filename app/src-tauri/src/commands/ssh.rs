@@ -71,7 +71,7 @@ pub enum InputData {
 }
 
 impl InputData {
-    fn as_bytes(&self) -> &[u8] {
+    pub(super) fn as_bytes(&self) -> &[u8] {
         match self {
             Self::Text(text) => text.as_bytes(),
             Self::Bytes(bytes) => bytes,
@@ -80,10 +80,10 @@ impl InputData {
 }
 
 /// A session's output channel plus its events.
-struct WebviewSink {
-    app: AppHandle,
-    session_id: String,
-    channel: Channel<InvokeResponseBody>,
+pub(super) struct WebviewSink {
+    pub(super) app: AppHandle,
+    pub(super) session_id: String,
+    pub(super) channel: Channel<InvokeResponseBody>,
 }
 
 impl Sink for WebviewSink {

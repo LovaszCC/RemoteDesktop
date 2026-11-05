@@ -14,7 +14,7 @@ set -euo pipefail
 [ "$(uname -m)" = x86_64 ] || { echo "error: the Linux release is x86_64; this machine is $(uname -m)" >&2; exit 1; }
 
 # Debian/Ubuntu package names; on other distros install the equivalents (webkit2gtk4.1-devel, …).
-packages=(libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+packages=(libwebkit2gtk-4.1-dev libxdo-dev libudev-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
   build-essential file cmake ninja-build perl curl)
 if command -v dpkg >/dev/null; then
   missing=()

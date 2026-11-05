@@ -393,3 +393,26 @@ fn entry_vpn_round_trips() {
     assert_eq!(db.entry(&entry.id).unwrap().unwrap().vpn, entry.vpn);
     assert_eq!(db.library().unwrap().entry(&entry.id).unwrap().vpn, entry.vpn);
 }
+
+#[test]
+fn serial_connection_round_trips_without_host() {
+    use rd_core::{SerialFlowControl, SerialParity, SerialStopBits};
+    let db = db();
+    let entry = Entry::new("OPNsense", "");
+    let mut connection = Connection::new(ConnectionType::Serial, "OPNsense", "");
+    connection.entry_id.clone_from(&entry.id);
+    connection.serial_baud = 9600;
+    connection.serial_data_bits = 7;
+    connection.serial_parity = SerialParity::Odd;
+    connection.serial_stop_bits = SerialStopBits::Two;
+    connection.serial_flow_control = SerialFlowControl::Software;
+    db.write_entry(&entry, &[connection.clone()], &[]).unwrap();
+    let library = db.library().unwrap();
+    let loaded = library.connections_of(&entry.id)[0];
+    assert_eq!(loaded.kind, ConnectionType::Serial);
+    assert_eq!((loaded.serial_baud, loaded.serial_data_bits), (9600, 7));
+    assert_eq!(loaded.serial_parity, SerialParity::Odd);
+    assert_eq!(loaded.serial_stop_bits, SerialStopBits::Two);
+    assert_eq!(loaded.serial_flow_control, SerialFlowControl::Software);
+    assert_eq!(loaded.host, "");
+}

@@ -92,6 +92,7 @@
                 focused={split.focused === pane.id}
                 broadcasting={split.broadcasting.includes(pane.id)}
                 active={active && split.focused === pane.id}
+                shown={active}
                 {library}
                 {settings}
               />

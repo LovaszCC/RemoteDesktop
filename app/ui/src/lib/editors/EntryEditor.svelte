@@ -29,6 +29,7 @@
     folderOptions,
     fromPicker,
     invalidPortKey,
+    needsHost,
     newConnectionForm,
     newEntryForm,
     splitEntryHostUrl,
@@ -283,16 +284,18 @@
               autofocus
             />
           </FormRow>
-          <FormRow label={t('Host / IP')} for={id('host')} error={errors.host}>
-            <TextField
-              id={id('host')}
-              bind:value={form.host}
-              placeholder="server.local"
-              invalid={!!errors.host}
-              oninput={() => edited('host')}
-              onpaste={pastedIntoHost}
-            />
-          </FormRow>
+          {#if needsHost(form) || form.host.trim() !== ''}
+            <FormRow label={t('Host / IP')} for={id('host')} error={errors.host}>
+              <TextField
+                id={id('host')}
+                bind:value={form.host}
+                placeholder="server.local"
+                invalid={!!errors.host}
+                oninput={() => edited('host')}
+                onpaste={pastedIntoHost}
+              />
+            </FormRow>
+          {/if}
           <FormRow label={t('Folder')}>
             <Select
               value={toPicker(form.folderId)}

@@ -41,6 +41,21 @@ fn folder_path(library: &Library, folder_id: Option<&str>) -> Vec<String> {
     path
 }
 
+/// The port forwards of connection `id`.
+fn exported_forwards(library: &Library, id: &str) -> Vec<ExportedForward> {
+    library
+        .port_forwards
+        .iter()
+        .filter(|f| f.connection_id == id)
+        .map(|f| ExportedForward {
+            name: f.name.clone(),
+            local_port: f.local_port,
+            remote_host: f.remote_host.clone(),
+            remote_port: f.remote_port,
+        })
+        .collect()
+}
+
 /// Builds the payload of the selected records, in library order. A connection keeps its credential link
 /// only when that credential is selected too. `open` turns sealed passwords into plain text; `None` leaves
 /// every password out. SSH key fields are never exported.
@@ -121,17 +136,12 @@ pub fn build_payload<E>(
                 show_as_button: connection.show_as_button,
                 web_scheme: connection.web_scheme.clone(),
                 web_path: connection.web_path.clone(),
-                port_forwards: library
-                    .port_forwards
-                    .iter()
-                    .filter(|f| f.connection_id == connection.id)
-                    .map(|f| ExportedForward {
-                        name: f.name.clone(),
-                        local_port: f.local_port,
-                        remote_host: f.remote_host.clone(),
-                        remote_port: f.remote_port,
-                    })
-                    .collect(),
+                serial_baud: connection.serial_baud,
+                serial_data_bits: connection.serial_data_bits,
+                serial_parity: connection.serial_parity,
+                serial_stop_bits: connection.serial_stop_bits,
+                serial_flow_control: connection.serial_flow_control,
+                port_forwards: exported_forwards(library, &connection.id),
             });
         }
         entries.push(ExportedEntry {

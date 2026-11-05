@@ -52,6 +52,11 @@ export function connection(id: string, name = id): ConnectionDto {
     mikrotikMode: 'winbox',
     sshTerminal: 'embedded',
     rdpClient: 'embedded',
+    serialBaud: 115200,
+    serialDataBits: 8,
+    serialParity: 'none',
+    serialStopBits: '1',
+    serialFlowControl: 'none',
     color: null,
     notes: '',
     folderPath: '',
@@ -246,7 +251,7 @@ export function sidebarLibrary(): LibraryDto {
 }
 
 function typeLabel(type: ConnectionDto['type']): string {
-  return { rdp: 'RDP', ssh: 'SSH', web: 'Web', mikrotik: 'MikroTik' }[type];
+  return { rdp: 'RDP', ssh: 'SSH', web: 'Web', mikrotik: 'MikroTik', serial: 'Serial' }[type];
 }
 
 /**

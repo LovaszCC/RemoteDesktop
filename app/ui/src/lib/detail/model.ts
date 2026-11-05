@@ -2,6 +2,7 @@
 // "—" for empty values, the port forward lines, the "Used by" / link sheet checkbox sets, and the entry
 // buttons, Connect menu and merge rows.
 
+import { connectionSerialSettings, flowControlName, parityName, serialSummary } from '../terminal/serial';
 import type { MenuItem } from '../components/menu.svelte';
 import { t } from '../i18n/index.svelte';
 import { terminalName, typeName, usesSSH } from '../sidebar/model';
@@ -64,6 +65,8 @@ export function connectionSubtitle(
       return `${typeName('web')} · ${
         connection.browserBundleId ? browserName(connection.browserBundleId) : t('default browser')
       }`;
+    case 'serial':
+      return `${typeName('serial')} · ${serialSummary(connectionSerialSettings(connection))}`;
   }
 }
 
@@ -89,6 +92,15 @@ function field(label: string, value: string | null | undefined, copyable = false
 export function connectionFields(connection: ConnectionDto): { before: DetailField[]; after: DetailField[] } {
   const resolved = connection.resolved;
   const before: DetailField[] = [];
+  if (connection.type === 'serial') {
+    before.push(field('Baud rate', String(connection.serialBaud)));
+    before.push(field('Data bits', String(connection.serialDataBits)));
+    before.push(field('Parity', parityName(connection.serialParity)));
+    before.push(field('Stop bits', connection.serialStopBits));
+    before.push(field('Flow control', flowControlName(connection.serialFlowControl)));
+    before.push(field('Port', t('Chosen when connecting')));
+    return { before, after: [field('Folder', connection.folderPath)] };
+  }
   if (connection.type === 'web') {
     before.push(field('URL', connection.webUrl ?? connection.host, true));
   } else {
