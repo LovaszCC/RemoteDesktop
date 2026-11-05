@@ -85,7 +85,9 @@ const char* rdshim_version(void);
 RdShim* rdshim_new(const RdShimCallbacks* callbacks);
 void rdshim_free(RdShim* shim);
 /* Hands freed heap pages back to the OS (macOS: malloc_zone_pressure_relief, glibc: malloc_trim).
- * A session's framebuffer and codec buffers are large; once freed, the allocator would keep them. */
+ * A session's framebuffer and codec buffers are large; once freed, the allocator would keep them.
+ * macOS 26+ (xzone malloc) ignores the relief: there the app runs with MallocLargeCache=0
+ * (Info.plist LSEnvironment). */
 void rdshim_release_free_memory(void);
 
 /* Connects (blocking; the callbacks may run meanwhile). 1 when connected. */

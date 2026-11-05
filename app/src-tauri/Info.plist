@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Merged into the generated Info.plist by Tauri. -->
+<plist version="1.0">
+<dict>
+	<!-- libmalloc's large-allocation cache keeps freed RDP framebuffer and frame pages (100+ MB after a
+	     session) and, with xzone malloc (macOS 26+), malloc_zone_pressure_relief doesn't return them.
+	     Without the cache they go back to the OS when freed, for ~0.2 ms per full-screen frame. -->
+	<key>LSEnvironment</key>
+	<dict>
+		<key>MallocLargeCache</key>
+		<string>0</string>
+	</dict>
+</dict>
+</plist>
