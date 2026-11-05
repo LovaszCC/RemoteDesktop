@@ -16,8 +16,12 @@ use serialport::{DataBits, FlowControl as PortFlow, Parity, SerialPort, StopBits
 
 use crate::{OutputLog, SerialSettings};
 
-/// How long one read waits; also how fast `close` returns.
-const READ_TIMEOUT: Duration = Duration::from_millis(20);
+/// How long an idle read waits; also the longest `close` waits for the reader.
+const READ_TIMEOUT: Duration = Duration::from_millis(200);
+/// Output that keeps coming is gathered this long (or up to [`CHUNK`]) into one message.
+const COALESCE: Duration = Duration::from_millis(6);
+/// The most output one message carries.
+const CHUNK: usize = 64 * 1024;
 /// How often the reader checks that the device still exists.
 const PRESENCE_INTERVAL: Duration = Duration::from_secs(1);
 
@@ -183,21 +187,61 @@ fn gone(path: &str) -> bool {
     cfg!(unix) && !std::path::Path::new(path).exists()
 }
 
+/// A read that found nothing (as opposed to a port error).
+fn quiet(error: &io::Error) -> bool {
+    matches!(
+        error.kind(),
+        io::ErrorKind::TimedOut | io::ErrorKind::Interrupted | io::ErrorKind::WouldBlock
+    )
+}
+
+/// Reads the rest of a burst into `chunk`: whatever arrives within [`COALESCE`] of the last bytes, up
+/// to [`CHUNK`]. `false` when the port failed (what was read is still in `chunk`).
+fn gather(reader: &mut dyn SerialPort, chunk: &mut Vec<u8>) -> bool {
+    if reader.set_timeout(COALESCE).is_err() {
+        return true;
+    }
+    let mut ok = true;
+    while chunk.len() < CHUNK {
+        let start = chunk.len();
+        chunk.resize(CHUNK, 0);
+        match reader.read(&mut chunk[start..]) {
+            Ok(n) if n > 0 => chunk.truncate(start + n),
+            Ok(_) => {
+                chunk.truncate(start);
+                break;
+            }
+            Err(e) => {
+                chunk.truncate(start);
+                ok = quiet(&e);
+                break;
+            }
+        }
+    }
+    let _ = reader.set_timeout(READ_TIMEOUT);
+    ok
+}
+
 fn read_loop(shared: &Shared, mut reader: Box<dyn SerialPort>, path: &str) {
-    let mut buffer = vec![0u8; 64 * 1024];
+    let mut chunk = Vec::with_capacity(CHUNK);
     let mut checked = Instant::now();
     loop {
         if shared.ended.load(Ordering::SeqCst) {
             return;
         }
-        match reader.read(&mut buffer) {
+        chunk.clear();
+        chunk.resize(CHUNK, 0);
+        match reader.read(&mut chunk) {
             Ok(0) => {}
-            Ok(n) => shared.deliver(&buffer[..n]),
-            Err(e)
-                if matches!(
-                    e.kind(),
-                    io::ErrorKind::TimedOut | io::ErrorKind::Interrupted | io::ErrorKind::WouldBlock
-                ) => {}
+            Ok(n) => {
+                chunk.truncate(n);
+                let ok = gather(reader.as_mut(), &mut chunk);
+                shared.deliver(&chunk);
+                if !ok {
+                    break;
+                }
+            }
+            Err(e) if quiet(&e) => {}
             Err(_) => break,
         }
         if checked.elapsed() >= PRESENCE_INTERVAL {
@@ -357,11 +401,13 @@ mod tests {
 
     struct TestSink {
         output: Mutex<Vec<u8>>,
+        messages: std::sync::atomic::AtomicUsize,
         events: mpsc::Sender<SessionEvent>,
     }
 
     impl Sink for TestSink {
         fn output(&self, bytes: Vec<u8>) {
+            self.messages.fetch_add(1, Ordering::SeqCst);
             lock(&self.output).extend(bytes);
         }
 
@@ -382,6 +428,7 @@ mod tests {
         let (tx, rx) = mpsc::channel();
         let sink = Arc::new(TestSink {
             output: Mutex::default(),
+            messages: std::sync::atomic::AtomicUsize::new(0),
             events: tx,
         });
         let dir = tempfile::tempdir().unwrap();
@@ -425,6 +472,22 @@ mod tests {
         }
         session.ack(1024);
         assert!(session.is_running());
+    }
+
+    #[test]
+    fn a_burst_of_small_writes_arrives_as_one_message() {
+        let (mut master, _session, sink, _rx, _dir) = setup();
+        for line in ["boot ", "line ", "by line\r\n"] {
+            master.write_all(line.as_bytes()).unwrap();
+            master.flush().unwrap();
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(wait_for(&sink, b"boot line by line"));
+        assert!(
+            sink.messages.load(Ordering::SeqCst) <= 2,
+            "{}",
+            sink.messages.load(Ordering::SeqCst)
+        );
     }
 
     #[test]
@@ -478,6 +541,7 @@ mod tests {
                 SerialSettings::default(),
                 Arc::new(TestSink {
                     output: Mutex::default(),
+                    messages: std::sync::atomic::AtomicUsize::new(0),
                     events: mpsc::channel().0,
                 }),
                 Arc::new(OutputLog::create(tempfile::tempdir().unwrap().path(), "X").unwrap()),
