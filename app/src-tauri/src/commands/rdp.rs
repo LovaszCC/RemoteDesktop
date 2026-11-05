@@ -172,7 +172,7 @@ pub fn sync_clipboard(core: &AppCore) {
 }
 
 /// Connects the core's prompts and session changes to events and the menu, and starts the clipboard
-/// watch. Called once in setup.
+/// watch (asleep while no session is connected). Called once in setup.
 pub fn install_hooks(app: &AppHandle, core: &Core) {
     let handle = app.clone();
     let notifier: RdpNotifier = Arc::new(move |notice| {
@@ -184,28 +184,46 @@ pub fn install_hooks(app: &AppHandle, core: &Core) {
             }
         };
     });
+    // The clipboard watch: once a second while a session is connected and the window has focus. With
+    // no connected session it sleeps until a session connects (the sessions-changed hook wakes it).
+    let weak = Arc::downgrade(core);
     let handle = app.clone();
-    let changed: SessionsChanged = Arc::new(move || crate::menu::refresh(&handle));
+    let watcher = std::thread::Builder::new()
+        .name("rdp-clipboard".into())
+        .spawn(move || {
+            loop {
+                let Some(core) = weak.upgrade() else { break };
+                if !core.rdp_any_connected() {
+                    drop(core);
+                    std::thread::park();
+                    continue;
+                }
+                drop(core);
+                std::thread::sleep(Duration::from_secs(1));
+                let Some(core) = weak.upgrade() else { break };
+                let focused = handle
+                    .get_webview_window("main")
+                    .and_then(|w| w.is_focused().ok())
+                    .unwrap_or(false);
+                if focused {
+                    sync_clipboard(&core);
+                }
+            }
+        })
+        .ok()
+        .map(|t| t.thread().clone());
+
+    let handle = app.clone();
+    let changed: SessionsChanged = Arc::new(move || {
+        crate::menu::refresh(&handle);
+        if let Some(watcher) = &watcher {
+            watcher.unpark();
+        }
+    });
     core.set_rdp_hooks(notifier, changed);
 
     // Download folders a crashed instance left behind.
     std::thread::spawn(rd_platform::clipboard::purge_stale_rdp_clipboard_folders);
-
-    let weak = Arc::downgrade(core);
-    let handle = app.clone();
-    std::thread::spawn(move || {
-        loop {
-            std::thread::sleep(Duration::from_secs(1));
-            let Some(core) = weak.upgrade() else { break };
-            let focused = handle
-                .get_webview_window("main")
-                .and_then(|w| w.is_focused().ok())
-                .unwrap_or(false);
-            if focused {
-                sync_clipboard(&core);
-            }
-        }
-    });
 }
 
 /// Opens an embedded RDP session for a view of `width`×`height` CSS pixels; frames arrive on
