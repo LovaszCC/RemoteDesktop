@@ -8,7 +8,7 @@
 # script), so editing them starts a fresh cache.
 set -euo pipefail
 
-packages=(libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev cmake ninja-build)
+packages=(libwebkit2gtk-4.1-dev libxdo-dev libudev-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev cmake ninja-build)
 case "${1:-}" in
   test) ;;
   build) packages+=(file xvfb xauth) ;;

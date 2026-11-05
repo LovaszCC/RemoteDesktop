@@ -19,6 +19,7 @@ rd-rdp = { path = "crates/rd-rdp" }
 rd-freerdp = { path = "crates/rd-freerdp" }
 rd-platform = { path = "crates/rd-platform" }
 rd-update = { path = "crates/rd-update" }
+rd-serial = { path = "crates/rd-serial" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = "2.12"
@@ -55,6 +56,7 @@ plist = "1.10"
 semver = "1.0"
 portable-pty = "0.9"
 vte = "0.15"
+serialport = "4.10"
 interprocess = "2.4"
 widestring = "1"
 # ring instead of the default aws-lc-rs: no cmake/NASM on Windows, no OpenSSL anywhere.
