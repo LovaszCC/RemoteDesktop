@@ -15,7 +15,9 @@ import { terminalKeyAction, type TerminalKeyAction, type TerminalKeyContext } fr
 
 /** Wipes the screen and the scrollback (`rd_ssh::analyzer::LOCAL_CLEAR_SEQUENCE`). */
 export const LOCAL_CLEAR_SEQUENCE = '\x1b[H\x1b[2J\x1b[3J';
-export const SCROLLBACK = 10_000;
+export const SCROLLBACK = 5_000;
+/** A terminal hidden this long gives its WebGL context back (atlas, buffers); it is made again when shown. */
+export const WEBGL_IDLE_MS = 30_000;
 /** How long resizes settle before the PTY hears about them, in ms. */
 export const RESIZE_DEBOUNCE = 80;
 
@@ -35,6 +37,8 @@ export interface TerminalHandle {
   detach(container?: HTMLElement): void;
   /** Fits the terminal to its container (no-op while hidden). */
   fit(): void;
+  /** The terminal is on screen or not: hidden for [`WEBGL_IDLE_MS`] it drops its WebGL renderer. */
+  setVisible?(visible: boolean): void;
   size(): TerminalSize;
   focus(): void;
   dispose(): void;
@@ -152,6 +156,7 @@ export const createXtermTerminal: TerminalFactory = (options) => {
 
   let opened = false;
   let webgl: WebglAddon | null = null;
+  let idleTimer: ReturnType<typeof setTimeout> | undefined;
 
   function loadWebgl() {
     try {
@@ -200,11 +205,23 @@ export const createXtermTerminal: TerminalFactory = (options) => {
     size() {
       return { cols: term.cols, rows: term.rows };
     },
+    setVisible(visible) {
+      clearTimeout(idleTimer);
+      if (visible) {
+        if (opened && !webgl) loadWebgl();
+        return;
+      }
+      idleTimer = setTimeout(() => {
+        webgl?.dispose();
+        webgl = null;
+      }, WEBGL_IDLE_MS);
+    },
     focus() {
       term.focus();
     },
     dispose() {
       clearTimeout(resizeTimer);
+      clearTimeout(idleTimer);
       retheme.disconnect();
       webgl?.dispose();
       term.dispose();

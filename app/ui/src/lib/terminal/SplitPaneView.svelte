@@ -27,11 +27,23 @@
     broadcasting: boolean;
     /** The tab is shown and this is its focused pane. */
     active: boolean;
+    /** The split's tab is shown. */
+    shown?: boolean;
     library: Pick<LibraryStore, 'connection'>;
     settings: SettingsStore;
   }
 
-  let { splits, sessions, pane, focused, broadcasting, active, library, settings }: Props = $props();
+  let {
+    splits,
+    sessions,
+    pane,
+    focused,
+    broadcasting,
+    active,
+    shown = active,
+    library,
+    settings,
+  }: Props = $props();
 
   const session = $derived(sessions.state(pane.id));
   const handle = $derived(sessions.handle(pane.id));
@@ -110,7 +122,7 @@
         <X size={12} strokeWidth={2.5} />
       </button>
     </div>
-    {#if handle}<TerminalPane {handle} {active} />{/if}
+    {#if handle}<TerminalPane {handle} {active} {shown} />{/if}
     {#if session.status.kind === 'exited'}
       <SessionExitBar
         text={exitText(session.status)}
