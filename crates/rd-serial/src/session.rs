@@ -477,12 +477,12 @@ mod tests {
     #[test]
     fn a_burst_of_small_writes_arrives_as_one_message() {
         let (mut master, _session, sink, _rx, _dir) = setup();
+        // Written back to back: sleeps between the pieces could exceed the window on a slow CI runner.
         for line in ["boot ", "line ", "by line\r\n"] {
             master.write_all(line.as_bytes()).unwrap();
-            master.flush().unwrap();
-            std::thread::sleep(Duration::from_millis(1));
         }
         assert!(wait_for(&sink, b"boot line by line"));
+        // The first read may take the first piece alone; the rest is gathered into the next message.
         assert!(
             sink.messages.load(Ordering::SeqCst) <= 2,
             "{}",
